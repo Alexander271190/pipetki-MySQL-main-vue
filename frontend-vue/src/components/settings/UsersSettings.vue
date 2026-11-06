@@ -66,7 +66,6 @@ import { useToastStore } from '@/stores/toast';
 import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
-import { useModals } from '@/composables/useModals';
 import * as api from '@/api/users';
 import type { FullUser } from '@/api/users';
 
@@ -75,7 +74,6 @@ defineEmits<{ (e: 'close'): void }>();
 const toast = useToastStore();
 const ui = useUiStore();
 const auth = useAuthStore();
-const modals = useModals();
 
 const users = ref<FullUser[]>([]);
 const loading = ref(false);
@@ -108,7 +106,10 @@ onUnmounted(() => {
 
 function onAdd() {
   ui.open('userEdit', null);
-  setTimeout(load, 100);
+}
+
+function editUser(id: string) {
+  ui.open('userEdit', id);
 }
 
 function openActions(e: MouseEvent, u: FullUser) {
@@ -122,7 +123,7 @@ function openActions(e: MouseEvent, u: FullUser) {
   items.push({
     label: '<i class="fa-solid fa-list-check"></i> Настроить видимые поля',
     action: () => ui.open('userView', u.id),
- });
+  });
 
   if (!isMe) {
     items.push({ divider: true });
@@ -150,17 +151,11 @@ function openActions(e: MouseEvent, u: FullUser) {
   ui.openRowActions(e.currentTarget as HTMLElement, items);
 }
 
-function editUser(id: string) {
-  ui.open('userEdit', id);
-  setTimeout(load, 200);
-}
-
 async function impersonate(id: string) {
   try {
     const { impersonate: api_imp } = await import('@/api/auth');
     const result = await api_imp(id);
 
-    // Сохраняем originalUser/Token, если ещё не имперсонировали
     const originalUser = auth.originalUser || auth.user;
     const originalToken = auth.originalToken || auth.token;
 
@@ -171,7 +166,6 @@ async function impersonate(id: string) {
       originalToken: originalToken || undefined,
     });
 
-    // Сбрасываем кэши — принудительно перезагрузим все данные
     const { usePrefsStore } = await import('@/stores/prefs');
     const { useSettingsStore } = await import('@/stores/settings');
     const { usePipettesStore } = await import('@/stores/pipettes');
@@ -187,7 +181,7 @@ async function impersonate(id: string) {
     useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
 
     toast.success('Вы вошли как ' + result.user.fullName);
-    
+
     window.dispatchEvent(new CustomEvent('auth:changed'));
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
