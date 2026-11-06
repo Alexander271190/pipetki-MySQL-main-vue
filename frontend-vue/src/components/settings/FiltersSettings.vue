@@ -41,7 +41,9 @@
             </select>
           </td>
           <td style="text-align:center;">
-            <button class="row-actions-btn" @click="onDelete(i)" title="Удалить"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            <button class="row-actions-btn" @click="openActions($event, i)" title="Действия">
+               <i class="fa-solid fa-ellipsis-vertical"></i>
+             </button>
           </td>
         </tr>
       </tbody>
@@ -61,6 +63,7 @@
 import { ref, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
+import { useUiStore } from '@/stores/ui';
 import { showConfirm } from '@/composables/useConfirm';
 import { showPrompt } from '@/composables/usePrompt';
 import { slugify } from '@/utils/string';
@@ -71,7 +74,7 @@ defineEmits<{ (e: 'close'): void }>();
 
 const settings = useSettingsStore();
 const toast = useToastStore();
-
+const ui = useUiStore();
 const filters = ref<FilterConfig[]>([]);
 const saving = ref(false);
 
@@ -134,4 +137,15 @@ async function onSave() {
     saving.value = false;
   }
 }
+
+function openActions(e: MouseEvent, idx: number) {
+  e.stopPropagation();
+  ui.openRowActions(e.currentTarget as HTMLElement, [
+    {
+      label: '<i class="fa-solid fa-trash"></i> Удалить',
+      class: 'item-danger',
+      action: () => onDelete(idx),
+    },
+  ]);
+} 
 </script>
