@@ -6,7 +6,7 @@
       </colgroup>
       <thead>
         <tr>
-          <th class="col-checkbox">
+          <th class="col-checkbox" data-col-id="__checkbox">
             <input
               type="checkbox"
               id="select-all-checkbox"
@@ -72,13 +72,11 @@ import { useSettingsStore } from '@/stores/settings';
 import { SYSTEM_TABLE_COLUMNS, DEFAULT_TABLE_COLUMNS, SYSTEM_FIELD_IDS_IN_CONFIG } from '@/constants';
 import type { TableColumn } from '@/constants';
 import PipetteRow from './PipetteRow.vue';
-import { useToastStore } from '@/stores/toast';
 import { useModals } from '@/composables/useModals';
 
 const pip = usePipettesStore();
 const prefs = usePrefsStore();
 const settings = useSettingsStore();
-const toast = useToastStore();
 const modals = useModals();
 
 // Все доступные колонки (системные + кастомные)
@@ -216,11 +214,27 @@ function startColumnResize(e: MouseEvent, colId: string) {
   if (!table) return;
   const th = (e.target as HTMLElement).closest('th');
   if (!th || !th.parentElement) return;
+  
+  table.style.tableLayout = 'fixed';
+  const ths = Array.from(th.parentElement.children) as HTMLElement[];
+  const cols = table.querySelectorAll('colgroup col');
+
+  ths.forEach((t, i) => {
+    const col = cols[i] as HTMLElement;
+    if (!col) return;
+    if (!col.style.width) {
+      col.style.width = Math.round(t.getBoundingClientRect().width) + 'px';
+    }
+    const tColId = (t as HTMLElement).dataset.colId;
+    if (tColId && !prefs.columnWidths[tColId]) {
+      prefs.setColumnWidth(tColId, Math.round(t.getBoundingClientRect().width));
+    }
+  });
 
   const startX = e.clientX;
   const startWidth = th.getBoundingClientRect().width;
-  const idx = Array.from(th.parentElement.children).indexOf(th) + 1;
-  const colEl = table.querySelector(`colgroup col:nth-child(${idx})`) as HTMLElement | null;
+  const idx = ths.indexOf(th);
+  const colEl = cols[idx] as HTMLElement | null;
 
   function onMouseMove(ev: MouseEvent) {
     const delta = ev.clientX - startX;
@@ -245,6 +259,7 @@ function startColumnResize(e: MouseEvent, colId: string) {
 }
 
 function onDragStart(e: DragEvent, colId: string) {
+  
   if (_colResizeState) { e.preventDefault(); return; }
   _colDragState = { srcColId: colId };
   if (e.dataTransfer) {
