@@ -159,14 +159,36 @@ async function impersonate(id: string) {
   try {
     const { impersonate: api_imp } = await import('@/api/auth');
     const result = await api_imp(id);
+
+    // Сохраняем originalUser/Token, если ещё не имперсонировали
+    const originalUser = auth.originalUser || auth.user;
+    const originalToken = auth.originalToken || auth.token;
+
     auth.applySession({
       user: result.user,
       token: result.token,
-      originalUser: auth.originalUser || auth.user || undefined,
-      originalToken: auth.originalToken || auth.token || undefined,
+      originalUser: originalUser || undefined,
+      originalToken: originalToken || undefined,
     });
+
+    // Сбрасываем кэши — принудительно перезагрузим все данные
+    const { usePrefsStore } = await import('@/stores/prefs');
+    const { useSettingsStore } = await import('@/stores/settings');
+    const { usePipettesStore } = await import('@/stores/pipettes');
+    const { useStatsStore } = await import('@/stores/stats');
+
+    usePrefsStore().loaded = false;
+    usePrefsStore().visibleFields = [];
+    usePrefsStore().columnOrder = [];
+    usePrefsStore().columnWidths = {};
+    useSettingsStore().loaded = false;
+    usePipettesStore().items = [];
+    usePipettesStore().clearSelection();
+    useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
+
     toast.success('Вы вошли как ' + result.user.fullName);
-    setTimeout(() => window.location.reload(), 300);
+    
+    window.dispatchEvent(new CustomEvent('auth:changed'));
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   }
