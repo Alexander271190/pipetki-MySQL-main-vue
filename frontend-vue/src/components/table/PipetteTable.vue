@@ -34,9 +34,10 @@
             {{ labelFor(colId) }}
             <span v-if="isSortable(colId)" class="sort-arrow">{{ sortArrow(colId) }}</span>
             <div
-              style="position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2;"
-              @mousedown="startColumnResize($event, colId)"
-            ></div>
+              style="position: absolute; right: 0; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 3;"
+              @mousedown.stop.prevent="startColumnResize($event, colId)"
+              @click.stop
+           ></div>
           </th>
           <th id="actions-header" data-col-id="__actions">Действия</th>
         </tr>
@@ -210,36 +211,35 @@ async function onHeaderClick(colId: string, _e?: MouseEvent) {
 function startColumnResize(e: MouseEvent, colId: string) {
   e.preventDefault();
   e.stopPropagation();
-  const table = document.getElementById('pipettes-table');
+
+  const table = document.getElementById('pipettes-table') as HTMLTableElement;
   if (!table) return;
   const th = (e.target as HTMLElement).closest('th');
   if (!th || !th.parentElement) return;
-  
-  table.style.tableLayout = 'fixed';
+
   const ths = Array.from(th.parentElement.children) as HTMLElement[];
   const cols = table.querySelectorAll('colgroup col');
-
-  ths.forEach((t, i) => {
-    const col = cols[i] as HTMLElement;
-    if (!col) return;
-    if (!col.style.width) {
-      col.style.width = Math.round(t.getBoundingClientRect().width) + 'px';
-    }
-    const tColId = (t as HTMLElement).dataset.colId;
+  const startWidths: number[] = ths.map(t =>
+    Math.round(t.getBoundingClientRect().width)
+  );
+  cols.forEach((col, i) => {
+    (col as HTMLElement).style.width = startWidths[i] + 'px';
+    const tColId = (ths[i] as HTMLElement).dataset.colId;
     if (tColId && !prefs.columnWidths[tColId]) {
-      prefs.setColumnWidth(tColId, Math.round(t.getBoundingClientRect().width));
+      prefs.setColumnWidth(tColId, startWidths[i]);
     }
   });
-
+  table.style.tableLayout = 'fixed';
   const startX = e.clientX;
-  const startWidth = th.getBoundingClientRect().width;
-  const idx = ths.indexOf(th);
-  const colEl = cols[idx] as HTMLElement | null;
+  const thIdx = ths.indexOf(th);
+  const startWidth = startWidths[thIdx];
+  const colEl = cols[thIdx] as HTMLElement | null;
+  if (!colEl) return;
 
   function onMouseMove(ev: MouseEvent) {
     const delta = ev.clientX - startX;
     const newWidth = Math.max(50, Math.round(startWidth + delta));
-    if (colEl) colEl.style.width = newWidth + 'px';
+    colEl!.style.width = newWidth + 'px';
     if (typeof prefs.setColumnWidth === 'function') {
       prefs.setColumnWidth(colId, newWidth);
     }
@@ -249,10 +249,12 @@ function startColumnResize(e: MouseEvent, colId: string) {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     document.body.style.cursor = '';
+    document.body.style.userSelect = '';
     _colResizeState = null;
   }
 
   document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
   _colResizeState = { colId };
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
