@@ -1,0 +1,510 @@
+<template>
+  <AppModal :visible="ui.activeModal === 'form'" @close="close" modal-class="modal-xl">
+    <h2>
+      <i class="fa-solid" :class="isEdit ? 'fa-pen' : 'fa-plus'"></i>
+      {{ isEdit ? 'Редактировать оборудование' : 'Добавить оборудование' }}
+    </h2>
+
+    <!-- Шаблон (только при создании и только админ) -->
+    <div v-if="!isEdit && auth.isAdmin" class="template-bar">
+      <label class="template-bar-label">
+        <i class="fa-solid fa-clone"></i> Шаблон:
+      </label>
+      <select :value="selectedTemplateId" @change="applyTemplate(Number(($event.target as HTMLSelectElement).value))">
+        <option :value="0">— без шаблона —</option>
+        <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+      </select>
+      <button type="button" class="btn btn-secondary btn-sm" @click="onSaveAsTemplate" :disabled="!hasAnyFilled">
+        <i class="fa-solid fa-floppy-disk"></i> Сохранить как шаблон
+      </button>
+    </div>
+
+    <!-- Вкладки (только при создании) -->
+    <div v-if="!isEdit" class="add-tabs">
+      <button type="button" class="add-tab" :class="{ active: tab === 'single' }" @click="tab = 'single'">
+        <i class="fa-solid fa-cube"></i> Одна единица
+      </button>
+      <button type="button" class="add-tab" :class="{ active: tab === 'batch' }" @click="tab = 'batch'">
+        <i class="fa-solid fa-table-list"></i> Партия (таблица)
+      </button>
+    </div>
+
+    <!-- Вкладка «Партия» -->
+    <div v-if="!isEdit && tab === 'batch'">
+      <BulkCreateTab @cancel="close" @created="onBulkCreated" />
+    </div>
+
+    <!-- Вкладка «Одна единица» / Редактирование -->
+    <div v-else>
+      <div v-if="loadingData" style="text-align:center;padding:30px;color:#94a3b8;">
+        <i class="fa-solid fa-spinner fa-spin"></i> Загрузка…
+      </div>
+
+      <!-- Черновик -->
+      <div v-if="draft" class="warning-block" style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <strong><i class="fa-solid fa-pencil"></i> Черновик от {{ draft.isMine ? draft.userFullName + ' (вы)' : draft.userFullName }}</strong>
+            <div style="font-size:.8rem;margin-top:4px;opacity:.85;">
+              {{ formatDraftDate(draft.updatedAt) }} · Данные подставлены в поля. Проверьте и сохраните.
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" @click="discardDraft">
+            <i class="fa-solid fa-rotate-left"></i> Отменить черновик
+          </button>
+        </div>
+      </div>
+
+      <form v-if="!loadingData" @submit.prevent="onSubmit" novalidate>
+        <div v-for="f in visibleFields" :key="f.id" class="form-group">
+          <label>{{ f.label }}<span v-if="f.required"> *</span></label>
+
+          <input
+            v-if="f.id === 'id'"
+            v-model="form[f.id]"
+            type="text"
+            :readonly="isEdit"
+            :disabled="isEdit"
+            :style="isEdit ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+            :title="isEdit ? 'ID присваивается автоматически' : ''"
+          />
+          <select
+            v-else-if="f.type === 'select'"
+            v-model="form[f.id]"
+            :disabled="isFieldDisabled(f.id)"
+            :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+            @change="onSelectChange(f.id, $event)"
+          >
+            <option v-for="opt in getOptions(f)" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+          </select>
+          <textarea v-else-if="f.type === 'textarea'" v-model="form[f.id]" rows="2" :placeholder="f.label"></textarea>
+          <input v-else-if="f.type === 'date'" v-model="form[f.id]" type="date" />
+          <input v-else-if="f.type === 'number'" v-model="form[f.id]" type="number" />
+          <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
+            <input
+              v-model="form[f.id]"
+              type="text"
+              :placeholder="f.label"
+              style="flex:1;"
+              :disabled="isFieldDisabled(f.id)"
+              :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+            />
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="generateBarcode"
+              title="Заполнить из инв. номера / серийного / ID"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
+          </div>
+          <input
+            v-else
+            v-model="form[f.id]"
+            type="text"
+            :placeholder="f.label"
+            :disabled="isFieldDisabled(f.id)"
+            :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+          />
+        </div>
+
+        <div v-if="error" class="auth-error" style="margin-top:8px;visibility:visible;opacity:1;">{{ error }}</div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="close">Отмена</button>
+          <button type="submit" class="btn btn-success" :disabled="saving">
+            <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
+            {{ saving ? 'Сохранение…' : 'Сохранить' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </AppModal>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch, onUnmounted } from 'vue';
+import AppModal from '@/components/ui/AppModal.vue';
+import BulkCreateTab from './BulkCreateTab.vue';
+import { useUiStore } from '@/stores/ui';
+import { useAuthStore } from '@/stores/auth';
+import { useSettingsStore } from '@/stores/settings';
+import { usePipettesStore } from '@/stores/pipettes';
+import { useStatsStore } from '@/stores/stats';
+import { useToastStore } from '@/stores/toast';
+import { showLockWarning } from '@/composables/useLockWarning';
+import { showPrompt } from '@/composables/usePrompt';
+import { showConfirm } from '@/composables/useConfirm';
+import { todayStr } from '@/utils/format';
+import * as api from '@/api/pipettes';
+import * as tplApi from '@/api/templates';
+import type { FieldConfig } from '@/api/settings';
+import type { Pipette } from '@/types';
+import type { DraftData } from '@/api/pipettes';
+
+const ui = useUiStore();
+const auth = useAuthStore();
+const settings = useSettingsStore();
+const pip = usePipettesStore();
+const stats = useStatsStore();
+const toast = useToastStore();
+
+const tab = ref<'single' | 'batch'>('single');
+const form = ref<Record<string, string>>({});
+const loadingData = ref(false);
+const saving = ref(false);
+const error = ref('');
+const editId = ref<string | null>(null);
+const draft = ref<DraftData | null>(null);
+
+const templates = ref<tplApi.EquipmentTemplate[]>([]);
+const selectedTemplateId = ref(0);
+
+let _heartbeat: number | null = null;
+let _skipUnlock = false;
+
+const isEdit = computed(() => !!editId.value);
+const visibleFields = computed<FieldConfig[]>(() =>
+  settings.fields.filter(f => f.enabled).sort((a, b) => (a.order || 0) - (b.order || 0))
+);
+
+const hasAnyFilled = computed(() => {
+  return Object.values(form.value).some(v => v && v.trim && v.trim() !== '');
+});
+
+function getOptions(f: FieldConfig): { value: string; label: string }[] {
+  if (f.id === 'equipmentType') {
+    return settings.equipmentTypes.map(t => ({ value: t.value, label: t.label }));
+  }
+  if (f.id === 'result') {
+    return [
+      { value: 'pass', label: '✅ Годен' },
+      { value: 'fail', label: '❌ Брак' },
+      { value: 'wip',  label: '⏳ В процессе' },
+    ];
+  }
+  if (f.id === 'active') {
+    return [
+      { value: 'true',  label: '✅ В работе' },
+      { value: 'false', label: '⛔ Не используется' },
+    ];
+  }
+  if (f.id === 'department') {
+    return [
+      { value: '', label: '— не указан —' },
+      ...settings.departments.map(d => ({ value: d, label: d })),
+    ];
+  }
+  if (f.id === 'responsible') {
+    const opts: { value: string; label: string }[] = [];
+    if (!f.required) opts.push({ value: '', label: '— не указан —' });
+    const self = auth.user?.fullName || '';
+    if (auth.isAdmin) {
+      if (self) opts.push({ value: self, label: self });
+      const current = form.value.responsible;
+      if (current && current !== self) opts.push({ value: current, label: current });
+    } else if (auth.user?.isActing && auth.user?.actingForName) {
+      opts.push({ value: auth.user.actingForName, label: `${auth.user.actingForName} (основной)` });
+    } else if (self) {
+      opts.push({ value: self, label: self });
+    }
+    return opts;
+  }
+  const raw = Array.isArray(f.options) ? f.options : [];
+  const opts = raw.map(o => ({ value: o, label: o }));
+  if (!f.required && !opts.some(o => o.value === '')) return [{ value: '', label: '—' }, ...opts];
+  return opts;
+}
+
+function isFieldDisabled(fid: string): boolean {
+  if (fid === 'department' && auth.user?.isActing) return true;
+  if (fid === 'responsible' && !auth.isAdmin) return true;
+  return false;
+}
+
+async function onSelectChange(fid: string, e: Event) {
+  if (fid === 'equipmentType') {
+    const typeVal = (e.target as HTMLSelectElement).value;
+    const t = settings.equipmentTypes.find(x => x.value === typeVal);
+    if ('interval' in form.value) form.value.interval = String(t?.interval && t.interval > 0 ? t.interval : 12);
+    if (!isEdit.value) {
+      try {
+        const res = await api.getNextId(typeVal);
+        form.value.id = res.nextId;
+      } catch { /* ignore */ }
+    }
+  }
+}
+
+function formatDraftDate(s: string): string {
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function generateBarcode() {
+  const inv = form.value.inventorynumber;
+  const serial = form.value.serial;
+  const id = form.value.id;
+  const val = inv || serial || id;
+  if (val) form.value.barcode = String(val);
+  else toast.warn('Заполните инв. номер, серийный или ID');
+}
+
+async function openForm() {
+  const data = ui.modalData as string | null;
+  editId.value = data || null;
+  error.value = '';
+  form.value = {};
+  draft.value = null;
+  selectedTemplateId.value = 0;
+  _skipUnlock = false;
+  tab.value = 'single';
+
+  loadingData.value = true;
+
+  try {
+    if (editId.value) {
+      try {
+        const lockRes = await api.getLock(editId.value);
+        if (lockRes.locked && !lockRes.mine) {
+          const proceed = await showLockWarning(lockRes, 'Редактирование');
+          if (!proceed) { ui.close(); return; }
+        }
+        await api.setLock(editId.value);
+
+        _heartbeat = window.setInterval(async () => {
+          if (!editId.value) return;
+          try {
+            const r = await api.getLock(editId.value);
+            if (!r.locked || !r.mine) {
+              if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+              _skipUnlock = true;
+
+              // Сохраняем черновик из form.value (не из DOM — надёжнее)
+              let draftSaved = false;
+              try {
+                await api.saveDraft(editId.value, { ...form.value });
+                draftSaved = true;
+              } catch (e) { console.warn('Черновик не сохранён:', e); }
+
+              ui.close();
+
+              const msg = draftSaved
+                ? `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.\n\nВаши данные сохранены как черновик.`
+                : `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.`;
+
+              toast.warn(msg);
+            }
+          } catch { /* ignore */ }
+        }, 3000);
+
+      } catch {
+        toast.error('Ошибка проверки блокировки');
+        ui.close();
+        return;
+      }
+
+      let p: Pipette | null = pip.items.find(x => x.id === editId.value) || null;
+      let fresh: api.GetByIdResponse | null = null;
+      try {
+        fresh = await api.getById(editId.value) as api.GetByIdResponse;
+        if (fresh) p = fresh;
+      } catch { /* ignore */ }
+      if (!p) { toast.error('Оборудование не найдено'); ui.close(); return; }
+
+      const f: Record<string, string> = {};
+      for (const field of visibleFields.value) {
+        let v: unknown = (p as Record<string, unknown>)[field.id];
+        if (field.id === 'equipmentType') v = p.equipment_type || 'pipette';
+        if (field.id === 'lastCalibration') {
+          const m = String(p.last_calibration || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+          v = m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+        }
+        if (field.id === 'result') v = p.last_result || 'pass';
+        if (field.id === 'active') v = p.active ? 'true' : 'false';
+        f[field.id] = v == null ? '' : String(v);
+      }
+
+      // Черновик
+      if (fresh?.draft) {
+        draft.value = fresh.draft;
+        Object.assign(f, fresh.draft.data);
+      }
+      form.value = f;
+    } else {
+      // Загрузка шаблонов (только при создании и только админ)
+      if (auth.isAdmin) {
+        try { templates.value = await tplApi.getTemplates(); } catch { templates.value = []; }
+      }
+
+      let nextId = '';
+      try {
+        const res = await api.getNextId('pipette');
+        nextId = res.nextId;
+      } catch { /* ignore */ }
+
+      const defaults: Record<string, string> = {
+        id: nextId,
+        lastCalibration: todayStr(),
+        interval: '12',
+        result: 'pass',
+        active: 'true',
+      };
+      if (visibleFields.value.some(f => f.id === 'equipmentType')) defaults.equipmentType = 'pipette';
+      if (!auth.isAdmin) {
+        if (auth.user?.isActing && auth.user?.actingForName) {
+          defaults.responsible = auth.user.actingForName;
+          if (auth.user.actingDepartment) defaults.department = auth.user.actingDepartment;
+        } else {
+          defaults.responsible = auth.user?.fullName || '';
+          if (auth.user?.onlyOwnDepartment && auth.user?.department) {
+            defaults.department = auth.user.department;
+          }
+        }
+      }
+      form.value = defaults;
+    }
+  } finally {
+    loadingData.value = false;
+  }
+}
+
+watch(() => ui.activeModal, (v) => {
+  if (v === 'form') openForm();
+});
+
+onUnmounted(async () => {
+  if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+  if (editId.value && !_skipUnlock) {
+    try { await api.releaseLock(editId.value); } catch { /* ignore */ }
+  }
+});
+
+function applyTemplate(templateId: number) {
+  selectedTemplateId.value = templateId;
+  if (!templateId) return;
+  const tpl = templates.value.find(t => t.id === templateId);
+  if (!tpl) return;
+  let applied = 0;
+  for (const [fieldId, value] of Object.entries(tpl.data || {})) {
+    if (value === undefined || value === null || value === '') continue;
+    if (!(fieldId in form.value)) continue;
+    if (form.value[fieldId] === String(value)) continue;
+    form.value[fieldId] = String(value);
+    applied++;
+  }
+  toast.success(`Применено полей: ${applied}`);
+}
+
+async function onSaveAsTemplate() {
+  if (!auth.isAdmin) { toast.error('Только админ может создавать шаблоны'); return; }
+  const name = await showPrompt(
+    'Название шаблона',
+    {
+      icon: 'fa-floppy-disk', title: 'Сохранение шаблона',
+      okText: 'Сохранить', okClass: 'btn-success',
+      placeholder: 'Например: Eppendorf 1000 мкл',
+      validator: (v) => v ? null : 'Укажите название',
+    }
+  );
+  if (!name) return;
+
+  const data: Record<string, string> = {};
+  const skip = ['id', 'barcode', 'responsible', 'location'];
+  for (const [k, v] of Object.entries(form.value)) {
+    if (skip.includes(k)) continue;
+    if (!v || !v.trim()) continue;
+    data[k] = v;
+  }
+  if (Object.keys(data).length === 0) { toast.error('Заполните хотя бы одно поле'); return; }
+
+  try {
+    await tplApi.saveTemplate(name.trim(), data);
+    toast.success('Шаблон сохранён');
+    templates.value = await tplApi.getTemplates();
+    const created = templates.value.find(t => t.name === name.trim());
+    if (created) selectedTemplateId.value = created.id;
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  }
+}
+
+async function discardDraft() {
+  if (!editId.value) return;
+  try {
+    await api.deleteDraft(editId.value);
+    toast.success('Черновик отменён');
+    draft.value = null;
+    await openForm();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  }
+}
+
+async function onSubmit() {
+  error.value = '';
+  const payload = { ...form.value };
+
+  const missing: string[] = [];
+  for (const f of visibleFields.value) {
+    if (!f.required) continue;
+    if (!String(payload[f.id] || '').trim()) missing.push(f.label);
+  }
+  if (missing.length) { error.value = 'Заполните: ' + missing.join(', '); return; }
+
+  saving.value = true;
+  try {
+    if (isEdit.value && editId.value) {
+      await api.updatePipette(editId.value, payload);
+      toast.success('Оборудование обновлено');
+    } else {
+      const res = await api.createPipette(payload);
+      toast.success(`Оборудование создано (${res.id || payload.id})`);
+    }
+    _skipUnlock = true;
+    ui.close();
+    await pip.loadPaged();
+    await stats.load();
+  } catch (e: unknown) {
+    const err = e as { status?: number; response?: { code?: string; draftAuthor?: string }; message?: string };
+    if (err?.status === 409 && err?.response?.code === 'draft_conflict' && editId.value) {
+      const author = err.response?.draftAuthor || 'другого пользователя';
+      const ok = await showConfirm(
+        `Найден несохранённый черновик от ${author}.\n\nЕсли вы сохраните сейчас — черновик будет удалён, данные ${author} потеряются.\n\nПродолжить?`,
+        { icon: '⚠️', title: 'Черновик от другого пользователя', okText: 'Перезаписать', okClass: 'btn-danger' }
+      );
+      if (!ok) { saving.value = false; return; }
+
+      try {
+        await api.deleteDraft(editId.value);
+        if (isEdit.value) await api.updatePipette(editId.value, payload);
+        else await api.createPipette(payload);
+        toast.success('Оборудование сохранено');
+        _skipUnlock = true;
+        ui.close();
+        await pip.loadPaged();
+        await stats.load();
+      } catch (err2) {
+        error.value = err2 instanceof Error ? err2.message : 'Ошибка перезаписи';
+      }
+    } else {
+      error.value = err.message || 'Ошибка сохранения';
+    }
+  } finally {
+    saving.value = false;
+  }
+}
+
+function onBulkCreated(_count: number) {
+  ui.close();
+}
+
+async function close() {
+  if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+  if (editId.value && !_skipUnlock) {
+    try { await api.releaseLock(editId.value); } catch { /* ignore */ }
+  }
+  ui.close();
+}
+</script>
