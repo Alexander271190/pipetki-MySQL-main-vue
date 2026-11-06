@@ -126,6 +126,8 @@ async function onSave() {
     await api.saveFilters(filters.value);
     await settings.loadAll();
     toast.success('Фильтры сохранены');
+    const { usePipettesStore } = await import('@/stores/pipettes');
+    usePipettesStore().syncFilterState(settings.filters);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   } finally {
