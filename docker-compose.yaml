@@ -40,6 +40,8 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    volumes:
+      - ./help-defaults:/app/frontend/help-defaults
     environment:
       NODE_ENV: production
       PORT: 3000
