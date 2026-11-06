@@ -62,20 +62,48 @@
       </tbody>
     </table>
 
-    <div class="form-actions">
-      <button class="btn btn-primary" style="margin-right:auto;" @click="onAdd"><i class="fa-solid fa-plus"></i> Добавить поле</button>
-      <button type="button" class="btn btn-secondary" @click="$emit('close')">Закрыть</button>
-      <button class="btn btn-success" :disabled="saving" @click="onSave">
+   <div class="form-actions">
+       <button class="btn btn-primary" style="margin-right:auto;" @click="onAdd">
+         <i class="fa-solid fa-plus"></i> Добавить поле
+       </button>
+       <button class="btn btn-warning" @click="showIdentity = true" title="Настроить, какие поля видны в массовых операциях">
+        <i class="fa-solid fa-list-ul"></i> Отображение в списках
+       </button>
+       <button type="button" class="btn btn-secondary" @click="$emit('close')">Закрыть</button>
+       <button class="btn btn-success" :disabled="saving" @click="onSave">
         <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i> Сохранить
-      </button>
+       </button>
+     </div>
+    <!-- Модалка «Отображение в списках» -->
+<div v-if="showIdentity" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div class="modal" style="max-width:600px;width:100%;background:var(--card);border-radius:16px;padding:24px;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-top:0;">Отображение в списках</h3>
+    <p style="color:#64748b;font-size:.88rem;margin-bottom:16px;">
+      Выберите поля, которые будут отображаться в модалках массовых операций и быстрой поверки.
+      Первые выбранные ID и Модель будут стоять в заголовке, остальные — мелким шрифтом.
+    </p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;background:var(--card-alt);padding:16px;border-radius:8px;margin-bottom:20px;">
+      <label v-for="opt in identityOptions" :key="opt.id" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
+        <input type="checkbox" :value="opt.id" :checked="identityFields.includes(opt.id)" @change="toggleIdentity(opt.id, ($event.target as HTMLInputElement).checked)" />
+        {{ opt.label }}
+      </label>
     </div>
-  </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" @click="showIdentity = false">Отмена</button>
+      <button class="btn btn-success" :disabled="savingIdentity" @click="saveIdentity">
+        <i class="fa-solid" :class="savingIdentity ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i> Сохранить
+      </button>
+     </div>
+   </div>
+ </div>
+</div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
+import { usePipettesStore } from '@/stores/pipettes';
 import { showConfirm } from '@/composables/useConfirm';
 import { showPrompt } from '@/composables/usePrompt';
 import { slugify } from '@/utils/string';
@@ -85,10 +113,48 @@ import type { FieldConfig } from '@/api/settings';
 defineEmits<{ (e: 'close'): void }>();
 
 const settings = useSettingsStore();
+const pip = usePipettesStore();
 const toast = useToastStore();
 
 const fields = ref<FieldConfig[]>([]);
 const saving = ref(false);
+const showIdentity = ref(false);
+const savingIdentity = ref(false);
+const identityFields = ref<string[]>(['id', 'model', 'serial', 'inventorynumber', 'department']);
+
+const identityOptions = [
+  { id: 'id', label: 'ID' },
+  { id: 'model', label: 'Модель' },
+  { id: 'serial', label: 'Серийный номер' },
+  { id: 'inventorynumber', label: 'Инвентарный номер' },
+  { id: 'department', label: 'Отдел' },
+  { id: 'responsible', label: 'Ответственный' },
+];
+
+function toggleIdentity(id: string, checked: boolean) {
+  const set = new Set(identityFields.value);
+  if (checked) set.add(id); else set.delete(id);
+  identityFields.value = [...set];
+}
+
+async function saveIdentity() {
+  if (identityFields.value.length === 0) {
+    toast.error('Выберите хотя бы одно поле');
+    return;
+  }
+  savingIdentity.value = true;
+  try {
+    await api.saveSystem({ bulk_identity_fields: JSON.stringify(identityFields.value) });
+    settings.bulkIdentityFields = [...identityFields.value];
+    toast.success('Настройки отображения сохранены');
+    showIdentity.value = false;
+    await pip.loadPaged();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  } finally {
+    savingIdentity.value = false;
+  }
+}
 
 const SYSTEM_FIELD_IDS = ['id', 'department', 'equipmentType', 'result', 'active'];
 const typeLabels: Record<string, string> = {
@@ -104,6 +170,17 @@ onMounted(async () => {
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка загрузки');
   }
+
+  // Загрузка текущих identity fields
+  try {
+    const sys = await api.getSystemSettings();
+    if (sys.bulk_identity_fields) {
+      try {
+        const parsed = JSON.parse(sys.bulk_identity_fields);
+        if (Array.isArray(parsed)) identityFields.value = parsed;
+      } catch {  }
+    }
+  } catch {  }
 });
 
 function move(idx: number, dir: number) {
@@ -165,10 +242,13 @@ async function onSave() {
     await api.saveFields(fields.value);
     // Перезагрузить store
     await settings.loadAll();
+    const { usePrefsStore } = await import('@/stores/prefs');
+    const prefs = usePrefsStore();
+    const activeIds = settings.fields.filter(f => f.enabled).map(f => f.id);
+    prefs.syncWithFields(activeIds);
     toast.success('Поля сохранены');
     // Перезагрузить таблицу
-    const { usePipettesStore } = await import('@/stores/pipettes');
-    await usePipettesStore().loadPaged();
+    await pip.loadPaged();
   } catch (e: unknown) {
     const err = e as { response?: { code?: string; affected?: number; fields?: string[] } };
     if (err.response?.code === 'field_has_data') {
@@ -183,6 +263,10 @@ async function onSave() {
       try {
         await api.saveFieldsWithConfirm(fields.value);
         await settings.loadAll();
+        const { usePrefsStore } = await import('@/stores/prefs');
+        const prefs = usePrefsStore();
+        const activeIds = settings.fields.filter(f => f.enabled).map(f => f.id);
+        prefs.syncWithFields(activeIds);
         toast.success(`Поле удалено, данные очищены у ${affected} записей`);
       } catch (e2) {
         toast.error(e2 instanceof Error ? e2.message : 'Ошибка');
