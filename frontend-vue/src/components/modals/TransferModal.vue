@@ -34,13 +34,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { useSettingsStore } from '@/stores/settings';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useToastStore } from '@/stores/toast';
 import { showConfirm } from '@/composables/useConfirm';
+import { showLockWarning } from '@/composables/useLockWarning';
 import { apiRequest } from '@/api/client';
 import * as api from '@/api/pipettes';
 import type { Pipette } from '@/types';
@@ -57,20 +58,82 @@ const responsiblesInDept = ref<string[]>([]);
 const saving = ref(false);
 const error = ref('');
 
+let _heartbeat: number | null = null;
+let _skipUnlock = false;
+let _lockedId: string | null = null;
+
 const availableDepts = computed(() => {
   return settings.departments.filter(d => d !== (pipette.value?.department || ''));
 });
 
 watch(() => ui.activeModal, (v) => {
-  if (v !== 'transfer') return;
-  const id = ui.modalData as string;
-  pipette.value = pip.items.find(x => x.id === id) || null;
-  if (!pipette.value) { toast.error('Прибор не найден'); ui.close(); return; }
+  if (v === 'transfer') open();
+});
+
+async function open() {
+  // Сброс состояния прошлой сессии
+  if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+  _skipUnlock = false;
+  _lockedId = null;
+  error.value = '';
+  saving.value = false;
+  pipette.value = null;
   newDept.value = '';
   newResp.value = '';
   responsiblesInDept.value = [];
-  error.value = '';
-});
+
+  const id = ui.modalData as string;
+
+  // 1. Захват лока (с предупреждением, если занят)
+  try {
+    const lockRes = await api.getLock(id);
+    if (lockRes.locked && !lockRes.mine) {
+      const proceed = await showLockWarning(lockRes, 'Передача');
+      if (!proceed) { ui.close(); return; }
+    }
+    await api.setLock(id);
+    _lockedId = id;
+  } catch {
+    toast.error('Ошибка проверки блокировки');
+    ui.close();
+    return;
+  }
+
+  // 2. Свежие данные прибора
+  try {
+    const fresh = await api.getById(id);
+    pipette.value = fresh as Pipette;
+  } catch {
+    pipette.value = pip.items.find(x => x.id === id) || null;
+  }
+  if (!pipette.value) {
+    toast.error('Прибор не найден');
+    await close();
+    return;
+  }
+
+  // 3. Heartbeat — каждые 3 сек проверяем, наш ли лок
+  _heartbeat = window.setInterval(async () => {
+    if (!pipette.value) return;
+    try {
+      const r = await api.getLock(pipette.value.id);
+      if (!r.locked || !r.mine) {
+        if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+        _skipUnlock = true;   // лок уже не наш — release не нужен
+
+        ui.close();
+
+        await showConfirm(
+          `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.\n\nПередача не выполнена.`,
+          {
+            icon: 'ℹ️', title: 'Сессия завершена',
+            okText: 'ОК', hideCancel: true, okClass: 'btn-secondary',
+          }
+        );
+      }
+    } catch { /* ignore */ }
+  }, 3000);
+}
 
 async function onDeptChange() {
   newResp.value = '';
@@ -83,7 +146,7 @@ async function onDeptChange() {
     if (responsiblesInDept.value.length === 0) {
       toast.warn('В этом отделе нет сотрудников');
     }
-  } catch (e) {
+  } catch {
     toast.error('Не удалось загрузить список');
   }
 }
@@ -92,7 +155,7 @@ async function onSubmit() {
   error.value = '';
   if (!newDept.value) { error.value = 'Выберите отдел'; return; }
   if (!newResp.value) { error.value = 'Выберите ответственного'; return; }
-  if (!pipette.value) return;
+  if (!pipette.value) { error.value = 'Прибор не найден'; return; }
 
   const ok = await showConfirm(
     `Передать «${pipette.value.id}» из «${pipette.value.department || 'без отдела'}» в «${newDept.value}»?\n\nОтветственный: ${newResp.value}.`,
@@ -104,7 +167,7 @@ async function onSubmit() {
   try {
     await api.transferPipette(pipette.value.id, newDept.value, newResp.value);
     toast.success(`Передано в «${newDept.value}»`);
-    ui.close();
+    await close();   // releaseLock + ui.close()
     await pip.loadPaged();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка передачи';
@@ -113,5 +176,20 @@ async function onSubmit() {
   }
 }
 
-function close() { ui.close(); }
+async function close() {
+  if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+  if (_lockedId && !_skipUnlock) {
+    try { await api.releaseLock(_lockedId); } catch { /* ignore */ }
+  }
+  _lockedId = null;
+  ui.close();
+}
+
+onUnmounted(async () => {
+  if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+  if (_lockedId && !_skipUnlock) {
+    try { await api.releaseLock(_lockedId); } catch { /* ignore */ }
+  }
+  _lockedId = null;
+});
 </script>
