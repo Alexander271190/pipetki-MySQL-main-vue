@@ -24,5 +24,7 @@ COPY . .
 # Кладём собранный Vue (index.html + assets + public/) в ./frontend/
 COPY --from=frontend-builder /frontend/dist/. ./frontend/
 
+COPY help-defaults ./frontend/help-defaults
+
 EXPOSE 3000
 CMD ["node", "server.js"]
