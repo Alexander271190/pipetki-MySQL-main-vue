@@ -138,9 +138,12 @@ async function onSave() {
 
     await api.saveDepartments(payload);
     await settings.loadAll();
-    toast.success(`Отделы сохранены (${payload.length})`);
-    // Перезагрузить данные
+
     const { usePipettesStore } = await import('@/stores/pipettes');
+    usePipettesStore().syncFilterState(settings.filters);
+
+    toast.success(`Отделы сохранены (${payload.length})`);
+
     await usePipettesStore().loadPaged();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
