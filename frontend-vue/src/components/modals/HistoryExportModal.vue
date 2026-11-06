@@ -24,10 +24,10 @@
 
     <div class="form-actions">
       <button type="button" class="btn btn-secondary" @click="close">Отмена</button>
-      <button type="button" class="btn btn-success" :disabled="saving" @click="onExcel">
+      <button type="button" class="btn btn-success" :disabled="!!saving" @click="onExcel">
         <i class="fa-solid" :class="saving === 'xlsx' ? 'fa-spinner fa-spin' : 'fa-file-excel'"></i> Excel
       </button>
-      <button type="button" class="btn btn-info" :disabled="saving" @click="onPDF">
+      <button type="button" class="btn btn-info" :disabled="!!saving" @click="onPDF">
         <i class="fa-solid" :class="saving === 'pdf' ? 'fa-spinner fa-spin' : 'fa-print'"></i> PDF
       </button>
     </div>
