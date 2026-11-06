@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
-import { useUiStore } from '@/stores/ui';
+import { useUiStore, type MenuItem } from '@/stores/ui';
 import { showConfirm } from '@/composables/useConfirm';
 import * as api from '@/api/roles';
 import type { Role } from '@/api/roles';
@@ -79,7 +79,7 @@ function closeEdit() { showEdit.value = false; editingRole.value = null; }
 function onSaved() { closeEdit(); load(); }
 
 function openActions(e: MouseEvent, r: Role) {
-  const items = [{ label: '<i class="fa-solid fa-pen"></i> Редактировать', action: () => openEdit(r) }];
+  const items: MenuItem[] = [{ label: '<i class="fa-solid fa-pen"></i> Редактировать', action: () => openEdit(r) }];
   if (!r.isSystem && r.value !== 'admin') {
     items.push({
       label: '<i class="fa-solid fa-trash"></i> Удалить',
