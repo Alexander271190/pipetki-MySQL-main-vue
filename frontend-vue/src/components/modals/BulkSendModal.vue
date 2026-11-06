@@ -64,22 +64,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useSettingsStore } from '@/stores/settings';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
-import { useAuthStore, usePermissions } from '@/stores/auth';
-import { useModals } from '@/composables/useModals';
+import { useAuthStore } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
 import { todayStr, formatDate } from '@/utils/format';
 import { buildHeaderHtml } from '@/utils/header';
 import { isExternalCalibration, allowReplacement } from '@/utils/equipment';
 import { getDeviceIdentityHtml } from '@/utils/deviceIdentity';
 import * as bulkApi from '@/api/bulk';
-import * as pipApi from '@/api/pipettes';
 import type { Pipette } from '@/types';
 
 const ui = useUiStore();
@@ -88,8 +86,6 @@ const settings = useSettingsStore();
 const stats = useStatsStore();
 const toast = useToastStore();
 const auth = useAuthStore();
-const perm = usePermissions();
-const modals = useModals();
 
 const toSendItems = ref<Pipette[]>([]);
 const sentDate = ref('');
@@ -99,10 +95,27 @@ const replacementBlocks = ref<{ id: string; p: Pipette; options: bulkApi.Replace
 const saving = ref(false);
 const error = ref('');
 
+let _lockedIds: string[] = [];
+let _generation = 0;
+
 function identity(p: Pipette) { return getDeviceIdentityHtml(p); }
 
-watch(() => ui.activeModal, async (v) => {
-  if (v !== 'bulkSend') return;
+watch(() => ui.activeModal, (v) => {
+  if (v === 'bulkSend') open();
+});
+
+async function open() {
+  const gen = ++_generation;
+
+  // Сброс состояния
+  error.value = '';
+  saving.value = false;
+  toSendItems.value = [];
+  sentDate.value = todayStr();
+  note.value = '';
+  replacements.value = {};
+  replacementBlocks.value = [];
+
   const ids = (ui.modalData as string[]) || [];
   const list = ids.map(id => pip.items.find(x => x.id === id)).filter(Boolean) as Pipette[];
   const filtered = list.filter(p =>
@@ -117,30 +130,36 @@ watch(() => ui.activeModal, async (v) => {
     return;
   }
 
+  // 1. Сначала — захват локов (await), потом показываем форму
+  try {
+    const r = await bulkApi.bulkLock(filtered.map(p => p.id));
+    if (gen !== _generation) {
+      // Пока ждали — сессия переоткрыта или закрыта: сразу освобождаем
+      bulkApi.bulkUnlock(filtered.map(p => p.id)).catch(() => {});
+      return;
+    }
+    _lockedIds = filtered.map(p => p.id);
+    if (r.busy?.length) {
+      toast.warn(`Уже редактируются: ${r.busy.map(b => `${b.id} (${b.lockedBy})`).join(', ')}`);
+    }
+  } catch {
+    if (gen === _generation) {
+      toast.error('Ошибка блокировки');
+      ui.close();
+    }
+    return;
+  }
+
   toSendItems.value = filtered;
-  sentDate.value = todayStr();
-  note.value = '';
-  replacements.value = {};
-  replacementBlocks.value = [];
-  error.value = '';
 
-  // Блокировки в фоне
-  (async () => {
-    try {
-      const r = await bulkApi.bulkLock(filtered.map(p => p.id));
-      if (r.busy?.length) {
-        toast.warn(`Уже редактируются: ${r.busy.map(b => `${b.id} (${b.lockedBy})`).join(', ')}`);
-      }
-    } catch { /* ignore */ }
-  })();
-
-  // Замены для подходящих типов
+  // 2. Замены (после блокировки)
   const forRepl = filtered.filter(p => allowReplacement(settings.equipmentTypes, p.equipment_type));
   if (forRepl.length > 0) {
     try {
       const res = await bulkApi.availableForReplacementBatch(
         forRepl.map(p => ({ id: p.id, type: p.equipment_type, department: p.department || '' }))
       );
+      if (gen !== _generation) return;   // сессия сменилась — не перезаписываем
       const blocks: typeof replacementBlocks.value = [];
       for (const p of forRepl) {
         const options = res[p.id] || [];
@@ -149,7 +168,7 @@ watch(() => ui.activeModal, async (v) => {
       replacementBlocks.value = blocks;
     } catch { /* ignore */ }
   }
-});
+}
 
 async function onSubmit() {
   error.value = '';
@@ -175,7 +194,8 @@ async function onSubmit() {
     let msg = `Отправлено: ${res.successful}`;
     if (res.skipped > 0) msg += `. Пропущено: ${res.skipped}`;
     toast.success(msg);
-    ui.close();
+
+    close();                       // ← вместо ui.close(): снимает локи
     pip.clearSelection();
     await pip.loadPaged();
     await stats.load();
@@ -187,12 +207,21 @@ async function onSubmit() {
 }
 
 function close() {
-  if (toSendItems.value.length > 0) {
-    bulkApi.bulkUnlock(toSendItems.value.map(p => p.id)).catch(() => {});
+  if (_lockedIds.length > 0) {
+    bulkApi.bulkUnlock(_lockedIds).catch(() => {});
+    _lockedIds = [];
   }
   ui.close();
 }
-  function printAct() {
+
+onUnmounted(() => {
+  if (_lockedIds.length > 0) {
+    bulkApi.bulkUnlock(_lockedIds).catch(() => {});
+    _lockedIds = [];
+  }
+});
+
+function printAct() {
   if (toSendItems.value.length === 0) { toast.error('Нет единиц для печати'); return; }
   if (settings.printDocs?.actSend === false) { toast.error('Печать акта отключена'); return; }
 
@@ -260,5 +289,4 @@ ${buildHeaderHtml(settings.printDocs)}
   setTimeout(() => win.print(), 300);
   toast.success('Окно печати открыто');
 }
-  
 </script>
