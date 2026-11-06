@@ -84,6 +84,14 @@
         <button class="dropdown-item" @click="closeMenuAnd('settings')">
           <i class="fa-solid fa-gear"></i> Настройки
         </button>
+        <button
+          v-if="hasCustomLayout"
+          class="dropdown-item"
+          @click="onResetLayout"
+        >
+          <i class="fa-solid fa-rotate-left"></i> Сбросить раскладку колонок
+        </button>
+        <div class="dropdown-divider"></div>
         <button class="dropdown-item" @click="closeMenuAnd('compact')">
           <i class="fa-solid fa-arrows-up-down"></i> Компактный режим
         </button>
@@ -99,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useToastStore } from '@/stores/toast';
 import { useModals } from '@/composables/useModals';
@@ -107,6 +115,8 @@ import { usePermissions } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import { useExport } from '@/composables/useExport';
 import FilterPanel from '@/components/table/FilterPanel.vue';
+import { usePrefsStore } from '@/stores/prefs';
+import { showConfirm } from '@/composables/useConfirm';
 
 const modals = useModals();
 const perm = usePermissions();
@@ -114,8 +124,29 @@ const ui = useUiStore();
 const exportComposable = useExport();
 const pip = usePipettesStore();
 const toast = useToastStore();
+const prefs = usePrefsStore();
 const menuOpen = ref(false);
 const showFilter = ref(false);
+const hasCustomLayout = computed(() => {
+return (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0)
+      || (prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0);
+});
+
+async function onResetLayout() {
+  menuOpen.value = false;
+  const ok = await showConfirm(
+    'Сбросить порядок и ширину колонок к стандартным?',
+    {
+      icon: '<i class="fa-solid fa-rotate-left" style="color:#d97706;"></i>',
+      title: 'Сброс раскладки',
+      okText: 'Сбросить',
+      okClass: 'btn-warning'
+    }
+  );
+  if (!ok) return;
+  prefs.resetLayout();
+  toast.success('Раскладка колонок сброшена');  
+}
 
 let searchTimer: number | null = null;
 
@@ -189,6 +220,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', closeOnOutsideClick);
+  
 });
 </script>
 
