@@ -525,10 +525,8 @@ async function onSubmit() {
       if (savedId) await savePageSize(savedId);
 
       if (savedId === auth.user?.id) {
-        const me = (await usersApi.getUsers()).find(x => x.id === savedId);
-        if (me) auth.user = me;
+         await auth.refreshUser();
       }
-
       closeAndBack();
       window.dispatchEvent(new CustomEvent('users:reload'));
     } else {
