@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
@@ -142,12 +142,34 @@ const note = ref('');
 const saving = ref(false);
 const error = ref('');
 
+let _lockedIds: string[] = [];
+let _generation = 0;
+
 const withReplacement = computed(() => items.value.filter(p => p.replaced_by));
 
 function identity(p: Pipette) { return getDeviceIdentityHtml(p); }
 
 watch(() => ui.activeModal, (v) => {
-  if (v !== 'bulkReturn') return;
+  if (v === 'bulkReturn') open();
+});
+
+async function open() {
+  const gen = ++_generation;
+
+  // Сброс состояния
+  error.value = '';
+  saving.value = false;
+  items.value = [];
+  date.value = todayStr();
+  org.value = '';
+  commonResult.value = 'pass';
+  singleCert.value = false;
+  commonCert.value = '';
+  certMap.value = {};
+  resultMap.value = {};
+  returnReplacements.value = [];
+  note.value = '';
+
   const ids = (ui.modalData as string[]) || [];
   const filtered = ids
     .map(id => pip.items.find(x => x.id === id))
@@ -159,33 +181,34 @@ watch(() => ui.activeModal, (v) => {
     return;
   }
 
+  // 1. Сначала — захват локов (await), потом показываем форму
+  try {
+    const r = await bulkApi.bulkLock(filtered.map(p => p.id));
+    if (gen !== _generation) {
+      // Пока ждали — сессия переоткрыта или закрыта: сразу освобождаем
+      bulkApi.bulkUnlock(filtered.map(p => p.id)).catch(() => {});
+      return;
+    }
+    _lockedIds = filtered.map(p => p.id);
+    if (r.busy?.length) {
+      toast.warn(`Уже редактируются: ${r.busy.map(b => `${b.id} (${b.lockedBy})`).join(', ')}`);
+    }
+  } catch {
+    if (gen === _generation) {
+      toast.error('Ошибка блокировки');
+      ui.close();
+    }
+    return;
+  }
+
   items.value = filtered;
-  date.value = todayStr();
-  org.value = '';
-  commonResult.value = 'pass';
-  singleCert.value = false;
-  commonCert.value = '';
-  certMap.value = {};
-  resultMap.value = {};
-  returnReplacements.value = [];
-  note.value = '';
-  error.value = '';
 
   for (const p of filtered) {
     certMap.value[p.id] = '';
     resultMap.value[p.id] = 'pass';
   }
   returnReplacements.value = withReplacement.value.map(p => p.id);
-
-  (async () => {
-    try {
-      const r = await bulkApi.bulkLock(filtered.map(p => p.id));
-      if (r.busy?.length) {
-        toast.warn(`Уже редактируются: ${r.busy.map(b => `${b.id} (${b.lockedBy})`).join(', ')}`);
-      }
-    } catch { /* ignore */ }
-  })();
-});
+}
 
 function applyResultAll() {
   for (const p of items.value) resultMap.value[p.id] = commonResult.value;
@@ -241,26 +264,28 @@ async function onSubmit() {
       returnReplacements: returnReplacements.value,
     });
     toast.success(res.message || `Возврат оформлен для ${items.value.length} единиц`);
-    ui.close();
+
+    close();                       // ← вместо ui.close(): снимает локи
     pip.clearSelection();
     await pip.loadPaged();
     await stats.load();
-    // Автофильтр по дате возврата — чтобы пользователь сразу видел возвращённые приборы
-const calFilter = settings.filters.find(f => f.type === 'date-period');
-if (calFilter && date.value) {
-  pip.filterState = {
-    ...pip.filterState,
-    [calFilter.id]: {
-      type: 'last_calibration',
-      period: 'custom',
-      from: date.value,
-      to: date.value,
-    },
-  };
-  pip.page = 1;
-  await pip.loadPaged();
-  toast.warn(`Таблица отфильтрована по дате ${date.value}. Сбросьте фильтр, чтобы увидеть всё.`);
-}
+
+    // Автофильтр по дате возврата
+    const calFilter = settings.filters.find(f => f.type === 'date-period');
+    if (calFilter && date.value) {
+      pip.filterState = {
+        ...pip.filterState,
+        [calFilter.id]: {
+          type: 'last_calibration',
+          period: 'custom',
+          from: date.value,
+          to: date.value,
+        },
+      };
+      pip.page = 1;
+      await pip.loadPaged();
+      toast.warn(`Таблица отфильтрована по дате ${date.value}. Сбросьте фильтр, чтобы увидеть всё.`);
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка';
   } finally {
@@ -269,13 +294,21 @@ if (calFilter && date.value) {
 }
 
 function close() {
-  if (items.value.length > 0) {
-    bulkApi.bulkUnlock(items.value.map(p => p.id)).catch(() => {});
+  if (_lockedIds.length > 0) {
+    bulkApi.bulkUnlock(_lockedIds).catch(() => {});
+    _lockedIds = [];
   }
   ui.close();
 }
 
-  function printAct() {
+onUnmounted(() => {
+  if (_lockedIds.length > 0) {
+    bulkApi.bulkUnlock(_lockedIds).catch(() => {});
+    _lockedIds = [];
+  }
+});
+
+function printAct() {
   if (items.value.length === 0) { toast.error('Нет единиц'); return; }
   if (settings.printDocs?.actReturn === false) { toast.error('Печать акта отключена'); return; }
 
@@ -351,5 +384,4 @@ ${buildHeaderHtml(settings.printDocs)}
   setTimeout(() => win.print(), 300);
   toast.success('Окно печати открыто');
 }
-  
 </script>
