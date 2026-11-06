@@ -80,22 +80,22 @@
           <textarea v-else-if="f.type === 'textarea'" v-model="form[f.id]" rows="2" :placeholder="f.label"></textarea>
           <input v-else-if="f.type === 'date'" v-model="form[f.id]" type="date" />
           <input v-else-if="f.type === 'number'" v-model="form[f.id]" type="number" />
-        <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
-          <input
-           v-model="form[f.id]"
-           type="text"
-           :placeholder="f.label"
-           style="flex:1;"
-           :disabled="isFieldDisabled(f.id)"
-          :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
-         />
-        <button type="button" class="btn btn-secondary" @click="generateBarcode" title="Заполнить из инв. номера / серийного / ID">
-           <i class="fa-solid fa-wand-magic-sparkles"></i>
-        </button>
-        <button v-if="isEdit" type="button" class="btn btn-warning" @click="resetBarcodeValue" title="Сбросить ручной — вернуть к авто">
-           <i class="fa-solid fa-rotate-left"></i>
-        </button>
-      </div>
+          <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
+            <input
+              v-model="form[f.id]"
+              type="text"
+              :placeholder="f.label"
+              style="flex:1;"
+              :disabled="isFieldDisabled(f.id)"
+              :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+            />
+            <button type="button" class="btn btn-secondary" @click="generateBarcode" title="Заполнить из инв. номера / серийного / ID">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
+            <button v-if="isEdit" type="button" class="btn btn-warning" @click="resetBarcodeValue" title="Сбросить ручной — вернуть к авто">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
           <input
             v-else
             v-model="form[f.id]"
@@ -248,7 +248,7 @@ function generateBarcode() {
   if (val) form.value.barcode = String(val);
   else toast.warn('Заполните инв. номер, серийный или ID');
 }
-  
+
 async function resetBarcodeValue() {
   if (!editId.value) return;
   const ok = await showConfirm(
@@ -260,7 +260,6 @@ async function resetBarcodeValue() {
     await api.resetBarcode(editId.value);
     form.value.barcode = '';
 
-    // Синхронизируем стор, чтобы drawer/карточка не показывали старый barcode
     const item = pip.items.find(x => x.id === editId.value);
     if (item) (item as unknown as Record<string, unknown>).barcode = '';
 
@@ -271,6 +270,9 @@ async function resetBarcodeValue() {
 }
 
 async function openForm() {
+  // Подчищаем возможный «зависший» heartbeat от прошлой сессии
+  if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+
   const data = ui.modalData as string | null;
   editId.value = data || null;
   error.value = '';
@@ -298,7 +300,7 @@ async function openForm() {
             const r = await api.getLock(editId.value);
             if (!r.locked || !r.mine) {
               if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
-              _skipUnlock = true;
+              _skipUnlock = true;   // лок уже не наш — release не нужен
 
               // Сохраняем черновик из form.value (не из DOM — надёжнее)
               let draftSaved = false;
@@ -330,7 +332,12 @@ async function openForm() {
         fresh = await api.getById(editId.value) as api.GetByIdResponse;
         if (fresh) p = fresh;
       } catch { /* ignore */ }
-      if (!p) { toast.error('Оборудование не найдено'); ui.close(); return; }
+      if (!p) {
+        toast.error('Оборудование не найдено');
+        // Лок уже установлен — снимаем через close(), иначе он повиснет до TTL
+        await close();
+        return;
+      }
 
       const f: Record<string, string> = {};
       for (const field of visibleFields.value) {
@@ -397,6 +404,7 @@ onUnmounted(async () => {
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
+    _skipUnlock = true;
   }
 });
 
@@ -476,20 +484,20 @@ async function onSubmit() {
   try {
     if (isEdit.value && editId.value) {
       const res = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
-   if (res.idChanged && res.newId) {
-      toast.success(`Сохранено. Новый ID: ${res.newId}`);
-   } else {
-    toast.success('Оборудование обновлено');
-  }
-} else {
-  const res = await api.createPipette(payload);
-  toast.success(`Оборудование создано (${res.id || payload.id})`);
-}
-    _skipUnlock = true;
-    ui.close();
+      if (res.idChanged && res.newId) {
+        toast.success(`Сохранено. Новый ID: ${res.newId}`);
+      } else {
+        toast.success('Оборудование обновлено');
+      }
+    } else {
+      const res = await api.createPipette(payload);
+      toast.success(`Оборудование создано (${res.id || payload.id})`);
+    }
+
+    await close();   // releaseLock + ui.close()
     await pip.loadPaged();
     await stats.load();
-    } catch (e: unknown) {
+  } catch (e: unknown) {
     const err = e as { status?: number; response?: { code?: string; draftAuthor?: string }; message?: string };
     if (err?.status === 409 && err?.response?.code === 'draft_conflict' && editId.value) {
       const author = err.response?.draftAuthor || 'другого пользователя';
@@ -512,8 +520,8 @@ async function onSubmit() {
           await api.createPipette(payload);
           toast.success('Оборудование сохранено');
         }
-        _skipUnlock = true;
-        ui.close();
+
+        await close();   // releaseLock + ui.close()
         await pip.loadPaged();
         await stats.load();
       } catch (err2) {
@@ -528,6 +536,8 @@ async function onSubmit() {
 }
 
 function onBulkCreated(_count: number) {
+  // bulk-create: лок не устанавливался (editId = null), закрываем напрямую
+  _skipUnlock = true;
   ui.close();
 }
 
@@ -535,6 +545,7 @@ async function close() {
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
+    _skipUnlock = true;   // блокируем повторный release в onUnmounted
   }
   ui.close();
 }
