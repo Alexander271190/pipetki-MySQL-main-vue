@@ -112,11 +112,25 @@ export const usePipettesStore = defineStore('pipettes', () => {
     selected.value = new Set();
   }
 
+  function syncFilterState(activeFilters: { id: string; type: string; options?: { value: unknown }[] }[]) {
+  const activeIds = new Set(activeFilters.map(f => f.id));
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(filterState.value)) {
+    if (!activeIds.has(k)) continue;
+    const f = activeFilters.find(x => x.id === k);
+    if (f?.type === 'select' && f.options && typeof v === 'string' && v) {
+      if (!f.options.some(o => String(o.value) === v)) continue;
+    }
+    cleaned[k] = v;
+  }
+  filterState.value = cleaned;
+}
+
   return {
     items, total, page, limit, totalPages, counters, loading,
     sortField, sortDir, search, filterState,
     selected, hasSelection,
     loadPaged, setSearch, setFilter, resetFilters,
-    sortBy, changePage, toggleSelected, selectAllOnPage, clearSelection,
+    sortBy, changePage, toggleSelected, selectAllOnPage, clearSelection, syncFilterState
   };
 });
