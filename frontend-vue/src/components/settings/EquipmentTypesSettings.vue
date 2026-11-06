@@ -171,6 +171,8 @@ async function onSave() {
     }));
     await api.saveEquipmentTypes(cleaned);
     await settings.loadAll();
+    const { usePipettesStore } = await import('@/stores/pipettes');
+    usePipettesStore().syncFilterState(settings.filters);
     toast.success('Типы сохранены');
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
