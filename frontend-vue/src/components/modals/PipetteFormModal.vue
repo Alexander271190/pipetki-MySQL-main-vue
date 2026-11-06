@@ -161,6 +161,92 @@ const selectedTemplateId = ref(0);
 let _heartbeat: number | null = null;
 let _skipUnlock = false;
 
+// ⏱ Idle timeout: снятие блокировки через 30 минут бездействия
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;  // 30 минут
+let _idleStart = 0;
+let _idleCheckTimer: number | null = null;
+let _activityListenersAttached = false;
+
+function _onUserActivity() {
+  _idleStart = Date.now();
+}
+
+function _startIdleTracking() {
+  _idleStart = Date.now();
+  if (_idleCheckTimer) return;
+
+  // Проверяем раз в минуту — прошло ли 30 минут
+  _idleCheckTimer = window.setInterval(() => {
+    if (!_idleStart) return;
+    const elapsed = Date.now() - _idleStart;
+    if (elapsed >= IDLE_TIMEOUT_MS) {
+      _handleIdleTimeout();
+    }
+  }, 60 * 1000);
+
+  // Слушаем активность — при любом действии сбрасываем таймер
+  if (!_activityListenersAttached) {
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
+    events.forEach(ev =>
+      document.addEventListener(ev, _onUserActivity, { passive: true })
+    );
+    _activityListenersAttached = true;
+  }
+}
+
+function _stopIdleTracking() {
+  if (_idleCheckTimer) {
+    clearInterval(_idleCheckTimer);
+    _idleCheckTimer = null;
+  }
+  if (_activityListenersAttached) {
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
+    events.forEach(ev =>
+      document.removeEventListener(ev, _onUserActivity)
+    );
+    _activityListenersAttached = false;
+  }
+  _idleStart = 0;
+}
+
+async function _handleIdleTimeout() {
+  if (!editId.value || !_idleStart) return;
+
+  // Останавливаем heartbeat, чтобы не мешал
+  if (_heartbeat) {
+    clearInterval(_heartbeat);
+    _heartbeat = null;
+  }
+  _stopIdleTracking();
+
+  const id = editId.value;
+  _skipUnlock = true;
+
+  // Пытаемся сохранить черновик — чтобы данные не потерялись
+  let draftSaved = false;
+  try {
+    await api.saveDraft(id, { ...form.value });
+    draftSaved = true;
+  } catch (e) {
+    console.warn('Автосохранение черновика при idle timeout:', e);
+  }
+
+  // Освобождаем блокировку
+  try {
+    await api.releaseLock(id);
+  } catch (e) {
+    console.warn('releaseLock при idle timeout:', e);
+  }
+
+  ui.close();
+
+  const msg = draftSaved
+    ? 'Модалка закрыта из-за 30 минут бездействия.\n\nВаши данные сохранены как черновик — сможете продолжить с того же места.'
+    : 'Модалка закрыта из-за 30 минут бездействия.';
+
+  toast.warn(msg);
+}
+
 const isEdit = computed(() => !!editId.value);
 const visibleFields = computed<FieldConfig[]>(() =>
   settings.fields.filter(f => f.enabled).sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -270,6 +356,7 @@ async function resetBarcodeValue() {
 }
 
 async function openForm() {
+  _stopIdleTracking();
   // Подчищаем возможный «зависший» heartbeat от прошлой сессии
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
 
@@ -293,6 +380,7 @@ async function openForm() {
           if (!proceed) { ui.close(); return; }
         }
         await api.setLock(editId.value);
+        _startIdleTracking();
 
         _heartbeat = window.setInterval(async () => {
           if (!editId.value) return;
@@ -300,6 +388,7 @@ async function openForm() {
             const r = await api.getLock(editId.value);
             if (!r.locked || !r.mine) {
               if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+               _stopIdleTracking(); 
               _skipUnlock = true;   // лок уже не наш — release не нужен
 
               // Сохраняем черновик из form.value (не из DOM — надёжнее)
@@ -401,10 +490,10 @@ watch(() => ui.activeModal, (v) => {
 });
 
 onUnmounted(async () => {
+  _stopIdleTracking();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
-    _skipUnlock = true;
   }
 });
 
@@ -542,11 +631,13 @@ function onBulkCreated(_count: number) {
 }
 
 async function close() {
+  _stopIdleTracking();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
-    _skipUnlock = true;   // блокируем повторный release в onUnmounted
+    _skipUnlock = true;      // ← внутри if
   }
   ui.close();
+
 }
 </script>
