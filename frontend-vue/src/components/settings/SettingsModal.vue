@@ -123,8 +123,16 @@ const currentSectionLabel = computed(() => {
   return '';
 });
 
-watch(() => ui.activeModal, (v) => {
-  if (v === 'settings') currentSection.value = null;
+watch(() => ui.activeModal, async (v) => {
+  if (v !== 'settings') return;
+  const target = typeof ui.modalData === 'string' ? ui.modalData : null;
+  if (target) {
+    openSection(target);
+    ui.modalData = null;
+  } else {
+    currentSection.value = null;
+    sectionComponent.value = null;
+  }
 });
 
 function openSection(id: string) {
