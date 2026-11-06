@@ -118,3 +118,6 @@ export const saveEquipmentTypes = (types: EquipmentType[]) =>
 
 export const saveSystem = (data: Record<string, string>) =>
   apiRequest('/settings/system', 'PUT', data);
+
+export const resetAllData = () =>
+  apiRequest('/settings/reset-all-data', 'POST', { confirm: true });
