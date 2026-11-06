@@ -1,6 +1,6 @@
 <template>
   <AppModal :visible="ui.activeModal === 'userEdit'" @close="close" modal-class="modal-lg">
-    <h2><i class="fa-solid" :class="isEdit ? 'fa-pen' : 'fa-user-plus'"></i> {{ isEdit ? 'Редактирование: ' + login : 'Новый пользователь' }}</h2>
+    <h2><i class="fa-solid" :class="isEdit ? 'fa-pen' : 'fa-user-plus'"></i> {{ isEdit ? 'Редактирование: ' + form.login : 'Новый пользователь' }}</h2>
 
     <div v-if="loading" style="text-align:center;padding:30px;">
       <i class="fa-solid fa-spinner fa-spin"></i>
