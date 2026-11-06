@@ -53,8 +53,8 @@
             ></textarea>
             <span v-else>—</span>
           </td>
-          <td style="text-align:center;">
-            <button class="row-actions-btn" @click="onDelete(i)" title="Удалить">
+           <td style="text-align:center;">
+            <button class="row-actions-btn" @click="openActions($event, i)" title="Действия">
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </button>
           </td>
@@ -103,6 +103,7 @@
 import { ref, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
+import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
 import { showConfirm } from '@/composables/useConfirm';
 import { showPrompt } from '@/composables/usePrompt';
@@ -115,7 +116,7 @@ defineEmits<{ (e: 'close'): void }>();
 const settings = useSettingsStore();
 const pip = usePipettesStore();
 const toast = useToastStore();
-
+const ui = useUiStore();
 const fields = ref<FieldConfig[]>([]);
 const saving = ref(false);
 const showIdentity = ref(false);
@@ -277,5 +278,15 @@ async function onSave() {
   } finally {
     saving.value = false;
   }
+}
+ function openActions(e: MouseEvent, idx: number) {
+  e.stopPropagation();
+  ui.openRowActions(e.currentTarget as HTMLElement, [
+    {
+      label: '<i class="fa-solid fa-trash"></i> Удалить',
+      class: 'item-danger',
+      action: () => onDelete(idx),
+    },
+  ]);
 }
 </script>
