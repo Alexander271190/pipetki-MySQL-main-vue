@@ -62,7 +62,7 @@
         <label v-for="f in currentTabConfig.fields" :key="f.id" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input
             type="checkbox"
-            :checked="(draft[currentTabConfig.fieldsKey] || []).includes(f.id)"
+            :checked="((draft[currentTabConfig.fieldsKey] as string[]) || []).includes(f.id)"
             @change="onFieldToggle(f.id, ($event.target as HTMLInputElement).checked)"
           />
           {{ f.label }}
@@ -172,10 +172,16 @@ const currentTabConfig = computed(() => {
 
 onMounted(async () => {
   try {
-    const raw = await api.getExport();
-    const data = Array.isArray(raw)
-      ? { fields: raw as string[], exportEnabled: true, actSendEnabled: true, actSendFields: [], actReturnEnabled: true, actReturnFields: [], historyEnabled: true, historyFields: [] }
-      : raw as DraftShape;
+   const raw = await api.getExport();
+   const data: DraftShape = Array.isArray(raw)
+    ? {
+      fields: raw as string[],
+      exportEnabled: true, actSendEnabled: true, actSendFields: [],
+      actReturnEnabled: true, actReturnFields: [],
+      historyEnabled: true, historyFields: [],
+      headerEnabled: false, headerText: '', headerAlign: 'center',
+    }
+  : (raw as DraftShape);
 
     draft.value = {
       exportEnabled:    data.exportEnabled    !== false,
