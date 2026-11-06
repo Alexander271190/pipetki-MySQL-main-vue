@@ -153,5 +153,9 @@ export function deleteDraft(id: string): Promise<void> {
   return apiRequest<void>(`/pipettes/${encodeURIComponent(id)}/draft`, 'DELETE');
 }
 
+export function resetBarcode(id: string) {
+  return apiRequest(`/barcodes/reset`, 'POST', { id });
+}
+
 export type { Status };
 
