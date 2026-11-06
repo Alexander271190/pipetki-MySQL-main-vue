@@ -91,9 +91,14 @@ export const usePrefsStore = defineStore('prefs', () => {
     saveDebounced();
   }
 
+  function resetLayout() {
+  columnOrder.value = [];
+  columnWidths.value = {};
+  void save();
+}
   return {
     loaded, visibleFields, columnOrder, columnWidths, virtualsInitialized,
     load, syncWithFields, save, saveDebounced,
-    setVisibleFields, setColumnOrder, setColumnWidth,
+    setVisibleFields, setColumnOrder, setColumnWidth, resetLayout,
   };
 });
