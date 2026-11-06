@@ -36,40 +36,51 @@
           <div class="num">{{ stats.counters.danger }}</div>
           <div class="label">Просрочены</div>
         </div>
-        <div class="stat-card stat-total-card">
+
+        <div class="stat-card stat-total-card" id="stat-total-card">
           <div class="num" style="cursor:help;">{{ stats.counters.total }}</div>
           <div class="label">Всего</div>
-         <div class="stat-tooltip">
-  <div class="tooltip-row tooltip-total">
-    <span>Всего:</span> <strong>{{ stats.counters.total }}</strong>
-  </div>
-  <div class="tooltip-row"><span>🟢 В норме:</span> <span>{{ stats.counters.ok }}</span></div>
-  <div class="tooltip-row"><span>🟡 Скоро поверка:</span> <span>{{ stats.counters.warn }}</span></div>
-  <div class="tooltip-row"><span>🔴 Просрочены:</span> <span>{{ stats.counters.danger }}</span></div>
+          <div class="stat-tooltip">
+            <div class="tooltip-row tooltip-total">
+              <span>Всего:</span> <strong>{{ stats.counters.total }}</strong>
+            </div>
+            <div class="tooltip-row"><span>🟢 В норме:</span> <span>{{ stats.counters.ok }}</span></div>
+            <div class="tooltip-row"><span>🟡 Скоро поверка:</span> <span>{{ stats.counters.warn }}</span></div>
+            <div class="tooltip-row"><span>🔴 Просрочены:</span> <span>{{ stats.counters.danger }}</span></div>
 
-  <div v-if="outsideCount > 0" class="tooltip-outside">
-    <div class="tooltip-row" style="font-weight: 600; margin-bottom: 4px;">
-      <span>Вне индикаторов:</span> <b>{{ outsideCount }}</b>
-    </div>
-    <div v-if="(stats.counters.sent || 0) > 0" class="tooltip-row">
-      <span>📦 На поверке:</span> <span>{{ stats.counters.sent }}</span>
-    </div>
-    <div v-if="(stats.counters.wip || 0) > 0" class="tooltip-row">
-      <span>⏳ В процессе:</span> <span>{{ stats.counters.wip }}</span>
-    </div>
-    <div v-if="(stats.counters.fail || 0) > 0" class="tooltip-row">
-      <span>❌ Брак:</span> <span>{{ stats.counters.fail }}</span>
-    </div>
-    <div v-if="(stats.counters.unknownDate || 0) > 0" class="tooltip-row">
-      <span>❓ Без даты поверки:</span> <span>{{ stats.counters.unknownDate }}</span>
-    </div>
-    <div v-if="(stats.counters.inactive || 0) > 0" class="tooltip-row">
-      <span>⛔ Неактивные:</span> <span>{{ stats.counters.inactive }}</span>
-    </div>
-  </div>
-</div>
+            <div v-if="outsideCounters.total > 0" class="tooltip-outside">
+              <div class="tooltip-row" style="font-weight:600; margin-bottom: 4px; color: var(--warn);">
+                <span>Вне индикаторов:</span> <b>{{ outsideCounters.total }}</b>
+              </div>
+              <div style="font-size:0.78rem; line-height: 1.5; color: var(--text);">
+                <div
+                  v-for="cat in outsideCounters.categories"
+                  :key="cat.label"
+                  class="tooltip-row"
+                  style="font-size:0.78rem;"
+                >
+                  <span>{{ cat.label }}:</span> <b>{{ cat.value }}</b>
+                </div>
+                <div
+                  v-if="outsideCounters.other > 0"
+                  class="tooltip-row"
+                  style="font-size:0.78rem; color:#94a3b8;"
+                >
+                  <span>Прочее:</span> <b>{{ outsideCounters.other }}</b>
+                </div>
+                <div
+                  v-if="outsideCounters.total > 0 && outsideCounters.categories.length === 0 && outsideCounters.other === 0"
+                  class="tooltip-row"
+                  style="font-size:0.78rem;"
+                >
+                  <span>— (нет данных)</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
       <div class="user-info">
         <span class="name">{{ auth.user?.fullName }}</span>
         <span class="position">{{ positionLine }}</span>
@@ -120,6 +131,26 @@ const positionLine = computed(() => {
   }
   if (u.department) pos += ' · ' + u.department;
   return pos;
+});
+
+const outsideCounters = computed(() => {
+  const c = stats.counters;
+  const sumIn = (c.ok || 0) + (c.warn || 0) + (c.danger || 0);
+  const outside = (c.total || 0) - sumIn;
+
+  const allCategories = [
+    { label: '📦 На поверке',      value: c.sent || 0 },
+    { label: '⏳ В процессе',       value: c.wip || 0 },
+    { label: '❌ Брак',             value: c.fail || 0 },
+    { label: '❓ Без даты поверки', value: c.unknownDate || 0 },
+    { label: '⛔ Неактивные',       value: c.inactive || 0 },
+  ];
+
+  const categories = allCategories.filter(cat => cat.value > 0);
+  const sumCategories = allCategories.reduce((sum, cat) => sum + cat.value, 0);
+  const other = Math.max(0, outside - sumCategories);
+
+  return { total: outside, categories, other };
 });
 
 function toggleCollapse() {
@@ -185,11 +216,5 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
-});
-
-  const outsideCount = computed(() => {
-  const c = stats.counters;
-  const sumIn = (c.ok || 0) + (c.warn || 0) + (c.danger || 0);
-  return Math.max(0, (c.total || 0) - sumIn); 
 });
 </script>
