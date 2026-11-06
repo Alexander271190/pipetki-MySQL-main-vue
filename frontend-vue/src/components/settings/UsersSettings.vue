@@ -119,6 +119,10 @@ function openActions(e: MouseEvent, u: FullUser) {
   if (!(isBuiltinAdmin && !isMe)) {
     items.push({ label: '<i class="fa-solid fa-pen"></i> Редактировать', action: () => editUser(u.id) });
   }
+  items.push({
+    label: '<i class="fa-solid fa-list-check"></i> Настроить видимые поля',
+    action: () => ui.open('userView', u.id),
+ });
 
   if (!isMe) {
     items.push({ divider: true });
