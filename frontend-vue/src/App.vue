@@ -28,6 +28,7 @@
   <EquipmentAuditModal />
   <HotkeysModal />
   <RemindersModal />
+  <UserViewModal />
 </template>
 
 <script setup lang="ts">
@@ -59,6 +60,7 @@ import AuditModal from '@/components/modals/AuditModal.vue';
 import EquipmentAuditModal from '@/components/modals/EquipmentAuditModal.vue';
 import HotkeysModal from '@/components/modals/HotkeysModal.vue';
 import RemindersModal from '@/components/modals/RemindersModal.vue';
+import UserViewModal from '@/components/modals/UserViewModal.vue';
 const auth = useAuthStore();
 const router = useRouter();
 const ui = useUiStore();
