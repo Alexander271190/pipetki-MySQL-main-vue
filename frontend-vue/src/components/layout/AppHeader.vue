@@ -180,10 +180,30 @@ async function onStopImpersonate() {
   try {
     const { stopImpersonate } = await import('@/api/auth');
     await stopImpersonate();
+
     if (auth.originalUser && auth.originalToken) {
-      auth.applySession({ user: auth.originalUser, token: auth.originalToken });
+      auth.applySession({
+        user: auth.originalUser,
+        token: auth.originalToken,
+      });
+
+      // Сбрасываем кэши
+      const { usePrefsStore } = await import('@/stores/prefs');
+      const { useSettingsStore } = await import('@/stores/settings');
+      const { usePipettesStore } = await import('@/stores/pipettes');
+      const { useStatsStore } = await import('@/stores/stats');
+
+      usePrefsStore().loaded = false;
+      usePrefsStore().visibleFields = [];
+      usePrefsStore().columnOrder = [];
+      usePrefsStore().columnWidths = {};
+      useSettingsStore().loaded = false;
+      usePipettesStore().items = [];
+      usePipettesStore().clearSelection();
+      useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
+
       toast.success('Вернулись к своей учётной записи');
-      router.push('/');
+      window.dispatchEvent(new CustomEvent('auth:changed'));
     }
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
