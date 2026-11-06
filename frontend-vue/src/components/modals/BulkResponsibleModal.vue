@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
@@ -49,23 +49,63 @@ const namesList = ref<string[]>([]);
 const saving = ref(false);
 const error = ref('');
 
+let _lockedIds: string[] = [];
+let _generation = 0;
+
 const count = computed(() => ids.value.length);
 
-watch(() => ui.activeModal, async (v) => {
-  if (v !== 'bulkResponsible') return;
-  ids.value = (ui.modalData as string[]) || [];
-  if (ids.value.length === 0) { toast.error('Ничего не выбрано'); ui.close(); return; }
-  newResp.value = '';
-  error.value = '';
+watch(() => ui.activeModal, (v) => {
+  if (v === 'bulkResponsible') open();
+});
 
+async function open() {
+  const gen = ++_generation;
+
+  // Сброс состояния
+  error.value = '';
+  saving.value = false;
+  ids.value = [];
+  newResp.value = '';
+
+  const list = (ui.modalData as string[]) || [];
+  if (list.length === 0) {
+    toast.error('Ничего не выбрано');
+    ui.close();
+    return;
+  }
+
+  // 1. Захват локов (await), потом показываем форму
+  try {
+    const r = await bulkApi.bulkLock(list);
+    if (gen !== _generation) {
+      // Пока ждали — сессия переоткрыта или закрыта: сразу освобождаем
+      bulkApi.bulkUnlock(list).catch(() => {});
+      return;
+    }
+    _lockedIds = list;
+    if (r.busy?.length) {
+      toast.warn(`Уже редактируются: ${r.busy.map(b => `${b.id} (${b.lockedBy})`).join(', ')}`);
+    }
+  } catch {
+    if (gen === _generation) {
+      toast.error('Ошибка блокировки');
+      ui.close();
+    }
+    return;
+  }
+
+  ids.value = list;
+
+  // 2. Список имён
   try {
     const users = await getResponsibles();
+    if (gen !== _generation) return;
     const names = new Set<string>();
     users.forEach(u => u.fullName && names.add(u.fullName));
     pip.items.forEach(p => p.responsible && names.add(p.responsible));
     namesList.value = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
   } catch { /* ignore */ }
-});
+}
 
 async function onSubmit() {
   error.value = '';
@@ -83,7 +123,8 @@ async function onSubmit() {
     let msg = `Изменено: ${res.successful}`;
     if (res.skipped > 0) msg += `. Пропущено: ${res.skipped}`;
     toast.success(msg);
-    ui.close();
+
+    close();                       // ← вместо ui.close(): снимает локи
     pip.clearSelection();
     await pip.loadPaged();
   } catch (e) {
@@ -94,7 +135,17 @@ async function onSubmit() {
 }
 
 function close() {
-  if (ids.value.length > 0) bulkApi.bulkUnlock(ids.value).catch(() => {});
+  if (_lockedIds.length > 0) {
+    bulkApi.bulkUnlock(_lockedIds).catch(() => {});
+    _lockedIds = [];
+  }
   ui.close();
 }
+
+onUnmounted(() => {
+  if (_lockedIds.length > 0) {
+    bulkApi.bulkUnlock(_lockedIds).catch(() => {});
+    _lockedIds = [];
+  }
+});
 </script>
