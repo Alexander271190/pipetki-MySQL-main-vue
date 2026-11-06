@@ -9,12 +9,12 @@ export function verify(): Promise<{ user: User }> {
   return apiRequest<{ user: User }>('/auth/verify');
 }
 
-export function changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
-  return apiRequest('/auth/change-password', 'POST', { currentPassword, newPassword, confirmPassword });
+export function changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<{ token?: string }> {
+  return apiRequest<{ token?: string }>('/auth/change-password', 'POST', { currentPassword, newPassword, confirmPassword });
 }
 
-export function setupPassword(newPassword: string, confirmPassword: string) {
-  return apiRequest('/auth/setup-password', 'POST', { newPassword, confirmPassword });
+export function setupPassword(newPassword: string, confirmPassword: string): Promise<{ token?: string }> {
+  return apiRequest<{ token?: string }>('/auth/setup-password', 'POST', { newPassword, confirmPassword });
 }
 
 export function impersonate(userId: string): Promise<LoginResponse> {
