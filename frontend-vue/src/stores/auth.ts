@@ -112,6 +112,8 @@ export function usePermissions() {
     canBulkChangeResponsible:   computed(() => p('bulk_change_responsible') || p('manage_pipettes')),
     canScanBarcode:             computed(() => p('scan_barcode')),
     canPrintLabels:             computed(() => p('print_labels')),
+    canExport:                  computed(() => p('export_data')),
+    canImport:                  computed(() => p('import_data')),
     canManageUsers:             computed(() => p('manage_users')),
     canManageSettings:          computed(() => p('manage_settings')),
     canManagePrinters:          computed(() => p('manage_printers')),
