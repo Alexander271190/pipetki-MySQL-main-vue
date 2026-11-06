@@ -245,6 +245,22 @@ async function onSubmit() {
     pip.clearSelection();
     await pip.loadPaged();
     await stats.load();
+    // Автофильтр по дате возврата — чтобы пользователь сразу видел возвращённые приборы
+const calFilter = settings.filters.find(f => f.type === 'date-period');
+if (calFilter && date.value) {
+  pip.filterState = {
+    ...pip.filterState,
+    [calFilter.id]: {
+      type: 'last_calibration',
+      period: 'custom',
+      from: date.value,
+      to: date.value,
+    },
+  };
+  pip.page = 1;
+  await pip.loadPaged();
+  toast.warn(`Таблица отфильтрована по дате ${date.value}. Сбросьте фильтр, чтобы увидеть всё.`);
+}
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка';
   } finally {
