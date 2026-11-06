@@ -39,14 +39,35 @@
         <div class="stat-card stat-total-card">
           <div class="num" style="cursor:help;">{{ stats.counters.total }}</div>
           <div class="label">Всего</div>
-          <div class="stat-tooltip">
-            <div class="tooltip-row tooltip-total">
-              <span>Всего:</span> <strong>{{ stats.counters.total }}</strong>
-            </div>
-            <div class="tooltip-row"><span>🟢 В норме:</span> <span>{{ stats.counters.ok }}</span></div>
-            <div class="tooltip-row"><span>🟡 Скоро поверка:</span> <span>{{ stats.counters.warn }}</span></div>
-            <div class="tooltip-row"><span>🔴 Просрочены:</span> <span>{{ stats.counters.danger }}</span></div>
-          </div>
+         <div class="stat-tooltip">
+  <div class="tooltip-row tooltip-total">
+    <span>Всего:</span> <strong>{{ stats.counters.total }}</strong>
+  </div>
+  <div class="tooltip-row"><span>🟢 В норме:</span> <span>{{ stats.counters.ok }}</span></div>
+  <div class="tooltip-row"><span>🟡 Скоро поверка:</span> <span>{{ stats.counters.warn }}</span></div>
+  <div class="tooltip-row"><span>🔴 Просрочены:</span> <span>{{ stats.counters.danger }}</span></div>
+
+  <div v-if="outsideCount > 0" class="tooltip-outside">
+    <div class="tooltip-row" style="font-weight: 600; margin-bottom: 4px;">
+      <span>Вне индикаторов:</span> <b>{{ outsideCount }}</b>
+    </div>
+    <div v-if="(stats.counters.sent || 0) > 0" class="tooltip-row">
+      <span>📦 На поверке:</span> <span>{{ stats.counters.sent }}</span>
+    </div>
+    <div v-if="(stats.counters.wip || 0) > 0" class="tooltip-row">
+      <span>⏳ В процессе:</span> <span>{{ stats.counters.wip }}</span>
+    </div>
+    <div v-if="(stats.counters.fail || 0) > 0" class="tooltip-row">
+      <span>❌ Брак:</span> <span>{{ stats.counters.fail }}</span>
+    </div>
+    <div v-if="(stats.counters.unknownDate || 0) > 0" class="tooltip-row">
+      <span>❓ Без даты поверки:</span> <span>{{ stats.counters.unknownDate }}</span>
+    </div>
+    <div v-if="(stats.counters.inactive || 0) > 0" class="tooltip-row">
+      <span>⛔ Неактивные:</span> <span>{{ stats.counters.inactive }}</span>
+    </div>
+  </div>
+</div>
         </div>
       </div>
       <div class="user-info">
@@ -78,6 +99,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
+import { useModals } from '@/composables/useModals';
 
 const auth = useAuthStore();
 const stats = useStatsStore();
@@ -111,7 +133,6 @@ function toggleTheme() {
   try { localStorage.setItem('pipette_theme', isDark.value ? 'dark' : 'light'); } catch { /* ignore */ }
 }
 
-import { useModals } from '@/composables/useModals';
 const modals = useModals();
 
 function onPassword() {
@@ -164,5 +185,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize);
+});
+
+  const outsideCount = computed(() => {
+  const c = stats.counters;
+  const sumIn = (c.ok || 0) + (c.warn || 0) + (c.danger || 0);
+  return Math.max(0, (c.total || 0) - sumIn); 
 });
 </script>
