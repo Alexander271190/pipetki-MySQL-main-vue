@@ -127,7 +127,7 @@ const columns = computed<string[]>(() => {
         if (f && visible.has(f.id)) isVisible = true;
       }
       if (!isVisible) continue;
-      const def = allColumns.value.find(c => c.id === id);
+      const def = allColumns.value.find((c: TableColumn) => c.id === id);
       if (def) { cols.push(id); added.add(id); }
     }
   }
