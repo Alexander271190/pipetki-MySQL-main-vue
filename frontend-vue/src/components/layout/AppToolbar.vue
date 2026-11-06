@@ -63,47 +63,87 @@
         <i class="fa-solid fa-ellipsis"></i> Ещё <i class="fa-solid fa-caret-down"></i>
       </button>
       <div v-if="menuOpen" class="dropdown-menu show" style="display:block;">
-        <button class="dropdown-item" @click="closeMenuAnd('add')">
-          <i class="fa-solid fa-plus"></i> Создать оборудование
-        </button>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-item" @click="closeMenuAnd('excel')">
-          <i class="fa-solid fa-file-excel"></i> Печать в Excel
-        </button>
-        <button class="dropdown-item" @click="closeMenuAnd('pdf')">
-          <i class="fa-solid fa-print"></i> Печать в PDF
-        </button>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-item" @click="closeMenuAnd('labels')">
-          <i class="fa-solid fa-tag"></i> Печать этикеток
-        </button>
-        <button class="dropdown-item" @click="closeMenuAnd('import')">
-          <i class="fa-solid fa-download"></i> Импорт данных
-        </button>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-item" @click="closeMenuAnd('settings')">
-          <i class="fa-solid fa-gear"></i> Настройки
-        </button>
-        <button
-          v-if="hasCustomLayout"
-          class="dropdown-item"
-          @click="onResetLayout"
-        >
-          <i class="fa-solid fa-rotate-left"></i> Сбросить раскладку колонок
-        </button>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-item" @click="closeMenuAnd('compact')">
-          <i class="fa-solid fa-arrows-up-down"></i> Компактный режим
-        </button>
-        <button class="dropdown-item" @click="closeMenuAnd('audit')">
-          <i class="fa-solid fa-clipboard-list"></i> Журнал действий
-        </button>
-        <button class="dropdown-item" @click="closeMenuAnd('help')">
-          <i class="fa-solid fa-book-open"></i> Справка
-        </button>
-      </div>
-    </div>
+  <button
+    v-if="perm.canAddPipette.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('add')"
+  >
+    <i class="fa-solid fa-plus"></i> Создать оборудование
+  </button>
+
+  <div v-if="perm.canAddPipette.value && (perm.canExport.value || perm.canPrintLabels.value)" class="dropdown-divider"></div>
+
+  <button
+    v-if="perm.canExport.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('excel')"
+  >
+    <i class="fa-solid fa-file-excel"></i> Печать в Excel
+  </button>
+  <button
+    v-if="perm.canExport.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('pdf')"
+  >
+    <i class="fa-solid fa-print"></i> Печать в PDF
+  </button>
+
+  <div v-if="perm.canExport.value && (perm.canPrintLabels.value || perm.canImport.value)" class="dropdown-divider"></div>
+
+  <button
+    v-if="perm.canPrintLabels.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('labels')"
+  >
+    <i class="fa-solid fa-tag"></i> Печать этикеток
+  </button>
+  <button
+    v-if="perm.canImport.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('import')"
+  >
+    <i class="fa-solid fa-download"></i> Импорт данных
+  </button>
+
+  <div
+    v-if="perm.canManageSettings.value || hasCustomLayout"
+    class="dropdown-divider"
+  ></div>
+
+  <button
+    v-if="perm.canManageSettings.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('settings')"
+  >
+    <i class="fa-solid fa-gear"></i> Настройки
+  </button>
+
+  <template v-if="hasCustomLayout">
+    <button class="dropdown-item" @click="onResetLayout">
+      <i class="fa-solid fa-rotate-left"></i> Сбросить раскладку колонок
+    </button>
+  </template>
+
+  <div class="dropdown-divider"></div>
+
+  <button class="dropdown-item" @click="closeMenuAnd('compact')">
+    <i class="fa-solid fa-arrows-up-down"></i> Компактный режим
+  </button>
+
+  <button
+    v-if="perm.canViewLog.value"
+    class="dropdown-item"
+    @click="closeMenuAnd('audit')"
+  >
+    <i class="fa-solid fa-clipboard-list"></i> Журнал действий
+  </button>
+
+  <button class="dropdown-item" @click="closeMenuAnd('help')">
+    <i class="fa-solid fa-book-open"></i> Справка
+  </button>
   </div>
+ </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -127,10 +167,11 @@ const toast = useToastStore();
 const prefs = usePrefsStore();
 const menuOpen = ref(false);
 const showFilter = ref(false);
-const hasCustomLayout = computed(() => {
-return (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0)
-      || (prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0);
-});
+const hasCustomLayout = computed(
+  () =>
+    (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) ||
+    (!!prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0)
+);
 
 async function onResetLayout() {
   menuOpen.value = false;
@@ -140,12 +181,12 @@ async function onResetLayout() {
       icon: '<i class="fa-solid fa-rotate-left" style="color:#d97706;"></i>',
       title: 'Сброс раскладки',
       okText: 'Сбросить',
-      okClass: 'btn-warning'
+      okClass: 'btn-warning',
     }
   );
   if (!ok) return;
   prefs.resetLayout();
-  toast.success('Раскладка колонок сброшена');  
+  toast.success('Раскладка колонок сброшена');
 }
 
 let searchTimer: number | null = null;
@@ -180,6 +221,7 @@ async function closeMenuAnd(action: string) {
       modals.openImport();
       break;
     case 'settings':
+      // кнопка теперь скрыта через v-if, проверка оставлена как defense-in-depth
       if (!perm.canManageSettings.value) {
         toast.error('Нет прав на настройки');
         break;
@@ -192,11 +234,11 @@ async function closeMenuAnd(action: string) {
     case 'pdf':
       await exportComposable.exportToPDF();
       break;
-   case 'audit':
-     modals.openAudit();
+    case 'audit':
+      modals.openAudit();
       break;
-   case 'help':
-     modals.openHelp();
+    case 'help':
+      modals.openHelp();
       break;
     default:
       toast.show(`Действие «${action}» — в следующих блоках`, 'warn');
@@ -210,7 +252,6 @@ function closeOnOutsideClick(e: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('click', closeOnOutsideClick);
-  // Восстанавливаем компакт-режим
   try {
     if (localStorage.getItem('pipette_compact_mode') === '1') {
       document.body.classList.add('compact-mode');
@@ -220,7 +261,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', closeOnOutsideClick);
-  
 });
 </script>
 
