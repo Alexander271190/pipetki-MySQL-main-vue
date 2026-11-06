@@ -1,6 +1,18 @@
 <template>
-  <AppModal :visible="ui.activeModal === 'userEdit'" @close="close" modal-class="modal-lg">
-    <h2><i class="fa-solid" :class="isEdit ? 'fa-pen' : 'fa-user-plus'"></i> {{ isEdit ? 'Редактирование: ' + form.login : 'Новый пользователь' }}</h2>
+  <AppModal :visible="ui.activeModal === 'userEdit'" @close="closeAndBack" modal-class="modal-lg">
+    <h2 style="display:flex;align-items:center;gap:10px;">
+      <button
+        type="button"
+        class="settings-back-btn"
+        @click="closeAndBack"
+        title="Назад к списку пользователей"
+        style="flex-shrink:0;"
+      >
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <i class="fa-solid" :class="isEdit ? 'fa-pen' : 'fa-user-plus'"></i>
+      <span>{{ isEdit ? 'Редактирование: ' + form.login : 'Новый пользователь' }}</span>
+    </h2>
 
     <div v-if="loading" style="text-align:center;padding:30px;">
       <i class="fa-solid fa-spinner fa-spin"></i>
@@ -21,9 +33,29 @@
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Роль</label>
-          <select v-model="form.role">
-            <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.name }}</option>
+        <div class="form-group">
+          <label>Роль</label>
+          <div style="display:flex;gap:8px;">
+            <select v-model="form.role" style="flex:1;">
+              <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.name }}</option>
+            </select>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="openQuickRoleModal"
+              title="Создать новую роль"
+              style="white-space:nowrap;"
+            >
+              <i class="fa-solid fa-plus"></i> Новая роль
+            </button>
+          </div>
+        </div>
+        <div class="form-group"><label>Строк на странице</label>
+          <select v-model="form.pageSize">
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
           </select>
         </div>
       </div>
@@ -34,33 +66,90 @@
 
       <div class="info-block" style="margin-bottom:12px;">
         <div style="font-weight:700;margin-bottom:6px;"><i class="fa-solid fa-key"></i> Права доступа</div>
-        <small style="display:block;margin-bottom:10px;font-size:.8rem;">Отмеченные права определяют, какие кнопки доступны пользователю.</small>
-        <div class="btn-group">
-          <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('none')"><i class="fa-solid fa-eraser"></i> Очистить</button>
-          <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('user')"><i class="fa-solid fa-user"></i> Пользователь</button>
-          <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('senior')"><i class="fa-solid fa-flask"></i> Ст. лаборант</button>
-          <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('all')"><i class="fa-solid fa-star"></i> Все</button>
-        </div>
-        <div class="btn-group" v-if="presets.length > 0">
+        <small style="display:block;margin-bottom:10px;font-size:.8rem;">
+          Отмеченные права определяют, <strong>какие кнопки и действия доступны пользователю</strong>.
+          Если право не выдано — элемент скрыт. По умолчанию все права выключены.
+          Для роли «Администратор» все права выдаются автоматически.
+        </small>
+
+        <!-- Стандартные пресеты -->
+        <div style="margin-bottom:14px;">
+          <div class="card-title-sm">Стандартные:</div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('none')">
+              <i class="fa-solid fa-eraser"></i> Очистить
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('user')">
+              <i class="fa-solid fa-user"></i> Пользователь
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('senior')">
+              <i class="fa-solid fa-flask"></i> Ст. лаборант
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" @click="applyPreset('all')">
+              <i class="fa-solid fa-star"></i> Все права
+            </button>
+          </div>
+
+          <!-- Мои пресеты -->
+          <div class="card-title-sm" style="margin-top:10px;">Мои пресеты:</div>
+          <div class="btn-group" style="align-items:center;flex-wrap:wrap;">
+            <template v-if="presets.length > 0">
+              <div
+                v-for="p in presets"
+                :key="p.id"
+                class="flex-row-sm"
+                style="background:#f1f5f9;border-radius:6px;padding:2px 4px;"
+              >
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  style="border:none;background:transparent;padding:4px 6px;"
+                  @click="applyPresetArray(p.permissions)"
+                  :title="'Применить пресет: ' + p.name"
+                >{{ p.name }}</button>
+                <button
+                  type="button"
+                  class="btn btn-danger btn-sm"
+                  style="padding:2px 4px;border-radius:4px;background:transparent;color:#dc2626;border:none;"
+                  @click="deleteCustomPreset(p.id)"
+                  title="Удалить пресет"
+                ><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </template>
+            <span v-else class="text-faint-sm">Нет сохранённых пресетов</span>
+          </div>
+
           <button
-            v-for="p in presets" :key="p.id"
-            class="btn btn-secondary btn-sm"
-            @click="applyPresetArray(p.permissions)"
-          >{{ p.name }}</button>
+            type="button"
+            class="btn btn-outline btn-sm"
+            style="margin-top:8px;"
+            @click="saveCurrentPermsAsPreset"
+          >
+            <i class="fa-solid fa-floppy-disk"></i> Сохранить текущие как пресет
+          </button>
         </div>
-        <div v-for="group in permissionGroups" :key="group.name" style="margin-top:12px;">
-          <div class="section-title">{{ group.name }}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;">
-            <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;">
-              <input
-                type="checkbox"
-                :value="p.key"
-                :checked="form.permissions.includes(p.key)"
-                @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)"
-                :disabled="isRoleAdmin"
-              />
-              {{ p.label }}
-            </label>
+
+        <!-- Группы прав -->
+        <div id="usr-permissions">
+          <div v-for="group in permissionGroups" :key="group.name" style="margin-bottom:12px;">
+            <div class="section-title">{{ group.name }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;">
+              <label
+                v-for="p in group.items"
+                :key="p.key"
+                style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;"
+              >
+                <input
+                  type="checkbox"
+                  class="usr-perm-cb"
+                  :value="p.key"
+                  :checked="form.permissions.includes(p.key)"
+                  @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)"
+                  :disabled="isRoleAdmin"
+                />
+                <span v-html="p.label"></span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -68,15 +157,23 @@
       <div class="warning-block" style="margin-bottom:10px;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
           <input v-model="form.onlyOwnDepartment" type="checkbox" style="width:18px;height:18px;" />
+          <i class="fa-solid fa-eye-slash"></i>
           Показывать только свой отдел
         </label>
+        <small style="display:block;margin-top:6px;margin-left:26px;font-size:.78rem;">
+          Если включено — пользователь увидит только пипетки своего отдела. Отдел должен быть указан выше.
+        </small>
       </div>
 
       <div class="info-block">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
           <input v-model="form.isActing" type="checkbox" style="width:18px;height:18px;" @change="onActingChange" />
+          <i class="fa-solid fa-user-clock"></i>
           Исполняющий обязанности (и.о.)
         </label>
+        <small style="display:block;margin-top:6px;margin-left:26px;font-size:.78rem;">
+          И.о. видит оборудование отдела основного и работает под его ФИО.
+        </small>
         <div v-if="form.isActing" style="margin-top:10px;">
           <label style="font-size:.85rem;font-weight:600;margin-bottom:4px;display:block;">За кого исполняет *</label>
           <select v-model="form.actingForId" style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;">
@@ -89,23 +186,73 @@
       <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
 
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" @click="close">Отмена</button>
+        <button type="button" class="btn btn-secondary" @click="resetForm">
+          <i class="fa-solid fa-rotate-left"></i> Очистить форму
+        </button>
         <button type="submit" class="btn btn-success" :disabled="saving">
           <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
           {{ saving ? 'Сохранение…' : 'Сохранить' }}
         </button>
       </div>
     </form>
+
+    <!-- 🆕 Модалка быстрого создания роли -->
+    <div v-if="quickRoleVisible" class="modal-overlay active" style="z-index:200;" @click.self="closeQuickRole">
+      <div class="modal" style="max-width:450px;" @click.stop>
+        <h2><i class="fa-solid fa-user-shield"></i> Новая роль</h2>
+
+        <div class="form-group">
+          <label>Название роли *</label>
+          <input
+            id="quick-role-input"
+            v-model="quickRoleName"
+            type="text"
+            placeholder="Например: Администратор 1"
+            @keydown.enter.prevent="saveQuickRole"
+          />
+        </div>
+
+        <div class="form-group" style="padding:10px;background:var(--card-alt);border-radius:6px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input v-model="quickRoleIsAdmin" type="checkbox" style="width:18px;height:18px;" />
+            <span style="font-weight:600;color:var(--text-strong);">Дать все права администратора</span>
+          </label>
+          <small style="color:var(--text-muted);margin-top:4px;display:block;margin-left:28px;">
+            Пользователи с этой ролью получат полный доступ к системе. Отдельные права настраивать не нужно.
+          </small>
+        </div>
+
+        <div v-if="quickRoleError" class="auth-error" style="visibility:visible;opacity:1;">
+          {{ quickRoleError }}
+        </div>
+
+        <div class="form-actions" style="margin-top:16px;">
+          <button type="button" class="btn btn-secondary" @click="closeQuickRole">Отмена</button>
+          <button
+            type="button"
+            class="btn btn-success"
+            @click="saveQuickRole"
+            :disabled="quickRoleSaving"
+          >
+            <i class="fa-solid" :class="quickRoleSaving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
+            {{ quickRoleSaving ? 'Создание…' : 'Создать' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </AppModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
+import { showConfirm } from '@/composables/useConfirm';
+import { showPrompt } from '@/composables/usePrompt';
+import { apiRequest } from '@/api/client';
 import * as usersApi from '@/api/users';
 import * as rolesApi from '@/api/roles';
 import { ALL_PERMISSIONS } from '@/constants/permissions';
@@ -123,6 +270,7 @@ interface FormShape {
   position: string;
   department: string;
   role: string;
+  pageSize: string;
   permissions: string[];
   onlyOwnDepartment: boolean;
   isActing: boolean;
@@ -130,7 +278,7 @@ interface FormShape {
 }
 
 const form = ref<FormShape>({
-  login: '', fullName: '', position: '', department: '', role: 'user',
+  login: '', fullName: '', position: '', department: '', role: 'user', pageSize: '100',
   permissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
 });
 
@@ -142,12 +290,18 @@ const presets = ref<Preset[]>([]);
 const roles = ref<Role[]>([]);
 const actingTargets = ref<{ id: string; fullName: string; department?: string }[]>([]);
 
+// 🆕 Быстрое создание роли
+const quickRoleVisible = ref(false);
+const quickRoleName = ref('');
+const quickRoleIsAdmin = ref(false);
+const quickRoleSaving = ref(false);
+const quickRoleError = ref('');
+
 const isEdit = computed(() => !!editId.value);
 
-const availableRoles = computed(() => roles.value.filter(r => {
-  if (r.isAdmin && !auth.isAdmin) return false;
-  return true;
-}));
+const availableRoles = computed(() =>
+  roles.value.filter(r => !r.isAdmin || auth.isAdmin)
+);
 
 const isRoleAdmin = computed(() => {
   const r = roles.value.find(x => x.value === form.value.role);
@@ -158,7 +312,7 @@ const permissionGroups = computed(() => {
   const groups: Record<string, { key: string; label: string }[]> = {};
   for (const p of ALL_PERMISSIONS) {
     if (!groups[p.group]) groups[p.group] = [];
-    groups[p.group].push({ key: p.key, label: p.label.replace(/<[^>]+>/g, '').trim() });
+    groups[p.group].push({ key: p.key, label: p.label });
   }
   return Object.entries(groups).map(([name, items]) => ({ name, items }));
 });
@@ -179,12 +333,18 @@ async function loadAll() {
           position: u.position,
           department: u.department || '',
           role: u.role,
+          pageSize: '100',
           permissions: [...(u.extraPermissions || [])],
           onlyOwnDepartment: !!u.onlyOwnDepartment,
           isActing: !!u.isActing,
           actingForId: u.actingForId || '',
         };
         if (u.isActing) await onActingChange();
+
+        try {
+          const prefs = await apiRequest<{ defaultPageSize?: number }>(`/settings/user-preferences/${editId.value}`);
+          if (prefs?.defaultPageSize) form.value.pageSize = String(prefs.defaultPageSize);
+        } catch { /* ignore */ }
       }
     }
   } catch (e) {
@@ -196,14 +356,9 @@ async function loadAll() {
 
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'userEdit') return;
-  editId.value = (ui.modalData as string) || null;
+  editId.value = typeof ui.modalData === 'string' ? ui.modalData : null;
   error.value = '';
-  if (!isEdit.value) {
-    form.value = {
-      login: '', fullName: '', position: '', department: '', role: 'user',
-      permissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
-    };
-  }
+  if (!isEdit.value) resetForm();
   await loadAll();
 });
 
@@ -222,16 +377,117 @@ function togglePerm(key: string, checked: boolean) {
 }
 
 function applyPreset(kind: 'none' | 'user' | 'senior' | 'all') {
-  const presets: Record<string, string[]> = {
+  const presetMap: Record<string, string[]> = {
     none: [],
     user: ['view_history', 'print_labels', 'export_data'],
     senior: ['add_pipette','edit_pipette','quick_calibration','transfer_pipette','bulk_change_responsible','bulk_send','bulk_return','export_data','scan_barcode','print_labels','view_history','view_audit'],
-    all: ALL_PERMISSIONS.map((p: { key: string }) => p.key),
+    all: ALL_PERMISSIONS.map(p => p.key),
   };
-  form.value.permissions = [...presets[kind]];
+  form.value.permissions = [...presetMap[kind]];
 }
 
-function applyPresetArray(list: string[]) { form.value.permissions = [...list]; }
+function applyPresetArray(list: string[]) {
+  form.value.permissions = [...list];
+}
+
+async function saveCurrentPermsAsPreset() {
+  const selected = [...form.value.permissions];
+  if (selected.length === 0) {
+    toast.error('Отметьте хотя бы одно право для сохранения');
+    return;
+  }
+  const name = await showPrompt('Название нового пресета', {
+    icon: 'fa-floppy-disk',
+    title: 'Сохранить пресет',
+    okText: 'Сохранить',
+    placeholder: 'Например: Врач КДЛ',
+    validator: (v) => v ? null : 'Укажите название',
+  });
+  if (!name) return;
+  try {
+    await usersApi.createPreset(name.trim(), selected);
+    toast.success('Пресет сохранён');
+    presets.value = await usersApi.getPresets();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  }
+}
+
+async function deleteCustomPreset(id: number) {
+  const ok = await showConfirm('Удалить этот пресет?', {
+    icon: '<i class="fa-solid fa-trash"></i>',
+    title: 'Удаление',
+    okText: 'Удалить',
+    okClass: 'btn-danger',
+  });
+  if (!ok) return;
+  try {
+    await usersApi.deletePreset(id);
+    presets.value = presets.value.filter(p => p.id !== id);
+    toast.success('Пресет удалён');
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  }
+}
+
+// 🆕 Быстрое создание роли
+function openQuickRoleModal() {
+  quickRoleVisible.value = true;
+  quickRoleName.value = '';
+  quickRoleIsAdmin.value = false;
+  quickRoleError.value = '';
+  setTimeout(() => {
+    document.querySelector<HTMLInputElement>('#quick-role-input')?.focus();
+  }, 100);
+}
+
+function closeQuickRole() {
+  quickRoleVisible.value = false;
+  quickRoleName.value = '';
+  quickRoleIsAdmin.value = false;
+  quickRoleError.value = '';
+  quickRoleSaving.value = false;
+}
+
+async function saveQuickRole() {
+  quickRoleError.value = '';
+  const name = quickRoleName.value.trim();
+  if (!name) {
+    quickRoleError.value = 'Укажите название роли';
+    return;
+  }
+
+  quickRoleSaving.value = true;
+  try {
+    await apiRequest('/roles', 'POST', {
+      name,
+      permissions: [],
+      isAdmin: quickRoleIsAdmin.value,
+    });
+
+    roles.value = await rolesApi.getRoles();
+
+    const newRole = roles.value.find(r => r.name === name);
+    if (newRole) {
+      form.value.role = newRole.value;
+    }
+
+    toast.success('Роль создана');
+    closeQuickRole();
+  } catch (e) {
+    quickRoleError.value = e instanceof Error ? e.message : 'Ошибка создания';
+    quickRoleSaving.value = false;
+  }
+}
+
+async function savePageSize(userId: string) {
+  try {
+    let existing: Record<string, unknown> = {};
+    try { existing = await apiRequest(`/settings/user-preferences/${userId}`); } catch { /* ignore */ }
+    const merged = { ...existing, defaultPageSize: parseInt(form.value.pageSize, 10) || 100 };
+    await apiRequest(`/settings/user-preferences/${userId}`, 'PUT', merged);
+  } catch { /* ignore */ }
+}
 
 async function onSubmit() {
   error.value = '';
@@ -259,18 +515,41 @@ async function onSubmit() {
       actingForId: form.value.isActing ? form.value.actingForId : null,
     };
 
+    let savedId = editId.value;
+
     if (isEdit.value && editId.value) {
+      // ═══ EDIT ═══
       await usersApi.updateUser(editId.value, payload);
       toast.success('Пользователь обновлён');
+
+      if (savedId) await savePageSize(savedId);
+
+      if (savedId === auth.user?.id) {
+        const me = (await usersApi.getUsers()).find(x => x.id === savedId);
+        if (me) auth.user = me;
+      }
+
+      closeAndBack();
+      window.dispatchEvent(new CustomEvent('users:reload'));
     } else {
+      // ═══ CREATE ═══
       const res = await usersApi.createUser(payload);
+      savedId = res.id;
       toast.success('Пользователь создан');
-      ui.open('tempPassword', { login: res.login, fullName: form.value.fullName, password: res.tempPassword });
+
+      if (savedId) await savePageSize(savedId);
+
+      window.dispatchEvent(new CustomEvent('users:reload'));
+
+      // Показываем модалку с паролем и НЕ закрываем — пользователь прочитает/скопирует
+      ui.open('tempPassword', {
+        login: res.login,
+        fullName: form.value.fullName,
+        password: res.tempPassword,
+      });
+      saving.value = false;
+      return;                       // ← ранний выход: не доходим до closeAndBack
     }
-    ui.close();
-    // Перезагрузка списка
-    const { useUiStore: _ } = await import('@/stores/ui');
-    window.dispatchEvent(new CustomEvent('users:reload'));
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка сохранения';
   } finally {
@@ -278,5 +557,16 @@ async function onSubmit() {
   }
 }
 
-function close() { ui.close(); }
+function resetForm() {
+  form.value = {
+    login: '', fullName: '', position: '', department: '', role: 'user', pageSize: '100',
+    permissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
+  };
+  error.value = '';
+}
+
+function closeAndBack() {
+  ui.close();
+  ui.open('settings', 'users');
+}
 </script>
