@@ -75,4 +75,64 @@ onMounted(() => {
 
   setPasswordRequiredHandler((mode) => ui.open('changePassword', mode));
 });
+
+  // ═══ РЕСАЙЗ МОДАЛОК за правый нижний угол ═══
+(function initModalResize() {
+  let activeModal: HTMLElement | null = null;
+  let startX = 0, startY = 0, startW = 0, startH = 0;
+  let minW = 0, minH = 0;
+
+  function onPointerDown(e: PointerEvent) {
+    if (window.innerWidth < 768) return;
+    const target = e.target as HTMLElement;
+    if (!target || !target.closest) return;
+    const modal = target.closest('.modal') as HTMLElement;
+    if (!modal) return;
+
+    const rect = modal.getBoundingClientRect();
+    const dx = rect.right - e.clientX;
+    const dy = rect.bottom - e.clientY;
+
+    // Зона захвата — 40×40 в правом нижнем углу
+    if (dx < 0 || dy < 0) return;
+    if (dx > 40 || dy > 40) return;
+
+    e.preventDefault();
+    activeModal = modal;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = rect.width;
+    startH = rect.height;
+
+    const cs = getComputedStyle(modal);
+    minW = parseInt(cs.minWidth, 10) || 400;
+    minH = parseInt(cs.minHeight, 10) || 300;
+
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!activeModal) return;
+    const w = Math.max(minW, startW + (e.clientX - startX));
+    const h = Math.max(minH, startH + (e.clientY - startY));
+    activeModal.style.width = w + 'px';
+    activeModal.style.height = h + 'px';
+    activeModal.style.maxWidth = 'none';
+    activeModal.style.maxHeight = 'none';
+  }
+
+  function onPointerUp() {
+    if (!activeModal) return;
+    activeModal = null;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
+  document.addEventListener('pointerdown', onPointerDown);
+})();
 </script>
