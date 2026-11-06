@@ -16,7 +16,7 @@
           <td style="text-align:center;"><input v-model="d.enabled" type="checkbox" /></td>
           <td><input v-model="d.name" type="text" @input="checkDuplicate" /></td>
           <td style="text-align:center;">
-            <button class="row-actions-btn" @click="onDelete(i)" title="Удалить">
+            <button class="row-actions-btn" @click="openActions($event, i)" title="Действия">
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </button>
           </td>
@@ -49,6 +49,7 @@
 import { ref, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
+import { useUiStore } from '@/stores/ui';
 import { showConfirm } from '@/composables/useConfirm';
 import * as api from '@/api/settings';
 import type { DepartmentFull } from '@/api/settings';
@@ -57,7 +58,7 @@ defineEmits<{ (e: 'close'): void }>();
 
 const settings = useSettingsStore();
 const toast = useToastStore();
-
+const ui = useUiStore();
 const departments = ref<(DepartmentFull & { _originalName?: string | null })[]>([]);
 const newDeptName = ref('');
 const saving = ref(false);
@@ -150,5 +151,15 @@ async function onSave() {
   } finally {
     saving.value = false;
   }
+}
+  function openActions(e: MouseEvent, idx: number) {
+  e.stopPropagation();
+  ui.openRowActions(e.currentTarget as HTMLElement, [
+    {
+      label: '<i class="fa-solid fa-trash"></i> Удалить',
+      class: 'item-danger',
+      action: () => onDelete(idx),
+    },
+  ]);
 }
 </script>
