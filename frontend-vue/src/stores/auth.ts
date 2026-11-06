@@ -97,9 +97,6 @@ export const useAuthStore = defineStore('auth', () => {
   };
 });
 
-// Вспомогательные функции проверки прав (для удобства)
-import { computed } from 'vue';
-
 export function usePermissions() {
   const auth = useAuthStore();
   const p = (key: string) => auth.hasPermission(key);
