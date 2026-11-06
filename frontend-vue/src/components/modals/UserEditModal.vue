@@ -226,7 +226,7 @@ function applyPreset(kind: 'none' | 'user' | 'senior' | 'all') {
     none: [],
     user: ['view_history', 'print_labels', 'export_data'],
     senior: ['add_pipette','edit_pipette','quick_calibration','transfer_pipette','bulk_change_responsible','bulk_send','bulk_return','export_data','scan_barcode','print_labels','view_history','view_audit'],
-    all: ALL_PERMISSIONS.map(p => p.key),
+    all: ALL_PERMISSIONS.map((p: { key: string }) => p.key),
   };
   form.value.permissions = [...presets[kind]];
 }
