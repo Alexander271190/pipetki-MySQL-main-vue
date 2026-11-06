@@ -1,0 +1,347 @@
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const db = require('../db');
+const { authenticate } = require('../middleware/auth');
+const { validatePassword } = require('../middleware/passwordPolicy');
+const { logAction } = require('../utils/audit');
+const { USER_COLUMNS } = require('./pipettes/_helpers');
+const roleCache = require('../utils/roles');
+
+const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Помечает роут как доступный, даже если требуется смена пароля
+const allowWhenPasswordMustChange = (req, res, next) => {
+  req.allowWhenPasswordMustChange = true;
+  next();
+};
+
+// ============================================================
+// ВХОД
+// ============================================================
+function userPublic(u) {
+  return {
+    id: u.id,
+    login: u.login,
+    fullName: u.full_name,
+    position: u.position,
+    department: u.department,
+    role: u.role,
+    isAdmin: !!u._isAdmin,
+    roleName: u._roleDef?.name || u.role,
+    rolePermissions: u._roleDef?.permissions || [],
+    permissions: u._perms || db.safeParse(u.extra_permissions, []),
+    onlyOwnDepartment: !!u.only_own_department,
+    isActing: !!u.is_acting,
+    actingForId: u.acting_for_id || null,
+    actingForName: u.acting_full_name || null,
+    actingDepartment: u.acting_department || null,
+    extraPermissions: db.safeParse(u.extra_permissions, []),
+    mustChangePassword: !!u.must_change_password,
+    mustSetPassword: !!u.must_set_password,
+    passwordChangedAt: u.password_changed_at || null
+  };
+}
+
+router.post('/login', async (req, res) => {
+  const { login, password } = req.body;
+
+  if (!login) {
+    return res.status(400).json({ error: 'Заполните поле «Логин»' });
+  }
+
+  try {
+    const [rows] = await db.query(`SELECT ${USER_COLUMNS} FROM users WHERE login = ?`, [login]);
+    if (!rows.length) {
+      return res.status(401).json({ error: 'Неверный логин или пароль' });
+    }
+
+    const u = rows[0];
+
+    // Первый вход админа: пароль ещё не установлен
+    if (u.must_set_password) {
+      if (password && password.length > 0) {
+        return res.status(401).json({
+          error: 'Пароль ещё не установлен. Оставьте поле пустым.'
+        });
+      }
+    } else {
+      if (!password) {
+        return res.status(400).json({ error: 'Заполните поле «Пароль»' });
+      }
+      const passwordOk = await bcrypt.compare(password, u.password);
+      if (!passwordOk) {
+        return res.status(401).json({ error: 'Неверный логин или пароль' });
+      }
+    }
+
+    // Подтягиваем данные основного, если это и.о.
+    if (u.is_acting && u.acting_for_id) {
+      const [actingRows] = await db.query(
+        'SELECT full_name, department FROM users WHERE id = ? LIMIT 1',
+        [u.acting_for_id]
+      );
+      if (actingRows.length) {
+        u.acting_full_name  = actingRows[0].full_name  || null;
+        u.acting_department = actingRows[0].department || null;
+      }
+    }
+
+    // Инициализация прав на основе роли
+    let roleCacheError = false;
+    try {
+      u._roleDef = await roleCache.getRoleDef(u.role);
+    } catch (err) {
+      roleCacheError = true;
+      console.warn('[WARN] roleCache недоступен при логине:', err.message);
+      u._roleDef = null;
+    }
+    if (!u._roleDef && !roleCacheError) {
+      console.warn(`[WARN] Роль не найдена при логине: role=${u.role}, user=${u.id}`);
+    }
+    u._isAdmin = !!(u._roleDef && u._roleDef.isAdmin);
+    u._perms = u._isAdmin
+      ? ['*']
+      : [...(u._roleDef?.permissions || []), ...db.safeParse(u.extra_permissions, [])];
+
+    const token = jwt.sign({ id: u.id, login: u.login, role: u.role }, JWT_SECRET, { expiresIn: '24h' });
+
+    await logAction({ user: { id: u.id, full_name: u.full_name } }, 'Вход в систему');
+
+    res.json({ token, user: userPublic(u) });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ============================================================
+// ПРОВЕРКА СЕССИИ
+// ============================================================
+router.get('/verify', allowWhenPasswordMustChange, authenticate, (req, res) => {
+  res.json({ user: userPublic(req.user) });
+});
+
+// ============================================================
+// ВХОД ПОД ДРУГИМ ПОЛЬЗОВАТЕЛЕМ (impersonate)
+// ============================================================
+router.post('/impersonate/:userId', authenticate, async (req, res) => {
+  try {
+    if (!req.user._isAdmin) {
+      return res.status(403).json({ error: 'Только администратор может входить под другими' });
+    }
+
+    const [targets] = await db.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`, [req.params.userId]);
+    if (!targets.length) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const target = targets[0];
+    if (target.id === req.user.id) {
+      return res.status(400).json({ error: 'Вы уже вошли под этой учётной записью' });
+    }
+
+    // Инициализация прав для target
+    let roleCacheError = false;
+    try {
+      target._roleDef = await roleCache.getRoleDef(target.role);
+    } catch (err) {
+      roleCacheError = true;
+      console.warn('[WARN] roleCache недоступен при impersonate:', err.message);
+      target._roleDef = null;
+    }
+    if (!target._roleDef && !roleCacheError) {
+      console.warn(`[WARN] Роль не найдена при impersonate: role=${target.role}, user=${target.id}`);
+    }
+    target._isAdmin = !!(target._roleDef && target._roleDef.isAdmin);
+    target._perms = target._isAdmin
+      ? ['*']
+      : [...(target._roleDef?.permissions || []), ...db.safeParse(target.extra_permissions, [])];
+
+    const token = jwt.sign(
+      {
+        id: target.id,
+        login: target.login,
+        role: target.role,
+        impersonatedBy: req.user.id,
+        impersonatedByName: req.user.full_name
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    await logAction(req, 'Вход под пользователем', target.full_name);
+
+    if (target.is_acting && target.acting_for_id) {
+      const [actingRows] = await db.query(
+        'SELECT full_name, department FROM users WHERE id = ? LIMIT 1',
+        [target.acting_for_id]
+      );
+      if (actingRows.length) {
+        target.acting_full_name  = actingRows[0].full_name  || null;
+        target.acting_department = actingRows[0].department || null;
+      }
+    }
+
+    res.json({ token, user: userPublic(target) });
+
+  } catch (e) {
+    console.error('Impersonate error:', e);
+    res.status(500).json({ error: 'Ошибка входа под пользователем' });
+  }
+});
+
+// ============================================================
+// ВОЗВРАТ К СВОЕЙ УЧЁТНОЙ ЗАПИСИ
+// ============================================================
+router.post('/stop-impersonate', allowWhenPasswordMustChange, authenticate, async (req, res) => {
+  try {
+    const adminId = req.impersonatedBy;
+    if (!adminId) {
+      return res.status(400).json({ error: 'Вы не в режиме переключения' });
+    }
+
+    const [adminRows] = await db.query(
+      'SELECT id, full_name, login FROM users WHERE id = ?',
+      [adminId]
+    );
+
+    if (!adminRows.length) {
+      const deletedAdminReq = { user: { id: adminId, full_name: req.impersonatedByName || 'admin (удалён)' } };
+      await logAction(deletedAdminReq, 'Возврат к своей учётной записи', `Работал под: ${req.user.full_name} (${req.user.login}); сам админ удалён`);
+      return res.json({
+        message: 'Возврат залогирован (админ удалён)',
+        forceLogout: true,
+      });
+    }
+
+    const admin = adminRows[0];
+
+    await db.query('DELETE FROM edit_locks WHERE user_id = ?', [req.user.id]);
+    const adminReq = { user: { id: admin.id, full_name: admin.full_name } };
+    await logAction(adminReq, 'Возврат к своей учётной записи', `Работал под: ${req.user.full_name} (${req.user.login})`);
+
+    res.json({ message: 'Возврат залогирован' });
+  } catch (e) {
+    console.error('POST /auth/stop-impersonate error:', e);
+    res.status(500).json({ error: 'Ошибка логирования возврата' });
+  }
+});
+
+// ============================================================
+// СМЕНА ПАРОЛЯ (свой аккаунт)
+// ============================================================
+router.post('/change-password', allowWhenPasswordMustChange, authenticate, async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  const missing = [];
+  if (!currentPassword) missing.push('Текущий пароль');
+  if (!newPassword)     missing.push('Новый пароль');
+  if (!confirmPassword) missing.push('Подтверждение пароля');
+
+  if (missing.length > 0) {
+    return res.status(400).json({
+      error: missing.length === 1
+        ? `Заполните поле «${missing[0]}»`
+        : `Заполните поля: ${missing.map(m => `«${m}»`).join(', ')}`
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Пароли не совпадают' });
+  }
+
+  const oldOk = await bcrypt.compare(currentPassword, req.user.password);
+  if (!oldOk) {
+    return res.status(400).json({ error: 'Текущий пароль неверен' });
+  }
+
+  const v = validatePassword(newPassword);
+  if (!v.ok) {
+    return res.status(400).json({
+      error: 'Пароль не соответствует требованиям:\n• ' + v.errors.join('\n• ')
+    });
+  }
+
+  const same = await bcrypt.compare(newPassword, req.user.password);
+  if (same) {
+    return res.status(400).json({ error: 'Новый пароль должен отличаться от текущего' });
+  }
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await db.query(
+    `UPDATE users
+     SET password = ?,
+         must_change_password = 0,
+         password_changed_at = ?,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [hash, new Date(), req.user.id]
+  );
+
+  await logAction(req, 'Смена пароля', 'Пользователь сменил свой пароль');
+
+  const freshToken = jwt.sign(
+    { id: req.user.id, login: req.user.login, role: req.user.role },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  res.json({ message: 'Пароль изменён', token: freshToken });
+});
+
+// ============================================================
+// УСТАНОВКА ПАРОЛЯ АДМИНИСТРАТОРА (первый вход)
+// ============================================================
+router.post('/setup-password', allowWhenPasswordMustChange, authenticate, async (req, res) => {
+  if (!req.user.must_set_password) {
+    return res.status(400).json({ error: 'Пароль уже установлен' });
+  }
+
+  const { newPassword, confirmPassword } = req.body;
+
+  const missing = [];
+  if (!newPassword)     missing.push('Новый пароль');
+  if (!confirmPassword) missing.push('Подтверждение пароля');
+  if (missing.length > 0) {
+    return res.status(400).json({
+      error: missing.length === 1
+        ? `Заполните поле «${missing[0]}»`
+        : `Заполните поля: ${missing.map(m => `«${m}»`).join(', ')}`
+    });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Пароли не совпадают' });
+  }
+
+  const v = validatePassword(newPassword);
+  if (!v.ok) {
+    return res.status(400).json({
+      error: 'Пароль не соответствует требованиям:\n• ' + v.errors.join('\n• ')
+    });
+  }
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await db.query(
+    `UPDATE users
+     SET password = ?,
+         must_set_password = 0,
+         must_change_password = 0,
+         password_changed_at = ?,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [hash, new Date(), req.user.id]
+  );
+
+  await logAction(req, 'Установка пароля администратора', 'Первый вход');
+
+  const freshToken = jwt.sign(
+    { id: req.user.id, login: req.user.login, role: req.user.role },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+
+  res.json({ message: 'Пароль установлен', token: freshToken });
+});
+
+module.exports = router;

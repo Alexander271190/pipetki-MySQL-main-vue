@@ -1,0 +1,947 @@
+const express = require('express');
+const db = require('../db');
+const { authenticate, requireAdmin } = require('../middleware/auth');
+const equipmentTypes = require('../utils/equipment-types');
+const { logAction } = require('../utils/audit');
+const { withTransaction } = require('../utils/db-helper');
+const pipettesHelpers = require('./pipettes/_helpers');
+const barcodesRouter = require('./barcodes');
+const router = express.Router();
+
+// ============================================================
+// ОТДЕЛЫ
+// ============================================================
+router.get('/departments', authenticate, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT name FROM departments WHERE enabled = 1 ORDER BY name');
+    res.json(rows.map(r => r.name));
+  } catch (e) {
+    console.error('GET /departments:', e);
+    res.status(500).json({ error: 'Ошибка загрузки отделов' });
+  }
+});
+
+router.put('/departments', authenticate, requireAdmin, async (req, res) => {
+  const departments = req.body;
+
+  if (!Array.isArray(departments)) {
+    return res.status(400).json({ error: 'Ожидается массив отделов' });
+  }
+  if (departments.length === 0) {
+    return res.status(400).json({ error: 'Добавьте хотя бы один отдел' });
+  }
+
+  const normalized = departments
+    .map(d => {
+      const rawName = typeof d === 'string' ? d : (d && d.name ? d.name : '');
+      const name = String(rawName).trim();
+      const enabled = (d && typeof d === 'object' && d.enabled === false) ? 0 : 1;
+      const oldName = (d && typeof d === 'object' && d.oldName)
+        ? String(d.oldName).trim()
+        : null;
+      return { name, enabled, oldName };
+    })
+    .filter(d => d.name.length > 0);
+
+  if (normalized.length === 0) {
+    return res.status(400).json({ error: 'Добавьте хотя бы один отдел' });
+  }
+
+  const seen = new Set();
+  const duplicates = [];
+  for (const d of normalized) {
+    const key = d.name.toLowerCase();
+    if (seen.has(key)) duplicates.push(d.name);
+    else seen.add(key);
+  }
+  if (duplicates.length > 0) {
+    return res.status(400).json({
+      error: 'Дубли отделов: ' + [...new Set(duplicates)].join(', ')
+    });
+  }
+
+  try {
+    const result = await withTransaction(async (conn) => {
+      const [oldRows] = await conn.query('SELECT name FROM departments');
+      const oldNames = oldRows.map(r => r.name);
+
+      for (const d of normalized) {
+        if (d.oldName && d.oldName !== d.name) {
+          await conn.query(
+            'UPDATE pipettes SET department = ? WHERE department = ?',
+            [d.name, d.oldName]
+          );
+          await conn.query(
+            'UPDATE users SET department = ? WHERE department = ?',
+            [d.name, d.oldName]
+          );
+        }
+      }
+
+      const newNames = new Set(normalized.map(d => d.name));
+      const removed = oldNames.filter(n => !newNames.has(n));
+      if (removed.length > 0) {
+        const ph = removed.map(() => '?').join(',');
+        const [used] = await conn.query(
+          `SELECT department, COUNT(*) AS c
+           FROM pipettes
+           WHERE department IN (${ph})
+           GROUP BY department`,
+          removed
+        );
+        if (used.length > 0) {
+          const details = used.map(r => `«${r.department}» (${r.c} шт.)`).join(', ');
+          const err = new Error(
+            `Нельзя удалить используемые отделы: ${details}. Переименуйте их, чтобы сохранить привязку.`
+          );
+          err.status = 400;
+          throw err;
+        }
+      }
+
+      await conn.query('DELETE FROM departments');
+      for (const d of normalized) {
+        await conn.query(
+          'INSERT INTO departments (name, enabled) VALUES (?, ?)',
+          [d.name, d.enabled]
+        );
+      }
+
+      return { message: 'Отделы обновлены', count: normalized.length };
+    });
+
+    res.json(result);
+  } catch (e) {
+    if (e.status === 400) {
+      return res.status(400).json({ error: e.message });
+    }
+    console.error('Ошибка обновления отделов:', e.message, '| code:', e.code);
+    res.status(500).json({
+      error: 'Ошибка обновления отделов',
+      details: e.message
+    });
+  }
+});
+
+router.get('/departments-full', authenticate, requireAdmin, async (req, res) => {
+  const [rows] = await db.query('SELECT name, enabled FROM departments ORDER BY name');
+  res.json(rows.map(r => ({ name: r.name, enabled: !!r.enabled })));
+});
+
+// ============================================================
+// ПОЛЯ ФОРМЫ
+// ============================================================
+router.get('/fields', authenticate, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, label, type, required, enabled, options, default_value, field_order FROM field_config ORDER BY field_order'
+    );
+    res.json(rows.map(f => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      required: !!f.required,
+      enabled: !!f.enabled,
+      options: db.safeParse(f.options, []),
+      default: f.default_value || '',
+      order: f.field_order
+    })));
+  } catch (e) {
+    console.error('GET /fields:', e);
+    res.status(500).json({ error: 'Ошибка загрузки полей' });
+  }
+});
+
+router.put('/fields', authenticate, requireAdmin, async (req, res) => {
+  const fields = req.body;
+  if (!Array.isArray(fields)) return res.status(400).json({ error: 'Ожидается массив' });
+
+  try {
+    await withTransaction(async (conn) => {
+      // 🛡️ Защита от удаления полей, у которых уже есть данные
+      const [oldFields] = await conn.query('SELECT id FROM field_config');
+      const newIds = new Set(fields.map(f => f.id));
+      const removed = oldFields.map(r => r.id).filter(id => !newIds.has(id));
+
+      if (removed.length > 0) {
+        const confirmDelete = req.query.confirmDelete === 'true';
+
+        const [rows] = await conn.query(
+          'SELECT id, custom_data FROM pipettes WHERE custom_data IS NOT NULL'
+        );
+
+        const removedLower = new Set(removed.map(id => id.toLowerCase()));
+        const usedFields = new Set();
+        let affectedRecords = 0;
+        const recordsToClean = [];
+
+        for (const r of rows) {
+          if (r.custom_data == null) continue;
+
+          let cd;
+          if (typeof r.custom_data === 'object') cd = r.custom_data;
+          else {
+            try { cd = JSON.parse(r.custom_data) || {}; }
+            catch { continue; }
+          }
+
+          const keysToDelete = Object.keys(cd).filter(k => removedLower.has(k.toLowerCase()));
+          if (keysToDelete.length === 0) continue;
+
+          keysToDelete.forEach(k => usedFields.add(k));
+
+          const hasData = keysToDelete.some(k =>
+            cd[k] !== undefined && cd[k] !== null && cd[k] !== ''
+          );
+          if (hasData) affectedRecords++;
+
+          const cleaned = { ...cd };
+          keysToDelete.forEach(k => delete cleaned[k]);
+          recordsToClean.push({ id: r.id, cleaned });
+        }
+
+        if (affectedRecords > 0 && !confirmDelete) {
+          const err = new Error(
+            `Поля заполнены у ${affectedRecords} запис${affectedRecords === 1 ? 'и' : 'ей'}`
+          );
+          err.status = 409;
+          err.code = 'field_has_data';
+          err.affected = affectedRecords;
+          err.fields = [...usedFields];
+          throw err;
+        }
+
+        for (const rec of recordsToClean) {
+          const cleanedJson = Object.keys(rec.cleaned).length
+            ? JSON.stringify(rec.cleaned)
+            : null;
+          await conn.query(
+            'UPDATE pipettes SET custom_data = ? WHERE id = ?',
+            [cleanedJson, rec.id]
+          );
+        }
+
+        if (recordsToClean.length > 0) {
+          console.log(`🗑️ Каскадная очистка: ${recordsToClean.length} записей (поля: ${[...usedFields].join(', ')})`);
+        }
+      }
+
+      await conn.query('DELETE FROM field_config');
+      for (const f of fields) {
+        await conn.query(
+          `INSERT INTO field_config (id, label, type, required, enabled, options, default_value, field_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [f.id, f.label, f.type, f.required ? 1 : 0, f.enabled !== false ? 1 : 0,
+           JSON.stringify(f.options || []), f.default || '', f.order || 0]
+        );
+      }
+    });
+
+    res.json({ message: 'Поля обновлены' });
+  } catch (e) {
+    if (e.status === 409) {
+      return res.status(409).json({
+        error: e.message,
+        code: e.code,
+        affected: e.affected,
+        fields: e.fields
+      });
+    }
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка обновления полей' });
+  }
+});
+
+// ============================================================
+// НАСТРОЙКИ ЭКСПОРТА
+// ============================================================
+router.get('/export', authenticate, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM export_settings WHERE id = 1');
+    if (!rows.length) {
+      return res.json({
+        fields: [], exportEnabled: true,
+        actSendEnabled: true,   actSendFields: [],
+        actReturnEnabled: true, actReturnFields: [],
+        historyEnabled: true,   historyFields: [],
+        headerEnabled: false, headerText: '', headerAlign: 'left',
+      });
+    }
+    const r = rows[0];
+    res.json({
+      fields:           db.safeParse(r.fields, []),
+      exportEnabled:    r.export_enabled !== 0,
+      actSendEnabled:   r.act_send_enabled !== 0,
+      actSendFields:    db.safeParse(r.act_send_fields, []),
+      actReturnEnabled: r.act_return_enabled !== 0,
+      actReturnFields:  db.safeParse(r.act_return_fields, []),
+      historyEnabled:   r.history_enabled !== 0,
+      historyFields:    db.safeParse(r.history_fields, []),
+      headerEnabled:    r.header_enabled === 1,
+      headerText:       r.header_text || '',
+     headerAlign:      r.header_align || 'left', 
+    });
+  } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+router.put('/export', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const b = req.body;
+    if (Array.isArray(b)) {
+      await db.query('UPDATE export_settings SET fields = ? WHERE id = 1', [JSON.stringify(b)]);
+      return res.json({ message: 'Поля экспорта обновлены' });
+    }
+    await db.query(
+      `UPDATE export_settings SET
+         fields              = COALESCE(?, fields),
+         export_enabled      = COALESCE(?, export_enabled),
+         act_send_enabled    = COALESCE(?, act_send_enabled),
+         act_send_fields     = COALESCE(?, act_send_fields),
+         act_return_enabled  = COALESCE(?, act_return_enabled),
+         act_return_fields   = COALESCE(?, act_return_fields),
+         history_enabled     = COALESCE(?, history_enabled),
+         history_fields      = COALESCE(?, history_fields),
+         header_enabled      = COALESCE(?, header_enabled),  
+         header_text         = COALESCE(?, header_text),     
+         header_align        = COALESCE(?, header_align),    
+         updated_at          = CURRENT_TIMESTAMP
+       WHERE id = 1`,
+      [
+        b.fields           ? JSON.stringify(b.fields)           : null,
+        b.exportEnabled    != null ? (b.exportEnabled ? 1 : 0)  : null,
+        b.actSendEnabled   != null ? (b.actSendEnabled ? 1 : 0) : null,
+        b.actSendFields    ? JSON.stringify(b.actSendFields)    : null,
+        b.actReturnEnabled != null ? (b.actReturnEnabled ? 1 : 0) : null,
+        b.actReturnFields  ? JSON.stringify(b.actReturnFields)  : null,
+        b.historyEnabled   != null ? (b.historyEnabled ? 1 : 0) : null,
+        b.historyFields    ? JSON.stringify(b.historyFields)    : null,
+        b.headerEnabled    != null ? (b.headerEnabled ? 1 : 0)  : null, 
+        b.headerText       !== undefined ? String(b.headerText) : null, 
+        b.headerAlign      ? String(b.headerAlign)              : null, 
+      ]
+    );
+    res.json({ message: 'Настройки печати обновлены' });
+  } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
+});
+
+router.get('/print-documents/effective', authenticate, async (req, res) => {
+  try {
+    const user = req.user;
+    const hasPermission = user._isAdmin
+      || (user._perms || []).includes('export_data');
+
+    if (!hasPermission) {
+      return res.json({
+        hasPermission: false,
+        export: false, actSend: false, actReturn: false, history: false,
+        exportFields: [], actSendFields: [], actReturnFields: [], historyFields: [],
+        headerEnabled: false, headerText: '', headerAlign: 'left',   
+        source: 'no_permission',
+      });
+    }
+
+    const [er] = await db.query('SELECT * FROM export_settings WHERE id = 1');
+    const g = er[0] || {};
+    const globalConf = {
+      export:    g.export_enabled !== 0,
+      actSend:   g.act_send_enabled !== 0,
+      actReturn: g.act_return_enabled !== 0,
+      history:   g.history_enabled !== 0,
+    };
+    const globalFields = {
+      exportFields: db.safeParse(g.fields, []),
+      actSendFields: db.safeParse(g.act_send_fields, []),
+      actReturnFields: db.safeParse(g.act_return_fields, []),
+      historyFields: db.safeParse(g.history_fields, []),
+    };
+
+    const [pr] = await db.query(
+      'SELECT preferences FROM user_preferences WHERE user_id = ?', [user.id]
+    );
+    let prefs = {};
+    try { prefs = JSON.parse(pr[0]?.preferences || '{}'); } catch (e) {}
+
+    const pd = prefs.printDocuments;
+    const hasIndividual = pd && pd.useIndividual === true;
+
+    let effective = {};
+    let fieldsSource = {};
+
+    if (hasIndividual) {
+      effective = {
+        export:    pd.export?.enabled !== false,
+        actSend:   pd.actSend?.enabled !== false,
+        actReturn: pd.actReturn?.enabled !== false,
+        history:   pd.history?.enabled !== false,
+      };
+      fieldsSource = {
+        exportFields: pd.export?.fields || [],
+        actSendFields: pd.actSend?.fields || [],
+        actReturnFields: pd.actReturn?.fields || [],
+        historyFields: pd.history?.fields || [],
+      };
+    } else {
+      effective = globalConf;
+      fieldsSource = globalFields;
+    }
+    const headerConf = {
+      headerEnabled: g.header_enabled === 1,
+      headerText:    g.header_text || '',
+      headerAlign:   g.header_align || 'left',
+    };
+    res.json({
+      hasPermission: true,
+      ...effective,
+      ...fieldsSource,
+      ...headerConf,
+      source: hasIndividual ? 'individual' : 'global',
+    });
+  } catch (e) {
+    console.error('GET /settings/print-documents/effective:', e);
+    res.status(500).json({ error: 'Ошибка' });
+  }
+});
+
+// ============================================================
+// СИСТЕМНЫЕ НАСТРОЙКИ
+// ============================================================
+router.get('/system', authenticate, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT setting_key, setting_value FROM system_settings');
+    const result = {};
+    for (const s of rows) result[s.setting_key] = s.setting_value;
+    res.json(result);
+  } catch (e) {
+    console.error('GET /system:', e);
+    res.status(500).json({ error: 'Ошибка загрузки настроек' });
+  }
+});
+
+router.put('/system', authenticate, requireAdmin, async (req, res) => {
+  const settings = req.body;
+  try {
+    for (const [k, v] of Object.entries(settings)) {
+      await db.query(
+        `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP`,
+        [k, String(v)]
+      );
+    }
+    if ('equipment_types' in settings) {
+      equipmentTypes.invalidateCache();
+    }
+    if ('warn_days' in settings) {
+      try { pipettesHelpers.invalidateWarnDaysCache(); } catch (e) {}
+    }
+    try { barcodesRouter.invalidateSettings(); } catch (e) {}
+    res.json({ message: 'Настройки обновлены' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка обновления настроек' });
+  }
+});
+
+// ============================================================
+// ФИЛЬТРЫ
+// ============================================================
+router.get('/filters', authenticate, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, label, type, field_id, enabled, options_source, filter_order FROM filter_config ORDER BY filter_order'
+    );
+    res.json(rows.map(f => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      fieldId: f.field_id,
+      enabled: !!f.enabled,
+      optionsSource: f.options_source,
+      order: f.filter_order
+    })));
+  } catch (e) {
+    console.error('GET /filters:', e);
+    res.status(500).json({ error: 'Ошибка загрузки фильтров' });
+  }
+});
+
+router.put('/filters', authenticate, requireAdmin, async (req, res) => {
+  const filters = req.body;
+  if (!Array.isArray(filters)) return res.status(400).json({ error: 'Ожидается массив' });
+
+  try {
+    await withTransaction(async (conn) => {
+      await conn.query('DELETE FROM filter_config');
+      for (const f of filters) {
+        await conn.query(
+          `INSERT INTO filter_config
+           (id, label, type, field_id, enabled, options_source, filter_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [f.id, f.label, f.type, f.fieldId || '',
+           f.enabled ? 1 : 0, f.optionsSource || '', f.order || 0]
+        );
+      }
+    });
+    res.json({ message: 'Фильтры обновлены' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Ошибка обновления фильтров' });
+  }
+});
+
+// ============================================================
+// ТИПЫ ОБОРУДОВАНИЯ
+// ============================================================
+
+// GET /api/settings/equipment-types
+router.get('/equipment-types', authenticate, async (req, res) => {
+  try {
+    const types = await equipmentTypes.getEquipmentTypes({ force: true });
+    if (!types || types.length === 0) {
+      return res.json([
+        { value: 'pipette',     label: 'Пипетка',     prefix: 'P', calibrationPlace: 'external', interval: 12 },
+        { value: 'analyzer',    label: 'Анализатор',  prefix: 'A', calibrationPlace: 'external', interval: 12 },
+        { value: 'thermometer', label: 'Термометр',   prefix: 'T', calibrationPlace: 'internal', interval: 12 },
+        { value: 'scales',      label: 'Весы',        prefix: 'S', calibrationPlace: 'internal', interval: 12 },
+        { value: 'photometer',  label: 'Фотометр',    prefix: 'F', calibrationPlace: 'internal', interval: 12 },
+        { value: 'microscope',  label: 'Микроскоп',   prefix: 'M', calibrationPlace: 'internal', interval: 12 },
+      ]);
+    }
+    res.json(types);
+  } catch (e) {
+    console.error('GET /equipment-types:', e);
+    res.status(500).json({ error: 'Ошибка загрузки типов' });
+  }
+});
+
+// PUT /api/settings/equipment-types (только админ)
+router.put('/equipment-types', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const types = req.body;
+    if (!Array.isArray(types)) {
+      return res.status(400).json({ error: 'Ожидается массив' });
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ВАЛИДАЦИЯ + НОРМАЛИЗАЦИЯ PREFIX
+    // ──────────────────────────────────────────────────────────
+    for (const t of types) {
+      if (!t.value || !/^[a-z][a-z0-9_]*$/.test(t.value)) {
+        return res.status(400).json({ error: `Некорректный value: ${t.value}` });
+      }
+      if (!t.label || !t.label.trim()) {
+        return res.status(400).json({ error: `Пустой label у ${t.value}` });
+      }
+
+    if (!t.prefix || !t.prefix.trim()) {
+         t.prefix = 'EQ';
+       } else {
+        t.prefix = t.prefix.trim().toUpperCase();
+       }
+
+    if (!/^[A-Z0-9]{1,10}$/.test(t.prefix)) {
+     return res.status(400).json({
+       error: `Некорректный префикс «${t.prefix}» у типа «${t.value}» — разрешены A-Z и 0-9, максимум 10 символов`
+        });
+        }
+
+      // 🛡️ Место поверки: external | internal
+      if (!t.calibrationPlace || !['external', 'internal'].includes(t.calibrationPlace)) {
+        t.calibrationPlace = 'internal';
+      }
+
+      // МПИ (месяцы). Если не задан или ≤0 — ставим 12.
+      const rawIv = parseInt(t.interval, 10);
+      if (!Number.isFinite(rawIv) || rawIv < 1 || rawIv > 120) {
+        t.interval = 12;
+      } else {
+        t.interval = rawIv;
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ПРОВЕРКА ДУБЛЕЙ VALUE
+    // ──────────────────────────────────────────────────────────
+    const seen = new Set();
+    for (const t of types) {
+      if (seen.has(t.value)) {
+        return res.status(400).json({ error: `Дубль value: ${t.value}` });
+      }
+      seen.add(t.value);
+    }
+
+        // ──────────────────────────────────────────────────────────
+        // ПРОВЕРКА ДУБЛЕЙ PREFIX
+        // ──────────────────────────────────────────────────────────
+    const prefixSeen = new Map();  // prefix → value типа, у которого он уже встречался
+    for (const t of types) {
+      const p = String(t.prefix || '').trim().toUpperCase();
+      if (prefixSeen.has(p)) {
+        return res.status(400).json({
+          error: `Дубли prefix: «${p}» у типов «${prefixSeen.get(p)}» и «${t.value}»`
+        });
+      }
+      prefixSeen.set(p, t.value);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ПРОВЕРКА: НЕ УДАЛЕНЫ ЛИ ИСПОЛЬЗУЕМЫЕ ТИПЫ
+    // ──────────────────────────────────────────────────────────
+    const [used] = await db.query('SELECT DISTINCT equipment_type FROM pipettes');
+    const usedValues = used.map(r => r.equipment_type).filter(Boolean);
+    const newValues = types.map(t => t.value);
+    const removed = usedValues.filter(v => !newValues.includes(v));
+
+    if (removed.length > 0) {
+      return res.status(400).json({
+        error: `Нельзя удалить типы, которые используются: ${removed.join(', ')}`
+      });
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // СОХРАНЕНИЕ В БД
+    // ──────────────────────────────────────────────────────────
+    await db.query(
+      `INSERT INTO system_settings (setting_key, setting_value) VALUES ('equipment_types', ?)
+       ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+      [JSON.stringify(types)]
+    );
+
+    // Сбросить кэш — иначе последующие запросы ещё 60 сек будут получать старое
+    equipmentTypes.invalidateCache();
+
+    res.json({ message: 'Типы оборудования обновлены' });
+  } catch (e) {
+    console.error('PUT /equipment-types:', e);
+    res.status(500).json({ error: 'Ошибка сохранения типов' });
+  }
+});
+
+// ============================================================
+// НАСТРОЙКИ ВИДА ПОЛЬЗОВАТЕЛЯ (только для админа)
+// ============================================================
+
+// Получить настройки вида конкретного пользователя (админ)
+router.get('/user-preferences/:userId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT preferences FROM user_preferences WHERE user_id = ?',
+      [req.params.userId]
+    );
+    if (!rows.length) return res.json({});
+    res.json(db.safeParse(rows[0].preferences, {}));
+  } catch (e) {
+    console.error('user-preferences GET error:', e);
+    res.status(500).json({ error: 'Ошибка загрузки настроек пользователя' });
+  }
+});
+
+// Сохранить настройки вида конкретного пользователя (админ)
+router.put('/user-preferences/:userId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const prefs = req.body;
+    if (typeof prefs !== 'object' || prefs === null) {
+      return res.status(400).json({ error: 'Ожидается объект' });
+    }
+
+    const [user] = await db.query('SELECT id FROM users WHERE id = ?', [req.params.userId]);
+    if (!user.length) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    await db.query(
+      `INSERT INTO user_preferences (user_id, preferences) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE preferences = VALUES(preferences), updated_at = CURRENT_TIMESTAMP`,
+      [req.params.userId, JSON.stringify(prefs)]
+    );
+
+    res.json({ message: 'Настройки сохранены' });
+  } catch (e) {
+    console.error('user-preferences PUT error:', e);
+    res.status(500).json({ error: 'Ошибка сохранения настроек' });
+  }
+});
+
+// Сбросить настройки вида пользователя (админ)
+router.delete('/user-preferences/:userId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    await db.query('DELETE FROM user_preferences WHERE user_id = ?', [req.params.userId]);
+    res.json({ message: 'Настройки сброшены' });
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка сброса' });
+  }
+});
+
+// Получить СВОИ настройки вида (для применения при входе)
+router.get('/my-preferences', authenticate, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT preferences FROM user_preferences WHERE user_id = ?',
+      [req.user.id]
+    );
+    if (!rows.length) return res.json({});
+    res.json(db.safeParse(rows[0].preferences, {}));
+  } catch (e) {
+    console.error('my-preferences GET error:', e);
+    res.status(500).json({ error: 'Ошибка загрузки настроек' });
+  }
+});
+
+// ============================================================
+// СБРОС ВСЕХ ДАННЫХ (только для админа)
+// ============================================================
+router.post('/reset-data', authenticate, requireAdmin, async (req, res) => {
+  try {
+    await withTransaction(async (conn) => {
+      await conn.query('DELETE FROM calibration_history');
+      await conn.query('DELETE FROM pipettes');
+      await conn.query('DELETE FROM audit_log');
+    });
+    res.json({ message: 'Все данные удалены' });
+  } catch (e) {
+    console.error('Reset data error:', e);
+    res.status(500).json({ error: 'Ошибка сброса данных' });
+  }
+});
+
+// POST /api/settings/apply-fields-to-all
+router.post('/apply-fields-to-all', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { visibleFields, mode } = req.body || {};
+
+    if (!Array.isArray(visibleFields)) {
+      return res.status(400).json({ error: 'Ожидается массив visibleFields' });
+    }
+
+    if (visibleFields.length === 0) {
+      return res.status(400).json({
+        error: 'Список полей пуст. Выберите хотя бы одно поле.'
+      });
+    }
+
+    const m = mode || 'missing';
+    if (!['missing', 'add', 'all'].includes(m)) {
+      return res.status(400).json({ error: 'Неизвестный mode' });
+    }
+
+    const [users] = await db.query('SELECT id FROM users');
+    const [prefsRows] = await db.query('SELECT user_id, preferences FROM user_preferences');
+    const prefsByUser = {};
+    for (const r of prefsRows) {
+      try { prefsByUser[r.user_id] = JSON.parse(r.preferences || '{}'); }
+      catch { prefsByUser[r.user_id] = {}; }
+    }
+
+    let updated = 0;
+    await withTransaction(async (conn) => {
+      const values = [];
+
+      for (const u of users) {
+        const cur = prefsByUser[u.id] || {};
+        let nextVisibleFields;
+
+        if (m === 'all') {
+          nextVisibleFields = [...visibleFields];
+        } else if (m === 'missing') {
+          if (Array.isArray(cur.visibleFields) && cur.visibleFields.length > 0) continue;
+          nextVisibleFields = [...visibleFields];
+        } else if (m === 'add') {
+          const existing = Array.isArray(cur.visibleFields) ? cur.visibleFields : [];
+          const set = new Set(existing);
+          for (const id of visibleFields) set.add(id);
+          nextVisibleFields = [...set];
+        }
+
+        const merged = {
+          ...cur,
+          visibleFields: nextVisibleFields,
+          snapshotAtSave: [...visibleFields],
+          _virtualsInitialized: true,
+        };
+
+        values.push([u.id, JSON.stringify(merged)]);
+      }
+
+      if (values.length > 0) {
+        await conn.query(
+          `INSERT INTO user_preferences (user_id, preferences) VALUES ?
+           ON DUPLICATE KEY UPDATE preferences = VALUES(preferences), updated_at = CURRENT_TIMESTAMP`,
+          [values]
+        );
+        updated = values.length;
+      }
+    });
+
+    await logAction(req, 'Массовое применение полей',
+      `Режим: ${m}, полей: ${visibleFields.length}, обновлено: ${updated}`);
+
+    res.json({
+      message: `Обновлено пользователей: ${updated}`,
+      updated,
+      mode: m,
+    });
+  } catch (e) {
+    console.error('POST /settings/apply-fields-to-all:', e);
+    res.status(500).json({ error: 'Ошибка применения настроек' });
+  }
+});
+
+// ============================================================
+// GET /api/settings/user-preferences/:userId/effective
+// Актуальный вид пользователя: индивидуальное → шаблон → дефолт.
+// Только для админа.
+// ============================================================
+router.get('/user-preferences/:userId/effective', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const [userRows] = await db.query(
+      'SELECT id, view_template_id FROM users WHERE id = ?',
+      [userId]
+    );
+    if (!userRows.length) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // 1. Индивидуальные
+    const [prefRows] = await db.query(
+      'SELECT preferences FROM user_preferences WHERE user_id = ?',
+      [userId]
+    );
+
+    let prefs = {};
+    if (prefRows.length) {
+      try { prefs = JSON.parse(prefRows[0].preferences || '{}'); } catch (e) {}
+    }
+
+    if (Array.isArray(prefs.visibleFields) && prefs.visibleFields.length > 0) {
+      return res.json({ source: 'individual', visibleFields: prefs.visibleFields });
+    }
+
+    // 2. Шаблон
+    const tplId = userRows[0].view_template_id;
+    if (tplId) {
+      try {
+        const [tplRows] = await db.query(
+          'SELECT visible_fields FROM view_templates WHERE id = ?',
+          [tplId]
+        );
+        if (tplRows.length) {
+          const tplFields = db.safeParse(tplRows[0].visible_fields, []);
+          if (tplFields.length > 0) {
+            return res.json({ source: 'template', visibleFields: tplFields });
+          }
+        }
+      } catch (e) {
+        console.warn('view_templates не найдена:', e.message);
+      }
+    }
+
+    // 3. Дефолт
+    const [fieldRows] = await db.query(
+      'SELECT id FROM field_config WHERE enabled = 1 ORDER BY field_order'
+    );
+    const active = fieldRows.map(r => r.id);
+    const VIRTUAL = ['status', 'nextCalibration'];
+
+    return res.json({ source: 'default', visibleFields: [...active, ...VIRTUAL] });
+  } catch (e) {
+    console.error('GET /settings/user-preferences/:userId/effective:', e);
+    res.status(500).json({ error: 'Ошибка загрузки эффективного вида' });
+  }
+});
+
+// ============================================================
+// PUT /my-preferences — сохранить СВОИ настройки (для всех)
+// ============================================================
+router.put('/my-preferences', authenticate, async (req, res) => {
+  try {
+    const prefs = req.body;
+    if (typeof prefs !== 'object' || prefs === null) {
+      return res.status(400).json({ error: 'Ожидается объект' });
+    }
+    await db.query(
+      `INSERT INTO user_preferences (user_id, preferences) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE preferences = VALUES(preferences), updated_at = CURRENT_TIMESTAMP`,
+      [req.user.id, JSON.stringify(prefs)]
+    );
+    res.json({ message: 'Настройки сохранены' });
+  } catch (e) {
+    console.error('PUT /my-preferences:', e);
+    res.status(500).json({ error: 'Ошибка сохранения настроек' });
+  }
+});
+
+
+// ============================================================
+// GET /api/settings/my-preferences/effective
+// АКТУАЛЬНЫЙ вид текущего пользователя: индивидуальное → шаблон → дефолт
+// ============================================================
+router.get('/my-preferences/effective', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. Индивидуальные
+    const [prefRows] = await db.query(
+      'SELECT preferences FROM user_preferences WHERE user_id = ?',
+      [userId]
+    );
+
+    let prefs = {};
+    if (prefRows.length) {
+      try { prefs = JSON.parse(prefRows[0].preferences || '{}'); } catch (e) {}
+    }
+
+    if (Array.isArray(prefs.visibleFields) && prefs.visibleFields.length > 0) {
+      return res.json({ ...prefs, _loaded: true, _source: 'individual' });
+    }
+
+    // 2. Шаблон
+    let tplId = null;
+    try {
+      const [uRows] = await db.query(
+        'SELECT view_template_id FROM users WHERE id = ?',
+        [userId]
+      );
+      tplId = uRows[0] ? uRows[0].view_template_id : null;
+    } catch (e) { tplId = null; }
+
+    if (tplId) {
+      try {
+        const [tplRows] = await db.query(
+          'SELECT visible_fields FROM view_templates WHERE id = ?',
+          [tplId]
+        );
+        if (tplRows.length) {
+          const tplFields = db.safeParse(tplRows[0].visible_fields, []);
+          if (tplFields.length > 0) {
+            return res.json({
+              visibleFields: tplFields,
+              _virtualsInitialized: true,
+              _loaded: true,
+              _source: 'template',
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('my-preferences/effective: view_templates не найдена:', e.message);
+      }
+    }
+
+    // 3. Дефолт
+    const [fieldRows] = await db.query(
+      'SELECT id FROM field_config WHERE enabled = 1 ORDER BY field_order'
+    );
+    const active = fieldRows.map(r => r.id);
+    const VIRTUAL = ['status', 'nextCalibration'];
+
+    res.json({
+      visibleFields: [...active, ...VIRTUAL],
+      _virtualsInitialized: true,
+      _loaded: true,
+      _source: 'default',
+    });
+  } catch (e) {
+    console.error('GET /settings/my-preferences/effective:', e);
+    res.status(500).json({ error: 'Ошибка загрузки эффективного вида' });
+  }
+});
+
+module.exports = router;
