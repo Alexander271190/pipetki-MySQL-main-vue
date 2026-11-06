@@ -81,10 +81,14 @@ async function onResetAll() {
   if (!code) return;
 
   try {
-    // Пока endpoint не реализован в старом бэке — предупреждаем
-    toast.warn('Сброс данных требует реализации на сервере');
+    await api.resetAllData();
+    toast.success('Все данные удалены');
+    pip.clearSelection();   
+    pip.resetFilters(); 
+    await pip.loadPaged();
+    await stats.load();
   } catch (e) {
-    toast.error(e instanceof Error ? e.message : 'Ошибка');
+    toast.error(e instanceof Error ? e.message : 'Ошибка сброса');
   }
 }
 </script>
