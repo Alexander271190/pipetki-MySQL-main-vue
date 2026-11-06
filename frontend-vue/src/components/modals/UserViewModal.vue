@@ -189,7 +189,7 @@ const settings = useSettingsStore();
 const toast = useToastStore();
 
 const tab = ref<'fields' | 'documents'>('fields');
-const activeDoc = ref<'export' | 'actSend' | 'actReturn' | 'history'>('export');
+const activeDoc = ref<string>('export');
 const loading = ref(false);
 const saving = ref(false);
 
@@ -441,7 +441,7 @@ async function save() {
       const { usePrefsStore } = await import('@/stores/prefs');
       const prefs = usePrefsStore();
       prefs.visibleFields = [...visibleFields.value];
-      prefs._virtualsInitialized = true;
+      prefs.virtualsInitialized = true;
     }
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
