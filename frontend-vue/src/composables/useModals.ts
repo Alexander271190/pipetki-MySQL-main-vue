@@ -7,6 +7,7 @@ import { showConfirm } from './useConfirm';
 import { calcStatus } from '@/utils/status';
 import * as api from '@/api/pipettes';
 import type { Pipette } from '@/types';
+import { showLockWarning } from '@/composables/useLockWarning';
 
 export function useModals() {
   const ui = useUiStore();
@@ -109,7 +110,7 @@ export function useModals() {
     ui.openRowActions(event.currentTarget as HTMLElement, items);
   }
 
-  async function cancelSendConfirm(id: string) {
+ async function cancelSendConfirm(id: string) {
   if (!perm.canBulkSend.value) {
     toast.error('Нет прав на отмену отправки');
     return;
@@ -117,58 +118,94 @@ export function useModals() {
 
   const p = pip.items.find(x => x.id === id);
   if (!p) return;
-    const hasRepl = !!p.replaced_by;
-    const msg = hasRepl
-      ? `Отменить отправку «${id}» на поверку?\n\nЗамена «${p.replaced_by}» вернётся на склад.`
-      : `Отменить отправку «${id}» на поверку?`;
-
-    const ok = await showConfirm(msg, {
-      icon: '↩️', title: 'Отмена отправки', okText: 'Отменить', okClass: 'btn-warning',
-    });
-    if (!ok) return;
-
-    try {
-      await api.cancelSend(id);
-      toast.success('Отправка отменена');
-      await pip.loadPaged();
-      await stats.load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка');
+  
+  try {
+    const lockRes = await api.getLock(id);
+    if (lockRes.locked && !lockRes.mine) {
+      const proceed = await showLockWarning(lockRes, 'Отмены отправки');
+      if (!proceed) return;
     }
+    await api.setLock(id);
+  } catch {
+    toast.error('Ошибка проверки блокировки');
+    return;
   }
 
-  async function deleteConfirm(id: string) {
-    if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
-    const p = pip.items.find(x => x.id === id);
-    if (!p) return;
+  const hasRepl = !!p.replaced_by;
+  const msg = hasRepl
+    ? `Отменить отправку «${id}» на поверку?\n\nЗамена «${p.replaced_by}» вернётся на склад.`
+    : `Отменить отправку «${id}» на поверку?`;
 
-    let fresh: Pipette | null = null;
-    try { fresh = await api.getById(id); } catch { /* ignore */ }
-
-    if (fresh?.sent_for_calibration) {
-      toast.error(`Нельзя удалить ${id}: прибор отправлен на поверку`);
-      return;
-    }
-    if (fresh?.replacing) {
-      toast.error(`Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}`);
-      return;
-    }
-
-    const ok = await showConfirm(
-      `Удалить оборудование «${id}» вместе со всей историей поверок? Действие необратимо.`,
-      { icon: '🗑️', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger' }
-    );
-    if (!ok) return;
-
-    try {
-      await api.deletePipette(id);
-      toast.success('Оборудование удалено');
-      await pip.loadPaged();
-      await stats.load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
-    }
+  const ok = await showConfirm(msg, {
+    icon: '↩️', title: 'Отмена отправки', okText: 'Отменить', okClass: 'btn-warning',
+  });
+  if (!ok) {
+    api.releaseLock(id).catch(() => {});
+    return;
   }
+
+  try {
+    await api.cancelSend(id);
+    toast.success('Отправка отменена');
+    await pip.loadPaged();
+    await stats.load();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  } finally {
+    api.releaseLock(id).catch(() => {});    
+  }
+}
+ async function deleteConfirm(id: string) {
+  if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
+  const p = pip.items.find(x => x.id === id);
+  if (!p) return;
+  
+  try {
+    const lockRes = await api.getLock(id);
+    if (lockRes.locked && !lockRes.mine) {
+      const proceed = await showLockWarning(lockRes, 'Удаления');
+      if (!proceed) return;
+    }
+    await api.setLock(id);
+  } catch {
+    toast.error('Ошибка проверки блокировки');
+    return;
+  }
+
+  let fresh: Pipette | null = null;
+  try { fresh = await api.getById(id); } catch { /* ignore */ }
+
+  if (fresh?.sent_for_calibration) {
+    toast.error(`Нельзя удалить ${id}: прибор отправлен на поверку`);
+    api.releaseLock(id).catch(() => {});
+    return;
+  }
+  if (fresh?.replacing) {
+    toast.error(`Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}`);
+    api.releaseLock(id).catch(() => {});
+    return;
+  }
+
+  const ok = await showConfirm(
+    `Удалить оборудование «${id}» вместе со всей историей поверок? Действие необратимо.`,
+    { icon: '🗑️', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger' }
+  );
+  if (!ok) {
+    api.releaseLock(id).catch(() => {});
+    return;
+  }
+
+  try {
+    await api.deletePipette(id);
+    toast.success('Оборудование удалено');
+    await pip.loadPaged();
+    await stats.load();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
+  } finally {
+    api.releaseLock(id).catch(() => {});
+  }
+}
 
   function openBulkSend() {
     if (!perm.canBulkSend.value) { toast.error('Нет прав на отправку'); return; }
