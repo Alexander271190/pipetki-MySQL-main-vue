@@ -126,40 +126,51 @@ export const usePipettesStore = defineStore('pipettes', () => {
   filterState.value = cleaned;
 }
 
-  async function fetchByIds(ids: string[]): Promise<Pipette[]> {
+ //  Всегда с сервера — модалки должны видеть актуальные данные
+async function fetchByIds(ids: string[]): Promise<Pipette[]> {
   if (!ids || ids.length === 0) return [];
-  const byId = new Map<string, Pipette>();
-  for (const p of items.value) {
-    if (ids.includes(p.id)) byId.set(p.id, p);
-  }
-  const missing = ids.filter(id => !byId.has(id));
-  if (missing.length === 0) {
-    return ids.map(id => byId.get(id)).filter((p): p is Pipette => !!p);
-  }
 
   const api = await import('@/api/pipettes');
+  const byId = new Map<string, Pipette>();
+
+  // Загружаем ВСЕХ с сервера (не смотрим в кеш pip.items)
   const CONCURRENCY = 5;
-  for (let i = 0; i < missing.length; i += CONCURRENCY) {
-    const batch = missing.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < ids.length; i += CONCURRENCY) {
+    const batch = ids.slice(i, i + CONCURRENCY);
     const results = await Promise.allSettled(batch.map(id => api.getById(id)));
     results.forEach((r, idx) => {
       if (r.status === 'fulfilled' && r.value) byId.set(batch[idx], r.value);
     });
   }
-  return ids.map(id => byId.get(id)).filter((p): p is Pipette => !!p);
+
+  const result = ids.map(id => byId.get(id)).filter((p): p is Pipette => !!p);
+
+  //  Обновляем кеш pip.items — чтобы таблица показывала свежие данные
+  result.forEach(p => {
+    const idx = items.value.findIndex(x => x.id === p.id);
+    if (idx !== -1) items.value[idx] = p;
+  });
+
+  return result;
 }
 
+//  Всегда с сервера
 async function fetchOne(id: string): Promise<Pipette | null> {
-  const fromItems = items.value.find(x => x.id === id);
-  if (fromItems) return fromItems;
   try {
     const api = await import('@/api/pipettes');
-    return await api.getById(id);
+    const fresh = await api.getById(id);
+
+    //  Обновляем кеш pip.items
+    if (fresh) {
+      const idx = items.value.findIndex(x => x.id === id);
+      if (idx !== -1) items.value[idx] = fresh;
+    }
+
+    return fresh;
   } catch {
     return null;
   }
 }
-
   return {
     items, total, page, limit, totalPages, counters, loading,
     sortField, sortDir, search, filterState,
