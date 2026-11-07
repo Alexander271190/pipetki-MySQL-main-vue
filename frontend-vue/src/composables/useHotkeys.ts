@@ -3,6 +3,7 @@ import { useUiStore } from '@/stores/ui';
 import { useAuthStore, usePermissions } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { usePipettesStore } from '@/stores/pipettes';
+import { useExport } from './useExport';
 
 export function useHotkeys() {
   const ui = useUiStore();
@@ -10,6 +11,7 @@ export function useHotkeys() {
   const perm = usePermissions();
   const toast = useToastStore();
   const pip = usePipettesStore();
+  const exportComposable = useExport();
 
   function handler(e: KeyboardEvent) {
     if (!auth.isAuthenticated) return;
@@ -54,6 +56,11 @@ export function useHotkeys() {
     if (k === 'n' || k === 'т') {
       e.preventDefault();
       if (perm.canAddPipette.value) ui.open('form');
+      return;
+    }
+    if (k === 'e' || k === 'у') {
+      e.preventDefault();
+      if (perm.canExport.value) void exportComposable.exportToXlsx();
       return;
     }
     if (k === 'f' || k === 'а') {
