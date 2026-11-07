@@ -120,8 +120,7 @@ async function _handleIdleTimeout() {
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   _stopIdleTracking();
 
-  const id = _lockedId;
-  _skipUnlock = true;
+    const id = _lockedId;
 
   let saved = false;
   if (form.value.date && form.value.date <= todayStr()) {
@@ -133,6 +132,7 @@ async function _handleIdleTimeout() {
 
   try {
     await api.releaseLock(id);
+    _skipUnlock = true;                
   } catch (e) { console.warn('releaseLock при idle:', e); }
 
   _lockedId = null;
