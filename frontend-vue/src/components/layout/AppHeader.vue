@@ -171,6 +171,7 @@ function onPassword() {
 }
 
 function onLogout() {
+  ui.close(); 
   auth.logout();
   toast.success('Вы вышли из системы');
   router.push('/login');
