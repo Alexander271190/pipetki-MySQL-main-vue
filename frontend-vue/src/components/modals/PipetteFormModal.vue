@@ -162,7 +162,7 @@ let _heartbeat: number | null = null;
 let _skipUnlock = false;
 
 // ⏱ Idle timeout: снятие блокировки через 30 минут бездействия
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;  // 30 минут
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 let _idleStart = 0;
 let _idleCheckTimer: number | null = null;
 let _activityListenersAttached = false;
@@ -175,7 +175,6 @@ function _startIdleTracking() {
   _idleStart = Date.now();
   if (_idleCheckTimer) return;
 
-  // Проверяем раз в минуту — прошло ли 30 минут
   _idleCheckTimer = window.setInterval(() => {
     if (!_idleStart) return;
     const elapsed = Date.now() - _idleStart;
@@ -184,7 +183,6 @@ function _startIdleTracking() {
     }
   }, 60 * 1000);
 
-  // Слушаем активность — при любом действии сбрасываем таймер
   if (!_activityListenersAttached) {
     const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
     events.forEach(ev =>
@@ -212,7 +210,6 @@ function _stopIdleTracking() {
 async function _handleIdleTimeout() {
   if (!editId.value || !_idleStart) return;
 
-  // Останавливаем heartbeat, чтобы не мешал
   if (_heartbeat) {
     clearInterval(_heartbeat);
     _heartbeat = null;
@@ -222,7 +219,6 @@ async function _handleIdleTimeout() {
   const id = editId.value;
   _skipUnlock = true;
 
-  // Пытаемся сохранить черновик — чтобы данные не потерялись
   let draftSaved = false;
   try {
     await api.saveDraft(id, { ...form.value });
@@ -231,7 +227,6 @@ async function _handleIdleTimeout() {
     console.warn('Автосохранение черновика при idle timeout:', e);
   }
 
-  // Освобождаем блокировку
   try {
     await api.releaseLock(id);
   } catch (e) {
@@ -357,7 +352,6 @@ async function resetBarcodeValue() {
 
 async function openForm() {
   _stopIdleTracking();
-  // Подчищаем возможный «зависший» heartbeat от прошлой сессии
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
 
   const data = ui.modalData as string | null;
@@ -388,42 +382,99 @@ async function openForm() {
             const r = await api.getLock(editId.value);
             if (!r.locked || !r.mine) {
               if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
-               _stopIdleTracking(); 
-              _skipUnlock = true;   // лок уже не наш — release не нужен
+              _stopIdleTracking();
+              _skipUnlock = true;
 
-              // Сохраняем черновик из form.value (не из DOM — надёжнее)
-              let draftSaved = false;
+              const id = editId.value;
+
+              // 1. Пытаемся сохранить через onSubmit (тихо)
+              let saved = false;
+              let savedError = '';
               try {
-                await api.saveDraft(editId.value, { ...form.value });
-                draftSaved = true;
-              } catch (e) { console.warn('Черновик не сохранён:', e); }
+                await onSubmit();
+                saved = !error.value;
+                if (!saved) savedError = error.value || 'ошибка сохранения';
+              } catch (e: any) {
+                savedError = e?.message || 'ошибка сохранения';
+              }
 
-              ui.close();
+              // 2. Если не сохранилось — черновик
+              let draftSaved = false;
+              if (!saved && id) {
+                try {
+                  await api.saveDraft(id, { ...form.value });
+                  draftSaved = true;
+                } catch (e) {
+                  console.warn('Черновик не сохранён:', e);
+                }
+              }
 
-              const msg = draftSaved
-                ? `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.\n\nВаши данные сохранены как черновик.`
-                : `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.`;
+              // 3. Закрываем модалку (если onSubmit не закрыл)
+              if (ui.activeModal === 'form') {
+                await close();
+              }
 
-              toast.warn(msg);
+              // 4. Формируем сообщение
+              const name = r.lockedBy || '';
+              const pos = r.lockedByPosition;
+              const displayUser = pos ? `${name} (${pos})` : (name || 'другой пользователь');
+
+              let title: string;
+              let icon: string;
+              let message: string;
+
+              if (saved) {
+                title = 'Сессия завершена';
+                icon = '<i class="fa-solid fa-circle-info" style="color: #0ea5e9;"></i>';
+                message = `Ваши изменения были автоматически сохранены.\n\nПрибор забрал в работу: ${displayUser}.`;
+              } else if (draftSaved) {
+                title = 'Сессия завершена — данные сохранены как черновик';
+                icon = '<i class="fa-solid fa-pencil" style="color: #d97706;"></i>';
+                message =
+                  `Обычное сохранение не удалось: ${savedError}.\n\n` +
+                  `Но ваши данные сохранены как черновик — тот, кто забрал прибор, увидит их и сможет дозаполнить.\n\n` +
+                  `Прибор забрал в работу: ${displayUser}.`;
+              } else {
+                title = 'Сессия завершена — сохранить не удалось';
+                icon = '<i class="fa-solid fa-triangle-exclamation" style="color: #dc2626;"></i>';
+                message =
+                  `Не удалось сохранить изменения: ${savedError}.\n\n` +
+                  `Прибор забрал в работу: ${displayUser}.\n\n` +
+                  `Скопируйте важные данные, если они есть.`;
+              }
+
+              // 5. Тост (краткий)
+              toast.warn(saved
+                ? `Сессия завершена. Прибор забрал ${displayUser}.`
+                : draftSaved
+                  ? 'Сессия завершена. Данные сохранены как черновик.'
+                  : 'Сессия завершена. Сохранить не удалось.');
+
+              // 6. Модалка OK
+              try {
+                await showConfirm(message, {
+                  icon, title, okText: 'ОК', hideCancel: true, okClass: 'btn-secondary',
+                });
+              } catch { /* ignore */ }
             }
           } catch { /* ignore */ }
         }, 3000);
 
       } catch (e: any) {
-  if (e?.status === 429) {
-    toast.warn('Секунду, синхронизация...');
-    setTimeout(() => openForm(), 500);
-    return;
-  }
-  if (e?.status === 409) {
-    toast.error(`Заблокировано: ${e.response?.lockedBy || ''}`);
-    ui.close();
-    return;
-  }
-  toast.error('Ошибка проверки блокировки');
-  ui.close();
-  return;
-}
+        if (e?.status === 429) {
+          toast.warn('Секунду, синхронизация...');
+          setTimeout(() => openForm(), 500);
+          return;
+        }
+        if (e?.status === 409) {
+          toast.error(`Заблокировано: ${e.response?.lockedBy || ''}`);
+          ui.close();
+          return;
+        }
+        toast.error('Ошибка проверки блокировки');
+        ui.close();
+        return;
+      }
 
       let p: Pipette | null = pip.items.find(x => x.id === editId.value) || null;
       let fresh: api.GetByIdResponse | null = null;
@@ -433,7 +484,6 @@ async function openForm() {
       } catch { /* ignore */ }
       if (!p) {
         toast.error('Оборудование не найдено');
-        // Лок уже установлен — снимаем через close(), иначе он повиснет до TTL
         await close();
         return;
       }
@@ -451,14 +501,12 @@ async function openForm() {
         f[field.id] = v == null ? '' : String(v);
       }
 
-      // Черновик
       if (fresh?.draft) {
         draft.value = fresh.draft;
         Object.assign(f, fresh.draft.data);
       }
       form.value = f;
     } else {
-      // Загрузка шаблонов (только при создании и только админ)
       if (auth.isAdmin) {
         try { templates.value = await tplApi.getTemplates(); } catch { templates.value = []; }
       }
@@ -514,7 +562,7 @@ function applyTemplate(templateId: number) {
   if (!tpl) {
     toast.error('Шаблон не найден');
     return;
- }
+  }
   let applied = 0;
   for (const [fieldId, value] of Object.entries(tpl.data || {})) {
     if (value === undefined || value === null || value === '') continue;
@@ -596,7 +644,7 @@ async function onSubmit() {
       toast.success(`Оборудование создано (${res.id || payload.id})`);
     }
 
-    await close();   // releaseLock + ui.close()
+    await close();
     await pip.loadPaged();
     await stats.load();
   } catch (e: unknown) {
@@ -623,7 +671,7 @@ async function onSubmit() {
           toast.success('Оборудование сохранено');
         }
 
-        await close();   // releaseLock + ui.close()
+        await close();
         await pip.loadPaged();
         await stats.load();
       } catch (err2) {
@@ -638,7 +686,6 @@ async function onSubmit() {
 }
 
 function onBulkCreated(_count: number) {
-  // bulk-create: лок не устанавливался (editId = null), закрываем напрямую
   _skipUnlock = true;
   ui.close();
 }
@@ -648,9 +695,8 @@ async function close() {
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
-    _skipUnlock = true;      // ← внутри if
+    _skipUnlock = true;
   }
   ui.close();
-
 }
 </script>
