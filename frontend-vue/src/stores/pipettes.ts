@@ -126,11 +126,46 @@ export const usePipettesStore = defineStore('pipettes', () => {
   filterState.value = cleaned;
 }
 
+  async function fetchByIds(ids: string[]): Promise<Pipette[]> {
+  if (!ids || ids.length === 0) return [];
+  const byId = new Map<string, Pipette>();
+  for (const p of items.value) {
+    if (ids.includes(p.id)) byId.set(p.id, p);
+  }
+  const missing = ids.filter(id => !byId.has(id));
+  if (missing.length === 0) {
+    return ids.map(id => byId.get(id)).filter((p): p is Pipette => !!p);
+  }
+
+  const api = await import('@/api/pipettes');
+  const CONCURRENCY = 5;
+  for (let i = 0; i < missing.length; i += CONCURRENCY) {
+    const batch = missing.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(batch.map(id => api.getById(id)));
+    results.forEach((r, idx) => {
+      if (r.status === 'fulfilled' && r.value) byId.set(batch[idx], r.value);
+    });
+  }
+  return ids.map(id => byId.get(id)).filter((p): p is Pipette => !!p);
+}
+
+async function fetchOne(id: string): Promise<Pipette | null> {
+  const fromItems = items.value.find(x => x.id === id);
+  if (fromItems) return fromItems;
+  try {
+    const api = await import('@/api/pipettes');
+    return await api.getById(id);
+  } catch {
+    return null;
+  }
+}
+
   return {
     items, total, page, limit, totalPages, counters, loading,
     sortField, sortDir, search, filterState,
     selected, hasSelection,
     loadPaged, setSearch, setFilter, resetFilters,
-    sortBy, changePage, toggleSelected, selectAllOnPage, clearSelection, syncFilterState
+    sortBy, changePage, toggleSelected, selectAllOnPage, clearSelection, syncFilterState, fetchByIds,
+fetchOne,
   };
 });
