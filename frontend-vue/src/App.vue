@@ -77,8 +77,8 @@ function checkMustChangePassword() {
 }
 
 function onAuthChanged() {
-  ui.close();                       // ⚠️ закрываем все модалки
-  checkMustChangePassword();        // ⚠️ при mustChangePassword — открываем её
+  ui.close();                    
+  checkMustChangePassword();        
   sessionKey.value++;
 }
 
@@ -93,11 +93,11 @@ function onWindowFocus() {
 
 onMounted(() => {
   auth.initFromStorage();
-  checkMustChangePassword();        // ⚠️ если в storage уже mustChangePassword
-  void auth.refreshUser();          // ⚠️ обновить права с сервера
+  checkMustChangePassword();        
+  void auth.refreshUser();          
 
   setUnauthorizedHandler(() => {
-    ui.close();                     // ⚠️ закрыть модалки при 401
+    ui.close();                     
     auth.logout();
     if (router.currentRoute.value.path !== '/login') router.push('/login');
   });
