@@ -409,11 +409,21 @@ async function openForm() {
           } catch { /* ignore */ }
         }, 3000);
 
-      } catch {
-        toast.error('Ошибка проверки блокировки');
-        ui.close();
-        return;
-      }
+      } catch (e: any) {
+  if (e?.status === 429) {
+    toast.warn('Секунду, синхронизация...');
+    setTimeout(() => openForm(), 500);
+    return;
+  }
+  if (e?.status === 409) {
+    toast.error(`Заблокировано: ${e.response?.lockedBy || ''}`);
+    ui.close();
+    return;
+  }
+  toast.error('Ошибка проверки блокировки');
+  ui.close();
+  return;
+}
 
       let p: Pipette | null = pip.items.find(x => x.id === editId.value) || null;
       let fresh: api.GetByIdResponse | null = null;
