@@ -67,14 +67,37 @@ const router = useRouter();
 const ui = useUiStore();
 const sessionKey = ref(0);
 
+function checkMustChangePassword() {
+  if (!auth.user) return;
+  if (auth.user.mustSetPassword) {
+    ui.open('changePassword', 'setup');
+  } else if (auth.user.mustChangePassword) {
+    ui.open('changePassword', 'change');
+  }
+}
+
 function onAuthChanged() {
+  ui.close();                       // ⚠️ закрываем все модалки
+  checkMustChangePassword();        // ⚠️ при mustChangePassword — открываем её
   sessionKey.value++;
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible' && auth.isAuthenticated) {
+    auth.refreshUser();
+  }
+}
+function onWindowFocus() {
+  if (auth.isAuthenticated) auth.refreshUser();
 }
 
 onMounted(() => {
   auth.initFromStorage();
+  checkMustChangePassword();        // ⚠️ если в storage уже mustChangePassword
+  void auth.refreshUser();          // ⚠️ обновить права с сервера
 
   setUnauthorizedHandler(() => {
+    ui.close();                     // ⚠️ закрыть модалки при 401
     auth.logout();
     if (router.currentRoute.value.path !== '/login') router.push('/login');
   });
@@ -82,11 +105,15 @@ onMounted(() => {
   setPasswordRequiredHandler((mode) => ui.open('changePassword', mode));
 
   window.addEventListener('auth:changed', onAuthChanged);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('focus', onWindowFocus);
   document.addEventListener('pointerdown', onModalResizePointerDown);
 });
 
 onUnmounted(() => {
   window.removeEventListener('auth:changed', onAuthChanged);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  window.removeEventListener('focus', onWindowFocus);
   document.removeEventListener('pointerdown', onModalResizePointerDown);
 });
 
