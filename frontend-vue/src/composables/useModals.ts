@@ -110,8 +110,13 @@ export function useModals() {
   }
 
   async function cancelSendConfirm(id: string) {
-    const p = pip.items.find(x => x.id === id);
-    if (!p) return;
+  if (!perm.canBulkSend.value) {
+    toast.error('Нет прав на отмену отправки');
+    return;
+  }
+
+  const p = pip.items.find(x => x.id === id);
+  if (!p) return;
     const hasRepl = !!p.replaced_by;
     const msg = hasRepl
       ? `Отменить отправку «${id}» на поверку?\n\nЗамена «${p.replaced_by}» вернётся на склад.`
@@ -133,6 +138,7 @@ export function useModals() {
   }
 
   async function deleteConfirm(id: string) {
+    if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
     const p = pip.items.find(x => x.id === id);
     if (!p) return;
 
@@ -165,18 +171,21 @@ export function useModals() {
   }
 
   function openBulkSend() {
+    if (!perm.canBulkSend.value) { toast.error('Нет прав на отправку'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkSend', ids);
   }
 
   function openBulkReturn() {
+    if (!perm.canBulkReturn.value) { toast.error('Нет прав на возврат'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkReturn', ids);
   }
 
   function openBulkResponsible() {
+    if (!perm.canBulkChangeResponsible.value) { toast.error('Нет прав на смену ответственного'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkResponsible', ids);
