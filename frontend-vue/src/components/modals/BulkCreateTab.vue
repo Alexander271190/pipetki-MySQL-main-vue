@@ -88,6 +88,7 @@ import { showConfirm } from '@/composables/useConfirm';
 import { todayStr } from '@/utils/format';
 import * as bulkApi from '@/api/bulk';
 import type { FieldConfig } from '@/api/settings';
+import { getResponsibles } from '@/api/users';
 
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'created', count: number): void }>();
 
@@ -97,6 +98,7 @@ const perm = usePermissions();
 const pip = usePipettesStore();
 const stats = useStatsStore();
 const toast = useToastStore();
+const responsibles = ref<string[]>([]);
 
 const MAX_ROWS = 100;
 
@@ -141,23 +143,21 @@ function getOptions(f: FieldConfig, currentVal: string | undefined): { value: st
       { value: 'false', label: '⛔ Не используется' },
     ];
   } else if (f.id === 'responsible') {
-    if (auth.isAdmin) {
-      const current = currentVal || '';
-      opts = current ? [{ value: current, label: current }] : [];
-      if (!f.required) opts.unshift({ value: '', label: '—' });
-    } else if (auth.user?.isActing && auth.user?.actingForName) {
-      opts = [{ value: auth.user.actingForName, label: auth.user.actingForName + ' (основной)' }];
-    } else {
-      const self = auth.user?.fullName || '';
-      opts = self ? [{ value: self, label: self }] : [{ value: '', label: '—' }];
-    }
+  if (auth.isAdmin) {
+    const current = currentVal || '';
+    const names = new Set<string>(responsibles.value);
+    if (current) names.add(current);
+    opts = [...names]
+      .sort((a, b) => a.localeCompare(b, 'ru'))
+      .map(n => ({ value: n, label: n }));
+    if (!f.required) opts.unshift({ value: '', label: '— не указан —' });
+  } else if (auth.user?.isActing && auth.user?.actingForName) {
+    opts = [{ value: auth.user.actingForName, label: auth.user.actingForName + ' (основной)' }];
   } else {
-    const raw = Array.isArray(f.options) ? f.options : [];
-    opts = raw.map(o => ({ value: o, label: o }));
-    if (!f.required && !opts.some(o => o.value === '')) {
-      opts = [{ value: '', label: '—' }, ...opts];
-    }
+    const self = auth.user?.fullName || '';
+    opts = self ? [{ value: self, label: self }] : [{ value: '', label: '—' }];
   }
+}
 
   if (currentVal && !opts.some(o => String(o.value) === currentVal)) {
     opts.push({ value: currentVal, label: `${currentVal} ⚠` });
@@ -262,7 +262,13 @@ async function onSave() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  if (auth.isAdmin) {
+    try {
+      const users = await getResponsibles();
+      responsibles.value = users.map(u => u.fullName).filter(Boolean);
+    } catch { /* ignore */ }
+  }
   addRow();
 });
 </script>
