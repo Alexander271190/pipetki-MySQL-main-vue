@@ -171,10 +171,10 @@ async function open() {
   note.value = '';
 
   const ids = (ui.modalData as string[]) || [];
-  const filtered = ids
-    .map(id => pip.items.find(x => x.id === id))
-    .filter((p): p is Pipette => !!p && !!p.sent_for_calibration && isExternalCalibration(settings.equipmentTypes, p.equipment_type));
-
+  const list = await pip.fetchByIds(ids);
+  const filtered = list.filter((p): p is Pipette =>
+    !!p && !!p.sent_for_calibration && isExternalCalibration(settings.equipmentTypes, p.equipment_type)
+  );
   if (filtered.length === 0) {
     toast.error('Не выбрано ни одной единицы со статусом «На поверке»');
     ui.close();
