@@ -175,3 +175,9 @@ html[data-theme="dark"] .modal .form-row select {
   color: var(--text) !important;
   border-color: #334155 !important;
 }
+
+/* Пресеты в UserEditModal — перекрываем любой inline background */
+html[data-theme="dark"] .modal .flex-row-sm[style*="background"] {
+  background: #273449 !important;
+  color: var(--text) !important;
+}
