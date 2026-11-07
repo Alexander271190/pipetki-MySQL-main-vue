@@ -133,7 +133,6 @@ watch(() => ui.activeModal, (v) => {
 
 async function open() {
   _stopIdleTracking();
-  // Сброс состояния прошлой сессии
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   _skipUnlock = false;
   _lockedId = null;
@@ -146,7 +145,6 @@ async function open() {
 
   const id = ui.modalData as string;
 
-  // 1. Захват лока (с предупреждением, если занят)
   try {
     const lockRes = await api.getLock(id);
     if (lockRes.locked && !lockRes.mine) {
@@ -162,7 +160,6 @@ async function open() {
     return;
   }
 
-  // 2. Свежие данные прибора (fetchOne идёт в API, если нет в сторе)
   pipette.value = await pip.fetchOne(id);
   if (!pipette.value) {
     toast.error('Прибор не найден');
@@ -170,7 +167,7 @@ async function open() {
     return;
   }
 
-  // 3. Heartbeat — каждые 3 сек проверяем, наш ли лок
+  // ── Heartbeat с модалкой OK ─────────────────
   _heartbeat = window.setInterval(async () => {
     if (!pipette.value) return;
     try {
@@ -183,13 +180,24 @@ async function open() {
         _lockedId = null;
         ui.close();
 
-        await showConfirm(
-          `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.\n\nПередача не выполнена.`,
-          {
-            icon: 'ℹ️', title: 'Сессия завершена',
-            okText: 'ОК', hideCancel: true, okClass: 'btn-secondary',
-          }
-        );
+        const name = r.lockedBy || '';
+        const pos = r.lockedByPosition;
+        const displayUser = pos ? `${name} (${pos})` : (name || 'другой пользователь');
+
+        toast.warn(`Сессия завершена. Прибор забрал ${displayUser}.`);
+
+        try {
+          await showConfirm(
+            `Сессия завершена. Прибор забрал в работу: ${displayUser}.\n\nПередача не выполнена.`,
+            {
+              icon: '<i class="fa-solid fa-circle-info" style="color: #0ea5e9;"></i>',
+              title: 'Сессия завершена',
+              okText: 'ОК',
+              hideCancel: true,
+              okClass: 'btn-secondary',
+            }
+          );
+        } catch { /* ignore */ }
       }
     } catch { /* ignore */ }
   }, 3000);
@@ -227,7 +235,7 @@ async function onSubmit() {
   try {
     await api.transferPipette(pipette.value.id, newDept.value, newResp.value);
     toast.success(`Передано в «${newDept.value}»`);
-    await close();   // releaseLock + ui.close()
+    await close();
     await pip.loadPaged();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка передачи';
