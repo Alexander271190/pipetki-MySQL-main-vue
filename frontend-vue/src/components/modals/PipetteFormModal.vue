@@ -139,6 +139,7 @@ import * as tplApi from '@/api/templates';
 import type { FieldConfig } from '@/api/settings';
 import type { Pipette } from '@/types';
 import type { DraftData } from '@/api/pipettes';
+import { getResponsibles } from '@/api/users';
 
 const ui = useUiStore();
 const auth = useAuthStore();
@@ -146,7 +147,7 @@ const settings = useSettingsStore();
 const pip = usePipettesStore();
 const stats = useStatsStore();
 const toast = useToastStore();
-
+const responsibles = ref<string[]>([]);
 const tab = ref<'single' | 'batch'>('single');
 const form = ref<Record<string, string>>({});
 const loadingData = ref(false);
@@ -275,20 +276,29 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
     ];
   }
   if (f.id === 'responsible') {
-    const opts: { value: string; label: string }[] = [];
-    if (!f.required) opts.push({ value: '', label: '— не указан —' });
-    const self = auth.user?.fullName || '';
-    if (auth.isAdmin) {
-      if (self) opts.push({ value: self, label: self });
-      const current = form.value.responsible;
-      if (current && current !== self) opts.push({ value: current, label: current });
-    } else if (auth.user?.isActing && auth.user?.actingForName) {
-      opts.push({ value: auth.user.actingForName, label: `${auth.user.actingForName} (основной)` });
-    } else if (self) {
-      opts.push({ value: self, label: self });
-    }
+  const opts: { value: string; label: string }[] = [];
+  if (!f.required) opts.push({ value: '', label: '— не указан —' });
+
+  const self = auth.user?.fullName || '';
+  if (auth.isAdmin) {
+    // ⚠️ Полный список + self + текущее значение
+    const names = new Set<string>(responsibles.value);
+    if (self) names.add(self);
+    const current = form.value.responsible;
+    if (current) names.add(current);
+
+    const sorted = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
+    sorted.forEach(n => opts.push({ value: n, label: n }));
     return opts;
   }
+
+  if (auth.user?.isActing && auth.user?.actingForName) {
+    opts.push({ value: auth.user.actingForName, label: `${auth.user.actingForName} (основной)` });
+  } else if (self) {
+    opts.push({ value: self, label: self });
+  }
+  return opts;
+}
   const raw = Array.isArray(f.options) ? f.options : [];
   const opts = raw.map(o => ({ value: o, label: o }));
   if (!f.required && !opts.some(o => o.value === '')) return [{ value: '', label: '—' }, ...opts];
@@ -353,6 +363,14 @@ async function resetBarcodeValue() {
 async function openForm() {
   _stopIdleTracking();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+ 
+  // ⚠️ Загружаем список ответственных (только админу)
+  if (auth.isAdmin && responsibles.value.length === 0) {
+    try {
+      const users = await getResponsibles();
+      responsibles.value = users.map(u => u.fullName).filter(Boolean);
+    } catch { /* ignore */ }
+  }
 
   const data = ui.modalData as string | null;
   editId.value = data || null;
