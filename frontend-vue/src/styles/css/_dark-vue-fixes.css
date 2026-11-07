@@ -181,3 +181,30 @@ html[data-theme="dark"] .modal .flex-row-sm[style*="background"] {
   background: #273449 !important;
   color: var(--text) !important;
 }
+
+/* ============================================================
+   ИНЛАЙН-ФОНЫ В МОДАЛКАХ — покрываем и hex, и нормализованный rgb
+   (браузер парсит #f8fafc → rgb(248, 250, 252) — substring не совпадает)
+   ============================================================ */
+
+/* Блоки с inline background:#f8fafc / #f1f5f9 (карточки, подсказки) */
+html[data-theme="dark"] .modal [style*="background:#f8fafc"],
+html[data-theme="dark"] .modal [style*="background: #f8fafc"],
+html[data-theme="dark"] .modal [style*="background: rgb(248, 250, 252)"],
+html[data-theme="dark"] .modal [style*="background:rgb(248, 250, 252)"],
+html[data-theme="dark"] .modal [style*="background:#f1f5f9"],
+html[data-theme="dark"] .modal [style*="background: #f1f5f9"],
+html[data-theme="dark"] .modal [style*="background: rgb(241, 245, 249)"],
+html[data-theme="dark"] .modal [style*="background:rgb(241, 245, 249)"] {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+}
+
+/* readonly input с inline #f1f5f9 → тёмнее (как disabled) */
+html[data-theme="dark"] .modal input[style*="background: rgb(241, 245, 249)"],
+html[data-theme="dark"] .modal input[style*="background:rgb(241, 245, 249)"],
+html[data-theme="dark"] .modal textarea[style*="background: rgb(241, 245, 249)"],
+html[data-theme="dark"] .modal textarea[style*="background:rgb(241, 245, 249)"] {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+}
