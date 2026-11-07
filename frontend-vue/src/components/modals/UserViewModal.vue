@@ -182,6 +182,7 @@ import * as usersApi from '@/api/users';
 import * as viewTplApi from '@/api/viewTemplates';
 import type { FullUser } from '@/api/users';
 import type { ViewTemplate } from '@/api/viewTemplates';
+import { showConfirm } from '@/composables/useConfirm';
 
 const ui = useUiStore();
 const auth = useAuthStore();
@@ -396,7 +397,12 @@ async function applyToAll(mode: 'missing' | 'add') {
   const modeLabel = mode === 'missing'
     ? 'только тем пользователям, у кого ещё нет своих настроек'
     : 'ВСЕМ пользователям (добавить отмеченные поля, остальные сохранить)';
-  if (!confirm(`Применить ${visibleFields.value.length} полей ${modeLabel}?\n\nДействие затронет всех пользователей.`)) return;
+
+  const ok = await showConfirm(
+    `Применить ${visibleFields.value.length} полей ${modeLabel}?\n\nДействие затронет всех пользователей.`,
+    { icon: '⚠️', title: 'Массовое применение', okText: 'Применить', okClass: 'btn-warning' }
+  );
+  if (!ok) return; 
   try {
     const res = await apiRequest<{ updated: number; message?: string }>(
       '/settings/apply-fields-to-all', 'POST',
@@ -452,7 +458,11 @@ async function save() {
 
 async function resetUserView() {
   if (!userId.value) return;
-  if (!confirm('Сбросить настройки полей и документов к стандартным?')) return;
+  const ok = await showConfirm(
+    'Сбросить настройки полей и документов к стандартным?',
+    { icon: '<i class="fa-solid fa-rotate-left"></i>', title: 'Сброс', okText: 'Сбросить', okClass: 'btn-warning' }
+  );
+  if (!ok) return;
   try {
     await apiRequest(`/settings/user-preferences/${userId.value}`, 'DELETE');
     toast.success('Сброшено. Пользователь увидит все включённые поля.');
