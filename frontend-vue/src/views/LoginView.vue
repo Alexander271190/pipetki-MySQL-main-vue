@@ -44,18 +44,20 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
+import { useUiStore } from '@/stores/ui';
 
 const loginStr = ref('');
 const password = ref('');
 const error = ref('');
 const loading = ref(false);
+const ui = useUiStore();
 
 const auth = useAuthStore();
 const toast = useToastStore();
 const router = useRouter();
 
 onMounted(() => {
-  // Восстанавливаем последний логин
+  
   try {
     const last = localStorage.getItem('pipette_last_login');
     if (last) loginStr.value = last;
@@ -64,14 +66,18 @@ onMounted(() => {
 
 async function onSubmit() {
   error.value = '';
-  if (!loginStr.value.trim()) {
-    error.value = 'Заполните поле «Логин»';
-    return;
-  }
+  if (!loginStr.value.trim()) { error.value = 'Заполните поле «Логин»'; return; }
   loading.value = true;
   try {
     await auth.login(loginStr.value.trim(), password.value);
     try { localStorage.setItem('pipette_last_login', loginStr.value.trim()); } catch { /* ignore */ }
+    
+    if (auth.user?.mustSetPassword) {
+      ui.open('changePassword', 'setup');
+    } else if (auth.user?.mustChangePassword) {
+      ui.open('changePassword', 'change');
+    }
+
     toast.success(`Добро пожаловать, ${auth.user?.fullName || ''}!`);
     router.push('/');
   } catch (e) {
