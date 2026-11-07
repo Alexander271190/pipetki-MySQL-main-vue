@@ -57,6 +57,10 @@ export async function apiRequest<T = unknown>(
   if (response.status === 401 && !endpoint.startsWith('/auth/login')) {
     sessionStorage.removeItem(SESSION_KEY);
     authToken = null;
+    try {
+      const { useToastStore } = await import('@/stores/toast');
+      useToastStore().error('Сессия истекла, войдите заново');
+    } catch { /* ignore */ }
     if (onUnauthorized) onUnauthorized();
     throw new ApiError('Сессия истекла, войдите заново', 401, 'unauthorized', {});
   }
@@ -73,6 +77,15 @@ export async function apiRequest<T = unknown>(
       onPasswordRequired('setup');
       throw new ApiError('Требуется установка пароля', 403, 'password_setup_required', body);
     }
+  }
+
+  // 429 — слишком много запросов
+  if (response.status === 429) {
+    try {
+      const { useToastStore } = await import('@/stores/toast');
+      useToastStore().warn('Слишком много запросов. Подождите немного.');
+    } catch { /* ignore */ }
+    throw new ApiError('Слишком много запросов', 429, 'rate_limit', {});
   }
 
   let result: Record<string, unknown>;
