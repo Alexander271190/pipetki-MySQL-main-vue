@@ -40,13 +40,13 @@
       @input="onSearchInput"
     />
 
-   <!-- Фильтр -->
-<div style="position:relative;display:inline-block;">
-  <button class="btn btn-secondary" @click="showFilter = !showFilter">
-    <i class="fa-solid fa-filter"></i> Фильтр
-  </button>
-  <FilterPanel v-if="showFilter" @close="showFilter = false" />
-</div>
+    <!-- Фильтр -->
+    <div style="position:relative;display:inline-block;">
+      <button class="btn btn-secondary" @click="showFilter = !showFilter">
+        <i class="fa-solid fa-filter"></i> Фильтр
+      </button>
+      <FilterPanel v-if="showFilter" @close="showFilter = false" />
+    </div>
 
     <!-- Сканировать -->
     <button
@@ -63,87 +63,87 @@
         <i class="fa-solid fa-ellipsis"></i> Ещё <i class="fa-solid fa-caret-down"></i>
       </button>
       <div v-if="menuOpen" class="dropdown-menu show" style="display:block;">
-  <button
-    v-if="perm.canAddPipette.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('add')"
-  >
-    <i class="fa-solid fa-plus"></i> Создать оборудование
-  </button>
+        <button
+          v-if="perm.canAddPipette.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('add')"
+        >
+          <i class="fa-solid fa-plus"></i> Создать оборудование
+        </button>
 
-  <div v-if="perm.canAddPipette.value && (perm.canExport.value || perm.canPrintLabels.value)" class="dropdown-divider"></div>
+        <div v-if="perm.canAddPipette.value && (perm.canExport.value || perm.canPrintLabels.value)" class="dropdown-divider"></div>
 
-  <button
-    v-if="perm.canExport.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('excel')"
-  >
-    <i class="fa-solid fa-file-excel"></i> Печать в Excel
-  </button>
-  <button
-    v-if="perm.canExport.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('pdf')"
-  >
-    <i class="fa-solid fa-print"></i> Печать в PDF
-  </button>
+        <button
+          v-if="perm.canExport.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('excel')"
+        >
+          <i class="fa-solid fa-file-excel"></i> Печать в Excel
+        </button>
+        <button
+          v-if="perm.canExport.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('pdf')"
+        >
+          <i class="fa-solid fa-print"></i> Печать в PDF
+        </button>
 
-  <div v-if="perm.canExport.value && (perm.canPrintLabels.value || perm.canImport.value)" class="dropdown-divider"></div>
+        <div v-if="perm.canExport.value && (perm.canPrintLabels.value || perm.canImport.value)" class="dropdown-divider"></div>
 
-  <button
-    v-if="perm.canPrintLabels.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('labels')"
-  >
-    <i class="fa-solid fa-tag"></i> Печать этикеток
-  </button>
-  <button
-    v-if="perm.canImport.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('import')"
-  >
-    <i class="fa-solid fa-download"></i> Импорт данных
-  </button>
+        <button
+          v-if="perm.canPrintLabels.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('labels')"
+        >
+          <i class="fa-solid fa-tag"></i> Печать этикеток
+        </button>
+        <button
+          v-if="perm.canImport.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('import')"
+        >
+          <i class="fa-solid fa-download"></i> Импорт данных
+        </button>
 
-  <div
-    v-if="perm.canManageSettings.value || hasCustomLayout"
-    class="dropdown-divider"
-  ></div>
+        <div
+          v-if="perm.canManageSettings.value || hasCustomLayout"
+          class="dropdown-divider"
+        ></div>
 
-  <button
-    v-if="perm.canManageSettings.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('settings')"
-  >
-    <i class="fa-solid fa-gear"></i> Настройки
-  </button>
+        <button
+          v-if="perm.canManageSettings.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('settings')"
+        >
+          <i class="fa-solid fa-gear"></i> Настройки
+        </button>
 
-  <template v-if="hasCustomLayout">
-    <button class="dropdown-item" @click="onResetLayout">
-      <i class="fa-solid fa-rotate-left"></i> Сбросить раскладку колонок
-    </button>
-  </template>
+        <template v-if="hasCustomLayout">
+          <button class="dropdown-item" @click="onResetLayout">
+            <i class="fa-solid fa-rotate-left"></i> Сбросить раскладку колонок
+          </button>
+        </template>
 
-  <div class="dropdown-divider"></div>
+        <div class="dropdown-divider"></div>
 
-  <button class="dropdown-item" @click="closeMenuAnd('compact')">
-    <i class="fa-solid fa-arrows-up-down"></i> Компактный режим
-  </button>
+        <button class="dropdown-item" @click="closeMenuAnd('compact')">
+          <i class="fa-solid fa-arrows-up-down"></i> Компактный режим
+        </button>
 
-  <button
-    v-if="perm.canViewLog.value"
-    class="dropdown-item"
-    @click="closeMenuAnd('audit')"
-  >
-    <i class="fa-solid fa-clipboard-list"></i> Журнал действий
-  </button>
+        <button
+          v-if="perm.canViewLog.value"
+          class="dropdown-item"
+          @click="closeMenuAnd('audit')"
+        >
+          <i class="fa-solid fa-clipboard-list"></i> Журнал действий
+        </button>
 
-  <button class="dropdown-item" @click="closeMenuAnd('help')">
-    <i class="fa-solid fa-book-open"></i> Справка
-  </button>
+        <button class="dropdown-item" @click="closeMenuAnd('help')">
+          <i class="fa-solid fa-book-open"></i> Справка
+        </button>
+      </div>
+    </div>
   </div>
- </div>
-</div>
 </template>
 
 <script setup lang="ts">
@@ -167,6 +167,7 @@ const toast = useToastStore();
 const prefs = usePrefsStore();
 const menuOpen = ref(false);
 const showFilter = ref(false);
+
 const hasCustomLayout = computed(
   () =>
     (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) ||
@@ -185,8 +186,14 @@ async function onResetLayout() {
     }
   );
   if (!ok) return;
-  prefs.resetLayout();
-  toast.success('Раскладка колонок сброшена');
+
+  try {
+    await prefs.resetLayout();
+    toast.success('Раскладка колонок сброшена');
+  } catch (e) {
+    toast.error('Не удалось сбросить раскладку');
+    console.error('onResetLayout:', e);
+  }
 }
 
 let searchTimer: number | null = null;
@@ -221,7 +228,6 @@ async function closeMenuAnd(action: string) {
       modals.openImport();
       break;
     case 'settings':
-      // кнопка теперь скрыта через v-if, проверка оставлена как defense-in-depth
       if (!perm.canManageSettings.value) {
         toast.error('Нет прав на настройки');
         break;
@@ -261,6 +267,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', closeOnOutsideClick);
+  if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
 });
 </script>
 
