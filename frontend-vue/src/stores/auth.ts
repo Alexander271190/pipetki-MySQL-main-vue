@@ -23,6 +23,34 @@ function readSession(): SessionData | null {
   return null;
 }
 
+// ⚠️ Общий сброс кэшей всех сторов. Используется в logout, impersonate, stop-impersonate.
+async function resetOtherStores() {
+  try {
+    const [{ usePrefsStore }, { useSettingsStore }, { usePipettesStore }, { useStatsStore }] = await Promise.all([
+      import('@/stores/prefs'),
+      import('@/stores/settings'),
+      import('@/stores/pipettes'),
+      import('@/stores/stats'),
+    ]);
+
+    const prefs = usePrefsStore();
+    prefs.loaded = false;
+    prefs.visibleFields = [];
+    prefs.columnOrder = [];
+    prefs.columnWidths = {};
+
+    useSettingsStore().loaded = false;
+
+    const pip = usePipettesStore();
+    pip.items = [];
+    pip.clearSelection();
+
+    useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
+  } catch (e) {
+    console.warn('resetOtherStores:', e);
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
   const token = ref<string | null>(null);
@@ -66,19 +94,37 @@ export const useAuthStore = defineStore('auth', () => {
     originalToken.value = null;
     setAuthToken(null);
     sessionStorage.removeItem(SESSION_KEY);
+    void resetOtherStores();        // ⚠️ сброс кэшей
   }
 
   async function refreshUser() {
     if (!token.value) return;
     try {
       const { user: fresh } = await authApi.verify();
-      if (fresh) {
-        user.value = fresh;
-        const s = readSession();
-        if (s) {
-          s.user = fresh;
-          sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
-        }
+      if (!fresh) return;
+
+      // ⚠️ сравнение прав / роли / mustChange
+      const oldPerms = JSON.stringify(user.value?.permissions || user.value?.extraPermissions || []);
+      const newPerms = JSON.stringify(fresh.permissions || fresh.extraPermissions || []);
+      const roleChanged =
+        user.value?.role !== fresh.role ||
+        user.value?.isAdmin !== fresh.isAdmin;
+      const mustChanged =
+        !!user.value?.mustChangePassword !== !!fresh.mustChangePassword ||
+        !!user.value?.mustSetPassword    !== !!fresh.mustSetPassword;
+
+      user.value = fresh;
+      const s = readSession();
+      if (s) { s.user = fresh; sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+
+      if (oldPerms !== newPerms || roleChanged) {
+        try {
+          const { useToastStore } = await import('@/stores/toast');
+          useToastStore().success('Ваши права были обновлены администратором');
+        } catch { /* ignore */ }
+      }
+      if (oldPerms !== newPerms || roleChanged || mustChanged) {
+        window.dispatchEvent(new CustomEvent('auth:changed'));
       }
     } catch { /* тихо */ }
   }
@@ -94,6 +140,8 @@ export const useAuthStore = defineStore('auth', () => {
     user, token, originalUser, originalToken,
     isAuthenticated, isAdmin, isImpersonating,
     initFromStorage, applySession, login, logout, refreshUser, hasPermission,
+    // ⚠️ экспортируем — пригодится в impersonate/stopImpersonate
+    resetOtherStores,
   };
 });
 
