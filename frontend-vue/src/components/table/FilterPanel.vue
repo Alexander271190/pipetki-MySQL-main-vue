@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
 import { usePipettesStore } from '@/stores/pipettes';
 
@@ -59,9 +59,26 @@ const pip = usePipettesStore();
 
 const localState = ref<Record<string, any>>({});
 
-// Инициализация состояния при открытии
-settings.filters.forEach(f => {
-  localState.value[f.id] = pip.filterState[f.id] || (f.type === 'date-period' ? { type: 'last_calibration', period: '', from: '', to: '' } : '');
+function initLocalState() {
+  const fresh: Record<string, any> = {};
+  settings.filters.forEach(f => {
+    fresh[f.id] = pip.filterState[f.id] || (f.type === 'date-period'
+      ? { type: 'last_calibration', period: '', from: '', to: '' }
+      : '');
+  });
+  localState.value = fresh;
+}
+
+function onFiltersRefresh() {
+  initLocalState();
+}
+
+onMounted(() => {
+  window.addEventListener('filters:refresh', onFiltersRefresh);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('filters:refresh', onFiltersRefresh);
 });
 
 function onPeriodChange(fid: string) {
