@@ -117,7 +117,7 @@ async function open() {
   replacementBlocks.value = [];
 
   const ids = (ui.modalData as string[]) || [];
-  const list = ids.map(id => pip.items.find(x => x.id === id)).filter(Boolean) as Pipette[];
+  const list = await pip.fetchByIds(ids);
   const filtered = list.filter(p =>
     !p.sent_for_calibration &&
     !p.replacing &&
