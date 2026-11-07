@@ -1,0 +1,177 @@
+/* ═══════════════════════════════════════════════════════════
+   ФИКС ТЁМНОЙ ТЕМЫ ДЛЯ VUE-КОМПОНЕНТОВ
+   Старые CSS (Vanilla JS) не трогаем — это отдельный слой.
+   ═══════════════════════════════════════════════════════════ */
+
+html[data-theme="dark"] .modal input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="image"]),
+html[data-theme="dark"] .modal select,
+html[data-theme="dark"] .modal textarea {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .modal input:not([type="checkbox"]):not([type="radio"]):focus,
+html[data-theme="dark"] .modal select:focus,
+html[data-theme="dark"] .modal textarea:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2) !important;
+}
+
+html[data-theme="dark"] .main-content input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="image"]),
+html[data-theme="dark"] .main-content select,
+html[data-theme="dark"] .main-content textarea {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .toolbar input,
+html[data-theme="dark"] .toolbar select,
+html[data-theme="dark"] .search-input {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .filter-panel input,
+html[data-theme="dark"] .filter-panel select {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .field-settings-table input,
+html[data-theme="dark"] .field-settings-table select,
+html[data-theme="dark"] .field-settings-table textarea,
+html[data-theme="dark"] .bc-printers-table input,
+html[data-theme="dark"] .bc-printers-table select,
+html[data-theme="dark"] .bc-settings-grid input,
+html[data-theme="dark"] .bc-settings-grid select,
+html[data-theme="dark"] .bc-cell input,
+html[data-theme="dark"] .bc-cell select,
+html[data-theme="dark"] .bc-copies-input,
+html[data-theme="dark"] .bc-fallback-line {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] #audit-search,
+html[data-theme="dark"] #audit-category,
+html[data-theme="dark"] #audit-period,
+html[data-theme="dark"] #audit-from,
+html[data-theme="dark"] #audit-to,
+html[data-theme="dark"] #errors-search,
+html[data-theme="dark"] #errors-level,
+html[data-theme="dark"] #errors-period,
+html[data-theme="dark"] #errors-from,
+html[data-theme="dark"] #errors-to,
+html[data-theme="dark"] #eq-audit-search,
+html[data-theme="dark"] #eq-audit-period,
+html[data-theme="dark"] #eq-audit-from,
+html[data-theme="dark"] #eq-audit-to {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .hup-multiselect-trigger {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .user-view-template-select {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] select option,
+html[data-theme="dark"] select optgroup {
+  background: #273449;
+  color: var(--text);
+}
+
+html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+html[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+html[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.5);
+  cursor: pointer;
+}
+
+html[data-theme="dark"] input:disabled,
+html[data-theme="dark"] select:disabled,
+html[data-theme="dark"] textarea:disabled,
+html[data-theme="dark"] input[readonly],
+html[data-theme="dark"] textarea[readonly] {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
+}
+
+/* Исключение: auth (вход) — остаётся светлым */
+html[data-theme="dark"] .auth-container input,
+html[data-theme="dark"] .auth-box .form-group input {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+html[data-theme="dark"] .auth-container input:focus,
+html[data-theme="dark"] .auth-box .form-group input:focus {
+  background: #ffffff !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+}
+
+/* Фикс readonly ID */
+html[data-theme="dark"] .modal input[style*="background: #f1f5f9"],
+html[data-theme="dark"] .modal input[style*="background:#f1f5f9"] {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+}
+
+/* Инфо-блоки */
+html[data-theme="dark"] .modal [style*="background:#f1f5f9"],
+html[data-theme="dark"] .modal [style*="background: #f1f5f9"],
+html[data-theme="dark"] .modal [style*="background:#f8fafc"],
+html[data-theme="dark"] .modal [style*="background: #f8fafc"] {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+}
+
+html[data-theme="dark"] .bc-settings-block select,
+html[data-theme="dark"] .bc-settings-block input {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .modal input[type="file"] {
+  color: var(--text);
+}
+html[data-theme="dark"] .modal input[type="file"]::file-selector-button {
+  background: #334155;
+  color: var(--text);
+  border: 1px solid #475569;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+html[data-theme="dark"] .modal input[type="file"]::file-selector-button:hover {
+  background: #475569;
+}
+
+html[data-theme="dark"] .modal .form-row input,
+html[data-theme="dark"] .modal .form-row select {
+  background-color: #273449 !important;
+  color: var(--text) !important;
+  border-color: #334155 !important;
+}
