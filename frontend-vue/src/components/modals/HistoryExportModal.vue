@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
@@ -62,10 +62,20 @@ const to = ref('');
 const error = ref('');
 const saving = ref<'' | 'xlsx' | 'pdf'>('');
 
-watch(() => ui.activeModal, (v) => {
+watch(() => ui.activeModal, async (v) => {
   if (v !== 'historyExport') return;
   const id = ui.modalData as string;
-  pipette.value = pip.items.find(x => x.id === id) || null;
+  if (!id) {
+    toast.error('Сначала откройте историю оборудования');
+    ui.close();
+    return;
+  }
+  pipette.value = await pip.fetchOne(id);
+  if (!pipette.value) {
+    toast.error('Сначала откройте историю оборудования');
+    ui.close();
+    return;
+  }
   from.value = '';
   to.value = '';
   error.value = '';
@@ -138,6 +148,7 @@ async function onPDF() {
   const history = await loadHistory();
   if (history.length === 0) { error.value = 'Нет записей за период'; return; }
 
+  // ── Построение HTML ──────────────────────────────
   const fields = (settings.printDocs?.historyFields?.length ? settings.printDocs.historyFields : ['date','cert','result','org','note']);
   const headerCells = fields.map(f => `<th>${esc(HISTORY_LABELS[f] || f)}</th>`).join('');
 
@@ -189,13 +200,25 @@ ${buildHeaderHtml(settings.printDocs)}
 <div class="footer"><div>Сформировал: <b>${esc(userPosition)}, ${esc(user)}</b></div><div>Подпись: _______________</div></div>
 </body></html>`;
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if (!win) { URL.revokeObjectURL(url); error.value = 'Разрешите всплывающие окна'; return; }
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  ui.close();
-  toast.success(`PDF готов: ${history.length}`);
+  // ── Открытие печати + saving ────────────────────
+  saving.value = 'pdf';
+  try {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) {
+      URL.revokeObjectURL(url);
+      error.value = 'Разрешите всплывающие окна';
+      return;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    ui.close();
+    toast.success(`PDF готов: ${history.length}`);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Ошибка';
+  } finally {
+    saving.value = '';
+  }
 }
 
 function close() { ui.close(); }
