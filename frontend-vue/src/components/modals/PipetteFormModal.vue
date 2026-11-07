@@ -511,7 +511,10 @@ function applyTemplate(templateId: number) {
   selectedTemplateId.value = templateId;
   if (!templateId) return;
   const tpl = templates.value.find(t => t.id === templateId);
-  if (!tpl) return;
+  if (!tpl) {
+    toast.error('Шаблон не найден');
+    return;
+ }
   let applied = 0;
   for (const [fieldId, value] of Object.entries(tpl.data || {})) {
     if (value === undefined || value === null || value === '') continue;
