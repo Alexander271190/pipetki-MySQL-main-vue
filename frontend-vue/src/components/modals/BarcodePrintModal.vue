@@ -144,7 +144,7 @@ async function onPrint() {
 
     const res = await printBarcodes(ids, c, printerId.value);
     if (res.mode === 'pdf-a4-fallback') {
-      toast.warn(`${res.reason || 'Fallback'}. Скачиваем PDF.`);
+      toast.warn(`${res.reason || 'Принтер не отвечает'}. Скачиваем PDF.`);
       await downloadFile(
         `/api/barcodes/labels.pdf?ids=${encodeURIComponent(ids.join(','))}&copies=${c}&layout=a4`,
         {},
@@ -173,7 +173,7 @@ async function onPrint() {
       if (ok) {
         toast.success(`Отправлено на «${res.printer}»: ${res.printed} этикеток`);
       } else {
-        toast.warn('Агент не отвечает. Скачиваем PDF.');
+        toast.warn('Локальный агент не отвечает. Скачиваем PDF.');
         await downloadFile(
           `/api/barcodes/labels.pdf?ids=${encodeURIComponent(ids.join(','))}&copies=${c}&layout=zebra`,
           {},
