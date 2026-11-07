@@ -1,5 +1,5 @@
 <template>
-  <div v-if="state.active" class="modal-overlay active" @click.self="resolvePrompt(null)">
+  <div v-if="state.active" class="modal-overlay prompt-overlay active" @click.self="resolvePrompt(null)">
     <div class="modal prompt-modal" @click.stop>
       <div class="prompt-icon" v-html="state.options.icon ? `<i class='fa-solid ${state.options.icon}'></i>` : '<i class=\'fa-solid fa-comment-dots\'></i>'"></div>
       <h3>{{ state.options.title || 'Введите значение' }}</h3>
