@@ -162,13 +162,8 @@ async function open() {
     return;
   }
 
-  // 2. Свежие данные прибора
-  try {
-    const fresh = await api.getById(id);
-    pipette.value = fresh as Pipette;
-  } catch {
-    pipette.value = pip.items.find(x => x.id === id) || null;
-  }
+  // 2. Свежие данные прибора (fetchOne идёт в API, если нет в сторе)
+  pipette.value = await pip.fetchOne(id);
   if (!pipette.value) {
     toast.error('Прибор не найден');
     await close();
