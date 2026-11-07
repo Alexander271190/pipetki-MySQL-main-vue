@@ -53,6 +53,7 @@ import { useUiStore } from '@/stores/ui';
 import { showConfirm } from '@/composables/useConfirm';
 import * as api from '@/api/settings';
 import type { DepartmentFull } from '@/api/settings';
+import { apiRequest } from '@/api/client';
 
 defineEmits<{ (e: 'close'): void }>();
 
@@ -100,21 +101,20 @@ function onAdd() {
 async function onDelete(idx: number) {
   const d = departments.value[idx];
   const name = d.name;
-  // Проверка использования
+   // Проверка использования
   try {
-    const check = await api.getFields(); // dummy — лучше /pipettes/paged
-    const res = await fetch(`/api/pipettes/paged?limit=1&filters=${encodeURIComponent(JSON.stringify({ department: name }))}`, {
-      headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('pipette_session') ? JSON.parse(sessionStorage.getItem('pipette_session')!).token : '') },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const used = data?.total || 0;
-      if (used > 0) {
-        toast.error(`Нельзя удалить «${name}»: привязано ${used} единиц. Сначала переведите их.`);
-        return;
-      }
+    const res = await apiRequest<{ total: number }>(
+      `/pipettes/paged?limit=1&filters=${encodeURIComponent(JSON.stringify({ department: name }))}`
+    );
+    const used = res?.total || 0;
+    if (used > 0) {
+      toast.error(`Нельзя удалить «${name}»: привязано ${used} единиц. Сначала переведите их.`);
+      return;
     }
-  } catch { /* ignore */ }
+  } catch {
+    toast.error('Не удалось проверить использование отдела');
+    return;
+  }
 
   const ok = await showConfirm(`Удалить отдел «${name}»?`, {
     icon: '<i class="fa-solid fa-building"></i>', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger',
