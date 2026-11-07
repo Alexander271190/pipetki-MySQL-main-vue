@@ -163,8 +163,29 @@ async function onDelete(idx: number) {
 async function onSave() {
   saving.value = true;
   updateWarning();
-  if (warning.value) { toast.error('Проверьте: ' + warning.value); saving.value = false; return; }
 
+  if (warning.value) {
+    const values = types.value.map(t => t.value);
+    if (values.filter((v, i) => values.indexOf(v) !== i).length > 0) {
+      toast.error('Есть дубли value');
+      saving.value = false;
+      return;
+    }
+    const prefixes = types.value.map(t => String(t.prefix || '').trim().toUpperCase()).filter(Boolean);
+    if (prefixes.filter((v, i) => prefixes.indexOf(v) !== i).length > 0) {
+      toast.error('Есть дубли prefix — префиксы должны быть уникальны');
+      saving.value = false;
+      return;
+    }
+    if (types.value.some(t => !t.label || !t.label.trim())) {
+      toast.error('Заполните label');
+      saving.value = false;
+      return;
+    }
+    toast.error('Проверьте: ' + warning.value);
+    saving.value = false;
+    return;
+  }
   try {
     const cleaned = types.value.map(t => ({
       ...t,
