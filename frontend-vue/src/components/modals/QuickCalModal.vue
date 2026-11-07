@@ -123,7 +123,6 @@ async function _handleIdleTimeout() {
   const id = _lockedId;
   _skipUnlock = true;
 
-  // Автосохранение поверки, если форма валидна
   let saved = false;
   if (form.value.date && form.value.date <= todayStr()) {
     try {
@@ -159,7 +158,6 @@ watch(() => ui.activeModal, (v) => {
 
 async function open() {
   _stopIdleTracking();
-  // Сброс состояния прошлой сессии
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   _skipUnlock = false;
   _lockedId = null;
@@ -169,7 +167,6 @@ async function open() {
 
   const id = ui.modalData as string;
 
-  // 1. Захват лока (с предупреждением, если занят)
   try {
     const lockRes = await api.getLock(id);
     if (lockRes.locked && !lockRes.mine) {
@@ -185,7 +182,6 @@ async function open() {
     return;
   }
 
-  // 2. Свежие данные прибора (fetchOne идёт в API, если нет в сторе)
   pipette.value = await pip.fetchOne(id);
   if (!pipette.value) {
     toast.error('Прибор не найден');
@@ -193,10 +189,9 @@ async function open() {
     return;
   }
 
-  // 3. Сброс формы
   form.value = { date: todayStr(), cert: '', result: 'pass', org: '', note: '' };
 
-  // 4. Heartbeat — каждые 3 сек проверяем, наш ли лок
+  // ── Heartbeat с модалкой OK ─────────────────
   _heartbeat = window.setInterval(async () => {
     if (!pipette.value) return;
     try {
@@ -206,25 +201,62 @@ async function open() {
         _stopIdleTracking();
         _skipUnlock = true;
 
-        // Автосохранение: если форма валидна — пишем поверку
+        const id = pipette.value.id;
+
+        // 1. Пытаемся сохранить поверку (если форма валидна)
         let saved = false;
+        let savedError = '';
         if (form.value.date && form.value.date <= todayStr()) {
           try {
-            await api.addCalibration(pipette.value.id, form.value);
+            await api.addCalibration(id, form.value);
             saved = true;
-          } catch { /* ignore */ }
+          } catch (e: any) {
+            savedError = e?.message || 'ошибка сохранения';
+          }
+        } else {
+          savedError = 'не заполнена дата поверки';
         }
 
+        // 2. Закрываем модалку
         _lockedId = null;
         ui.close();
 
-        const msg = saved
-          ? `Сессия завершена. Ваша поверка сохранена.\n\nПрибор забрал ${r.lockedBy || 'другой пользователь'}.`
-          : `Сессия завершена. Прибор забрал ${r.lockedBy || 'другой пользователь'}.`;
-        await showConfirm(msg, {
-          icon: 'ℹ️', title: 'Сессия завершена',
-          okText: 'ОК', hideCancel: true, okClass: 'btn-secondary',
-        });
+        // 3. Формируем сообщение
+        const name = r.lockedBy || '';
+        const pos = r.lockedByPosition;
+        const displayUser = pos ? `${name} (${pos})` : (name || 'другой пользователь');
+
+        let title: string;
+        let icon: string;
+        let message: string;
+
+        if (saved) {
+          title = 'Сессия завершена';
+          icon = '<i class="fa-solid fa-circle-info" style="color: #0ea5e9;"></i>';
+          message = `Ваша поверка была автоматически сохранена.\n\nПрибор забрал в работу: ${displayUser}.`;
+        } else {
+          title = 'Сессия завершена — поверка не сохранена';
+          icon = '<i class="fa-solid fa-triangle-exclamation" style="color: #d97706;"></i>';
+          message = `Не удалось сохранить поверку: ${savedError}.\n\nПрибор забрал в работу: ${displayUser}.`;
+        }
+
+        // 4. Тост
+        toast.warn(saved
+          ? 'Сессия завершена. Поверка сохранена.'
+          : 'Сессия завершена. Поверка не сохранена.');
+
+        // 5. Обновляем таблицу и статистику
+        if (saved) {
+          await pip.loadPaged();
+          await stats.load();
+        }
+
+        // 6. Модалка OK
+        try {
+          await showConfirm(message, {
+            icon, title, okText: 'ОК', hideCancel: true, okClass: 'btn-secondary',
+          });
+        } catch { /* ignore */ }
       }
     } catch { /* ignore */ }
   }, 3000);
@@ -240,7 +272,7 @@ async function onSubmit() {
   try {
     await api.addCalibration(pipette.value.id, form.value);
     toast.success('Поверка зарегистрирована');
-    await close();          // releaseLock + ui.close()
+    await close();
     await pip.loadPaged();
     await stats.load();
   } catch (e) {
