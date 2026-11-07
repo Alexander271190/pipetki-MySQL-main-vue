@@ -187,20 +187,7 @@ async function onStopImpersonate() {
         token: auth.originalToken,
       });
 
-      // Сбрасываем кэши
-      const { usePrefsStore } = await import('@/stores/prefs');
-      const { useSettingsStore } = await import('@/stores/settings');
-      const { usePipettesStore } = await import('@/stores/pipettes');
-      const { useStatsStore } = await import('@/stores/stats');
-
-      usePrefsStore().loaded = false;
-      usePrefsStore().visibleFields = [];
-      usePrefsStore().columnOrder = [];
-      usePrefsStore().columnWidths = {};
-      useSettingsStore().loaded = false;
-      usePipettesStore().items = [];
-      usePipettesStore().clearSelection();
-      useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
+      await auth.resetOtherStores();       
 
       toast.success('Вернулись к своей учётной записи');
       window.dispatchEvent(new CustomEvent('auth:changed'));
