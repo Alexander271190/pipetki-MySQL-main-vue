@@ -216,8 +216,7 @@ async function _handleIdleTimeout() {
   }
   _stopIdleTracking();
 
-  const id = editId.value;
-  _skipUnlock = true;
+ const id = editId.value;
 
   let draftSaved = false;
   try {
@@ -229,6 +228,7 @@ async function _handleIdleTimeout() {
 
   try {
     await api.releaseLock(id);
+    _skipUnlock = true;                  
   } catch (e) {
     console.warn('releaseLock при idle timeout:', e);
   }
