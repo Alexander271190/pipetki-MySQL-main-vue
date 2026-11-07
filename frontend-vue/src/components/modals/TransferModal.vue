@@ -111,10 +111,10 @@ async function _handleIdleTimeout() {
   _stopIdleTracking();
 
   const id = _lockedId;
-  _skipUnlock = true;
 
   try {
     await api.releaseLock(id);
+    _skipUnlock = true;                  
   } catch (e) { console.warn('releaseLock при idle:', e); }
 
   _lockedId = null;
