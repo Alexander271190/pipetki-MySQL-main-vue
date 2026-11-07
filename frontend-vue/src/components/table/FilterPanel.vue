@@ -4,7 +4,11 @@
       
       <template v-for="f in settings.filters" :key="f.id">
         <!-- Фильтр периода -->
-        <div v-if="f.type === 'date-period'" class="filter-row" style="grid-column: 1 / -1; display: flex; gap: 8px;">
+        <div
+          v-if="f.type === 'date-period' && localState[f.id]"
+          class="filter-row"
+          style="grid-column: 1 / -1; display: flex; gap: 8px;"
+        >
           <div class="form-group" style="flex: 1;">
             <label>По какой дате</label>
             <select v-model="localState[f.id].type" style="width: 100%; padding: 6px;">
@@ -23,14 +27,18 @@
               <option value="custom">Произвольный</option>
             </select>
           </div>
-          <div v-if="localState[f.id].period === 'custom'" class="form-group" style="grid-column: 1 / -1; display: flex; gap: 8px;">
+          <div
+            v-if="localState[f.id].period === 'custom'"
+            class="form-group"
+            style="grid-column: 1 / -1; display: flex; gap: 8px;"
+          >
             <input type="date" v-model="localState[f.id].from" style="flex: 1; padding: 6px;" />
             <input type="date" v-model="localState[f.id].to" style="flex: 1; padding: 6px;" />
           </div>
         </div>
 
         <!-- Обычный фильтр -->
-        <div v-else class="form-group">
+        <div v-else-if="f.type !== 'date-period' && localState[f.id] !== undefined" class="form-group">
           <label>{{ f.label }}</label>
           <select v-if="f.type === 'select'" v-model="localState[f.id]" style="width: 100%; padding: 6px;">
             <option value="">Все</option>
@@ -49,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
 import { usePipettesStore } from '@/stores/pipettes';
 
@@ -62,12 +70,26 @@ const localState = ref<Record<string, any>>({});
 function initLocalState() {
   const fresh: Record<string, any> = {};
   settings.filters.forEach(f => {
-    fresh[f.id] = pip.filterState[f.id] || (f.type === 'date-period'
-      ? { type: 'last_calibration', period: '', from: '', to: '' }
-      : '');
+    const existing = pip.filterState[f.id];
+    if (f.type === 'date-period') {
+      // Защита: существующее значение должно быть объектом с полем period
+      fresh[f.id] = (existing && typeof existing === 'object' && 'period' in existing)
+        ? { ...existing }
+        : { type: 'last_calibration', period: '', from: '', to: '' };
+    } else {
+      // Защита: для обычных фильтров — строка
+      fresh[f.id] = (typeof existing === 'string') ? existing : '';
+    }
   });
   localState.value = fresh;
 }
+
+// Инициализация + пересборка при загрузке/изменении settings.filters
+watch(
+  () => settings.filters,
+  () => initLocalState(),
+  { deep: true, immediate: true }
+);
 
 function onFiltersRefresh() {
   initLocalState();
@@ -87,7 +109,9 @@ function onPeriodChange(fid: string) {
 
 function reset() {
   settings.filters.forEach(f => {
-    localState.value[f.id] = f.type === 'date-period' ? { type: 'last_calibration', period: '', from: '', to: '' } : '';
+    localState.value[f.id] = f.type === 'date-period'
+      ? { type: 'last_calibration', period: '', from: '', to: '' }
+      : '';
   });
   pip.resetFilters();
   pip.loadPaged();
