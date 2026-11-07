@@ -42,14 +42,67 @@
           <div v-if="h.note" class="text-muted-sm" style="margin-top:4px;">{{ h.note }}</div>
         </div>
       </div>
+
+      <!-- 🆕 Кнопка «Добавить поверку» -->
+      <div style="margin-top:16px;text-align:right;">
+        <button
+          v-if="canManagePipettes"
+          type="button"
+          class="btn btn-info"
+          @click="showCalForm = !showCalForm"
+        >
+          <i class="fa-solid fa-plus"></i> {{ showCalForm ? 'Скрыть форму' : 'Добавить поверку' }}
+        </button>
+      </div>
+
+      <!-- 🆕 Форма добавления поверки -->
+      <div v-if="showCalForm" style="margin-top:16px;padding-top:16px;border-top:2px solid #e2e8f0;">
+        <h3 style="margin-bottom:15px;font-size:1rem;color:#1e293b;">Новая запись о поверке</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Дата поверки *</label>
+            <input v-model="calForm.date" type="date" />
+          </div>
+          <div class="form-group">
+            <label>Номер свидетельства</label>
+            <input v-model="calForm.cert" type="text" placeholder="напр. С-АБ-1234567/2025" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Результат</label>
+            <select v-model="calForm.result">
+              <option value="pass">Годен</option>
+              <option value="fail">Брак</option>
+              <option value="wip">В процессе</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Поверяющая организация</label>
+            <input v-model="calForm.org" type="text" placeholder="напр. ФБУ «Красноярский ЦСМ»" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Примечание</label>
+          <textarea v-model="calForm.note" rows="2"></textarea>
+        </div>
+        <div v-if="calError" class="auth-error" style="visibility:visible;opacity:1;">{{ calError }}</div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="showCalForm = false">Отмена</button>
+          <button type="button" class="btn btn-success" :disabled="calSaving" @click="addCalibration">
+            <i class="fa-solid" :class="calSaving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
+            Записать
+          </button>
+        </div>
+      </div>
     </template>
 
     <div class="form-actions">
       <button type="button" class="btn btn-warning" @click="onExportHistory">
         <i class="fa-solid fa-print"></i> Печать истории
-     </button>
-     <button type="button" class="btn btn-secondary" @click="close">Закрыть</button>
-   </div>
+      </button>
+      <button type="button" class="btn btn-secondary" @click="close">Закрыть</button>
+    </div>
   </AppModal>
 </template>
 
@@ -59,32 +112,51 @@ import AppModal from '@/components/ui/AppModal.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
+import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
+import { useSettingsStore } from '@/stores/settings';
+import { usePermissions } from '@/stores/auth';
 import { calcStatus, getNextDate } from '@/utils/status';
-import { formatDate } from '@/utils/format';
+import { formatDate, todayStr } from '@/utils/format';
 import { RESULT_LABELS } from '@/constants';
 import type { Pipette } from '@/types';
 import * as api from '@/api/pipettes';
 import type { CalibrationRecord } from '@/api/pipettes';
-import { useSettingsStore } from '@/stores/settings';
-const settings = useSettingsStore();
 
 const ui = useUiStore();
 const pip = usePipettesStore();
+const stats = useStatsStore();
 const toast = useToastStore();
+const settings = useSettingsStore();
+const perm = usePermissions();
+
+const canManagePipettes = perm.canManagePipettes;
 
 const pipette = ref<Pipette | null>(null);
 const history = ref<CalibrationRecord[]>([]);
 const loading = ref(false);
 
+const showCalForm = ref(false);
+const calForm = ref({ date: '', cert: '', result: 'pass', org: '', note: '' });
+const calSaving = ref(false);
+const calError = ref('');
+
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'history') return;
   const id = ui.modalData as string;
-  pipette.value = pip.items.find(x => x.id === id) || null;
-  if (!pipette.value) { toast.error('Прибор не найден'); ui.close(); return; }
 
+  // сброс состояния формы
+  showCalForm.value = false;
+  calError.value = '';
   loading.value = true;
+
   try {
+    pipette.value = await pip.fetchOne(id);
+    if (!pipette.value) {
+      toast.error('Прибор не найден');
+      ui.close();
+      return;
+    }
     const h = await api.getCalibrationHistory(id);
     history.value = (h || []).sort((a, b) => {
       const c = String(b.date).localeCompare(String(a.date));
@@ -108,5 +180,34 @@ function onExportHistory() {
   }
   ui.open('historyExport', pipette.value.id);
 }
-  
+
+async function addCalibration() {
+  calError.value = '';
+  if (!pipette.value) return;
+  if (!calForm.value.date) { calError.value = 'Заполните дату поверки'; return; }
+  if (calForm.value.date > todayStr()) { calError.value = 'Дата не может быть в будущем'; return; }
+
+  calSaving.value = true;
+  try {
+    await api.addCalibration(pipette.value.id, calForm.value);
+    toast.success('Запись о поверке добавлена');
+    showCalForm.value = false;
+    calForm.value = { date: '', cert: '', result: 'pass', org: '', note: '' };
+
+    const h = await api.getCalibrationHistory(pipette.value.id);
+    history.value = (h || []).sort((a, b) => {
+      const c = String(b.date).localeCompare(String(a.date));
+      return c !== 0 ? c : (b.id || 0) - (a.id || 0);
+    });
+
+    await pip.loadPaged();
+    await stats.load();
+    const fresh = await pip.fetchOne(pipette.value.id);
+    if (fresh) pipette.value = fresh;
+  } catch (e) {
+    calError.value = e instanceof Error ? e.message : 'Ошибка сохранения';
+  } finally {
+    calSaving.value = false;
+  }
+}
 </script>
