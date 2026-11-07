@@ -111,12 +111,13 @@ import { useAuthStore } from '@/stores/auth';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
 import { useModals } from '@/composables/useModals';
+import { useUiStore } from '@/stores/ui';
 
 const auth = useAuthStore();
 const stats = useStatsStore();
 const toast = useToastStore();
 const router = useRouter();
-
+const ui = useUiStore();
 const collapsed = ref(false);
 const isDark = ref(false);
 
