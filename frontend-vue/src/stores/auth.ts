@@ -23,7 +23,6 @@ function readSession(): SessionData | null {
   return null;
 }
 
-// ⚠️ Общий сброс кэшей всех сторов. Используется в logout, impersonate, stop-impersonate.
 async function resetOtherStores() {
   try {
     const [{ usePrefsStore }, { useSettingsStore }, { usePipettesStore }, { useStatsStore }] = await Promise.all([
@@ -140,7 +139,7 @@ export const useAuthStore = defineStore('auth', () => {
     user, token, originalUser, originalToken,
     isAuthenticated, isAdmin, isImpersonating,
     initFromStorage, applySession, login, logout, refreshUser, hasPermission,
-    // ⚠️ экспортируем — пригодится в impersonate/stopImpersonate
+    
     resetOtherStores,
   };
 });
