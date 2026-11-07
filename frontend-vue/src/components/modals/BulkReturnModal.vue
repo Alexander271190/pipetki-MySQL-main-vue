@@ -264,27 +264,32 @@ async function onSubmit() {
       returnReplacements: returnReplacements.value,
     });
     toast.success(res.message || `Возврат оформлен для ${items.value.length} единиц`);
-
-    close();                       // ← вместо ui.close(): снимает локи
+    close();
     pip.clearSelection();
-    await pip.loadPaged();
-    await stats.load();
 
-    // Автофильтр по дате возврата
+    //  Автофильтр по дате возврата
+    const savedDate = date.value;
+    pip.resetFilters();
+    pip.page = 1;
+
     const calFilter = settings.filters.find(f => f.type === 'date-period');
-    if (calFilter && date.value) {
-      pip.filterState = {
-        ...pip.filterState,
-        [calFilter.id]: {
-          type: 'last_calibration',
-          period: 'custom',
-          from: date.value,
-          to: date.value,
-        },
-      };
-      pip.page = 1;
+    if (calFilter && savedDate) {
+      pip.setFilter(calFilter.id, {
+        type: 'last_calibration',
+        period: 'custom',
+        from: savedDate,
+        to: savedDate,
+      });
       await pip.loadPaged();
-      toast.warn(`Таблица отфильтрована по дате ${date.value}. Сбросьте фильтр, чтобы увидеть всё.`);
+      await stats.load();
+      window.dispatchEvent(new CustomEvent('filters:refresh'));
+      toast.warn(`Таблица отфильтрована по дате ${savedDate}. Сбросьте фильтр, чтобы увидеть всё.`);
+    } else {
+      await pip.loadPaged();
+      await stats.load();
+      if (savedDate) {
+        toast.show(`Возврат оформлен на ${savedDate}.`, 'success');
+      }
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка';
