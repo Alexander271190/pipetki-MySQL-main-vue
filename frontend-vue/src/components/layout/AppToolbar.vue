@@ -49,13 +49,14 @@
     </div>
 
     <!-- Сканировать -->
-    <button
-      class="btn btn-info"
-      @click="modals.openBarcodeScanner()"
-      title="Сканировать штрихкод"
-    >
-      <i class="fa-solid fa-barcode"></i> Сканировать
-    </button>
+<button
+  v-if="perm.canScanBarcode.value && !isMobile"
+  class="btn btn-info"
+  @click="modals.openBarcodeScanner()"
+  title="Сканировать штрихкод"
+>
+  <i class="fa-solid fa-barcode"></i> Сканировать
+</button>
 
     <!-- Меню «Ещё ▼» -->
     <div class="dropdown" style="position:relative;display:inline-block;">
@@ -167,7 +168,11 @@ const toast = useToastStore();
 const prefs = usePrefsStore();
 const menuOpen = ref(false);
 const showFilter = ref(false);
-
+const mql = window.matchMedia('(max-width: 900px)');
+const isMobile = ref(mql.matches);
+const onMqlChange = (e: MediaQueryListEvent) => { isMobile.value = e.matches; };
+mql.addEventListener('change', onMqlChange);
+onUnmounted(() => mql.removeEventListener('change', onMqlChange));
 const hasCustomLayout = computed(
   () =>
     (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) ||
