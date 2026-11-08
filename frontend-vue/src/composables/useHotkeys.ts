@@ -25,6 +25,7 @@ export function useHotkeys() {
     }
 
     if (e.key === 'Escape') {
+      if (ui.filterPanelOpen) { ui.closeFilterPanel(); return; }
       if (ui.rowActions.anchor) { ui.closeRowActions(); return; }
       if (ui.activeModal) { ui.close(); return; }
       return;
