@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';   
 import { useStatsStore } from '@/stores/stats';
 import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
@@ -42,6 +42,24 @@ const icon = ref('<i class="fa-solid fa-bell"></i>');
 const bodyHtml = ref('');
 
 const STORAGE_PREFIX = 'pipette_last_reminder_';
+
+watch(
+  () => stats.reminders,
+  (r) => {
+    if (!r) return;
+    if ((r.danger?.length || 0) + (r.warn?.length || 0) === 0) return;
+    check();
+  },
+  { deep: true }
+);
+
+watch(
+  () => auth.user?.id,
+  () => {
+    visible.value = false;
+    setTimeout(check, 600);
+  }
+);
 
 onMounted(() => {
   setTimeout(() => check(), 600);
