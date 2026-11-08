@@ -43,7 +43,8 @@
 
       <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:10px;">
         Показано: {{ filtered.length }} из {{ cache.length }}
-      </div>
+        <template v-if="categoryStats">{{ ' · ' + categoryStats }}</template>
+       </div>
 
       <div class="log-container" style="max-height:55vh;">
         <table class="log-table">
@@ -81,16 +82,29 @@
 
     <div v-else>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <input v-model="errSearch" type="text" placeholder="Поиск по тексту, URL, пользователю…"
-          style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;" />
-        <select v-model="errLevel" style="padding:8px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;">
-          <option value="">Все уровни</option>
-          <option value="error">error</option>
-          <option value="warn">warn</option>
-        </select>
-        <button class="btn btn-info" @click="exportErrorsPDF"><i class="fa-solid fa-print"></i> PDF</button>
-        <button class="btn btn-danger" @click="clearErrors"><i class="fa-solid fa-trash"></i> Очистить</button>
-      </div>
+  <input v-model="errSearch" type="text" placeholder="Поиск по тексту, URL, пользователю…"
+    style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;" />
+  <select v-model="errLevel" style="padding:8px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;">
+    <option value="">Все уровни</option>
+    <option value="error">error</option>
+    <option value="warn">warn</option>
+  </select>
+
+  <select v-model="errorsPeriod" style="padding:8px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;">
+    <option value="">Всё время</option>
+    <option value="today">Сегодня</option>
+    <option value="week">7 дней</option>
+    <option value="month">30 дней</option>
+    <option value="custom">Произвольный</option>
+  </select>
+  <button class="btn btn-info" @click="exportErrorsPDF"><i class="fa-solid fa-print"></i> PDF</button>
+  <button class="btn btn-danger" @click="clearErrors"><i class="fa-solid fa-trash"></i> Очистить</button>
+</div>
+<div v-if="errorsPeriod === 'custom'" style="display:flex;gap:8px;margin-bottom:10px;">
+  <input v-model="errorsFrom" type="date" style="padding:6px;border:1px solid var(--border-hard);border-radius:8px;" />
+  <span style="align-self:center;">—</span>
+  <input v-model="errorsTo" type="date" style="padding:6px;border:1px solid var(--border-hard);border-radius:8px;" />
+</div>
       <div class="log-container" style="max-height:55vh;">
         <table class="log-table">
           <thead>
@@ -170,6 +184,10 @@ const loadingErrors = ref(false);
 const errSearch = ref('');
 const errLevel = ref('');
 
+const errorsPeriod = ref('');
+const errorsFrom = ref('');
+const errorsTo = ref('');
+
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'audit') return;
   tab.value = 'actions';
@@ -230,10 +248,41 @@ const filtered = computed(() => {
   });
 });
 
+  const categoryStats = computed(() => {
+  const cats: Record<string, number> = {};
+  for (const r of filtered.value) {
+    const k = r.category || 'other';
+    cats[k] = (cats[k] || 0) + 1;
+  }
+  const LABELS: Record<string, string> = {
+    equipment: 'Оборудование', users: 'Пользователи', calibration: 'Поверки',
+    barcode: 'Штрихкоды', settings: 'Настройки', locks: 'Блокировки',
+    auth: 'Вход/выход', help: 'Справка', other: 'Прочее',
+  };
+  return Object.entries(cats).map(([k, v]) => `${LABELS[k] || k}: ${v}`).join(' · ');
+});
+
 const errorsFiltered = computed(() => {
   const q = errSearch.value.trim().toLowerCase();
+  
+  let fromD = '';
+  let toD = '';
+  if (errorsPeriod.value === 'today') fromD = toD = todayStr();
+  else if (errorsPeriod.value === 'week') {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    fromD = d.toISOString().slice(0, 10); toD = todayStr();
+  } else if (errorsPeriod.value === 'month') {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    fromD = d.toISOString().slice(0, 10); toD = todayStr();
+  } else if (errorsPeriod.value === 'custom') {
+    fromD = errorsFrom.value; toD = errorsTo.value;
+  }
+
   return errorsCache.value.filter(r => {
     if (errLevel.value && r.level !== errLevel.value) return false;
+    const d = (r.timestamp || '').slice(0, 10);
+    if (fromD && d < fromD) return false;
+    if (toD && d > toD) return false;
     if (q) {
       const hay = [r.message, r.stack, r.url, r.user_full_name]
         .map(x => String(x || '').toLowerCase()).join(' ');
