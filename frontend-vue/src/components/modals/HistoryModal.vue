@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';                               // === 1.3 === onUnmounted
 import AppModal from '@/components/ui/AppModal.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useUiStore } from '@/stores/ui';
@@ -115,13 +115,14 @@ import { usePipettesStore } from '@/stores/pipettes';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
-import { usePermissions } from '@/stores/auth';
+import { usePermissions, useAuthStore } from '@/stores/auth';                // === 1.3 === useAuthStore
 import { calcStatus, getNextDate } from '@/utils/status';
 import { formatDate, todayStr } from '@/utils/format';
 import { RESULT_LABELS } from '@/constants';
 import type { Pipette } from '@/types';
 import * as api from '@/api/pipettes';
 import type { CalibrationRecord } from '@/api/pipettes';
+import { showLockWarning } from '@/composables/useLockWarning';              // === 1.3 === showLockWarning
 
 const ui = useUiStore();
 const pip = usePipettesStore();
@@ -129,6 +130,7 @@ const stats = useStatsStore();
 const toast = useToastStore();
 const settings = useSettingsStore();
 const perm = usePermissions();
+const auth = useAuthStore();                                                 // === 1.3 ===
 
 const canManagePipettes = perm.canManagePipettes;
 
@@ -140,6 +142,9 @@ const showCalForm = ref(false);
 const calForm = ref({ date: '', cert: '', result: 'pass', org: '', note: '' });
 const calSaving = ref(false);
 const calError = ref('');
+
+// === 1.3 === Lock-сессия
+let _lockedId: string | null = null;
 
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'history') return;
@@ -170,7 +175,14 @@ watch(() => ui.activeModal, async (v) => {
   }
 });
 
-function close() { ui.close(); }
+function close() {
+  // === 1.3 === снять лок при закрытии
+  if (_lockedId) {
+    api.releaseLock(_lockedId).catch(() => {});
+    _lockedId = null;
+  }
+  ui.close();
+}
 
 function onExportHistory() {
   if (!pipette.value) return;
@@ -187,9 +199,34 @@ async function addCalibration() {
   if (!calForm.value.date) { calError.value = 'Заполните дату поверки'; return; }
   if (calForm.value.date > todayStr()) { calError.value = 'Дата не может быть в будущем'; return; }
 
+  // === 1.3 === проверка прав после refresh
+  await auth.refreshUser();
+  if (!perm.canManagePipettes.value) { calError.value = 'Нет прав'; return; }
+
+  // === 1.3 === захват лока
+  try {
+    const lockRes = await api.getLock(pipette.value.id);
+    if (lockRes.locked && !lockRes.mine) {
+      const proceed = await showLockWarning(lockRes, 'Добавление поверки');
+      if (!proceed) return;
+    }
+    await api.setLock(pipette.value.id);
+    _lockedId = pipette.value.id;
+  } catch {
+    calError.value = 'Ошибка проверки блокировки';
+    return;
+  }
+
   calSaving.value = true;
   try {
     await api.addCalibration(pipette.value.id, calForm.value);
+
+    // === 1.3 === снять лок после успешного POST
+    if (_lockedId) {
+      await api.releaseLock(_lockedId).catch(() => {});
+      _lockedId = null;
+    }
+
     toast.success('Запись о поверке добавлена');
     showCalForm.value = false;
     calForm.value = { date: '', cert: '', result: 'pass', org: '', note: '' };
@@ -208,6 +245,19 @@ async function addCalibration() {
     calError.value = e instanceof Error ? e.message : 'Ошибка сохранения';
   } finally {
     calSaving.value = false;
+    // === 1.3 === страховка: если лок остался (ошибка POST) — снять
+    if (_lockedId) {
+      api.releaseLock(_lockedId).catch(() => {});
+      _lockedId = null;
+    }
   }
 }
+
+// === 1.3 === страховка при размонтировании
+onUnmounted(() => {
+  if (_lockedId) {
+    api.releaseLock(_lockedId).catch(() => {});
+    _lockedId = null;
+  }
+});
 </script>
