@@ -71,7 +71,7 @@ import { usePipettesStore } from '@/stores/pipettes';
 import { useSettingsStore } from '@/stores/settings';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore, usePermissions } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
 import { todayStr, formatDate } from '@/utils/format';
 import { buildHeaderHtml } from '@/utils/header';
@@ -86,7 +86,7 @@ const settings = useSettingsStore();
 const stats = useStatsStore();
 const toast = useToastStore();
 const auth = useAuthStore();
-
+const perm = usePermissions(); 
 const toSendItems = ref<Pipette[]>([]);
 const sentDate = ref('');
 const note = ref('');
@@ -172,6 +172,9 @@ async function open() {
 
 async function onSubmit() {
   error.value = '';
+  await auth.refreshUser();
+  if (!perm.canBulkSend.value) { error.value = 'Нет прав'; return; }
+
   if (!sentDate.value) { error.value = 'Укажите дату'; return; }
   if (sentDate.value > todayStr()) { error.value = 'Дата не может быть в будущем'; return; }
 
