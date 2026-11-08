@@ -228,9 +228,26 @@ export function useModals() {
     ui.open('bulkResponsible', ids);
   }
 
-  function openBarcodeScanner() { ui.open('barcodeScanner'); }
-  function openBarcodePrint()   { ui.open('barcodePrint'); }
-  function openImport()         { ui.open('import'); }
+async function openBarcodeScanner() {
+  if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
+  await auth.refreshUser();
+  if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
+  ui.open('barcodeScanner');
+}
+
+async function openBarcodePrint() {
+  if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
+  await auth.refreshUser();
+  if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
+  ui.open('barcodePrint');
+}
+
+async function openImport() {
+  if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
+  await auth.refreshUser();
+  if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
+  ui.open('import');
+}
   
   function openAudit() {
     if (!perm.canViewLog.value) { toast.error('Нет прав на журнал'); return; }
