@@ -22,6 +22,11 @@ export const useUiStore = defineStore('ui', () => {
     modalData.value = null;
   }
 
+  // === 2.3 === панель фильтра
+  const filterPanelOpen = ref(false);
+  function openFilterPanel() { filterPanelOpen.value = true; }
+  function closeFilterPanel() { filterPanelOpen.value = false; }
+
   // Меню ⋮
   const rowActions = ref<{ anchor: HTMLElement | null; items: MenuItem[] }>({
     anchor: null, items: [],
@@ -33,5 +38,9 @@ export const useUiStore = defineStore('ui', () => {
     rowActions.value = { anchor: null, items: [] };
   }
 
-  return { activeModal, modalData, open, close, rowActions, openRowActions, closeRowActions };
+  return {
+    activeModal, modalData, open, close,
+    rowActions, openRowActions, closeRowActions,
+    filterPanelOpen, openFilterPanel, closeFilterPanel,   // === 2.3 ===
+  };
 });
