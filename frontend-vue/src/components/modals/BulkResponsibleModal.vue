@@ -35,6 +35,7 @@ import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useToastStore } from '@/stores/toast';
+import { useAuthStore, usePermissions } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
 import { getResponsibles } from '@/api/users';
 import * as bulkApi from '@/api/bulk';
@@ -42,7 +43,8 @@ import * as bulkApi from '@/api/bulk';
 const ui = useUiStore();
 const pip = usePipettesStore();
 const toast = useToastStore();
-
+const auth = useAuthStore();        
+const perm = usePermissions();     
 const ids = ref<string[]>([]);
 const newResp = ref('');
 const namesList = ref<string[]>([]);
@@ -109,8 +111,10 @@ async function open() {
 
 async function onSubmit() {
   error.value = '';
-  if (!newResp.value) { error.value = 'Выберите ответственного'; return; }
+   await auth.refreshUser();
+  if (!perm.canBulkChangeResponsible.value) { error.value = 'Нет прав'; return; }
 
+  if (!newResp.value) { error.value = 'Выберите ответственного'; return; }
   const ok = await showConfirm(
     `Назначить «${newResp.value}» ответственным за ${ids.value.length} единиц?`,
     { icon: '👤', title: 'Смена ответственного', okText: 'Применить', okClass: 'btn-primary' }
