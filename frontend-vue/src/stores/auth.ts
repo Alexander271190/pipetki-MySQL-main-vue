@@ -50,6 +50,7 @@ async function resetOtherStores() {
   }
 }
 
+let _refreshPromise: Promise<void> | null = null;
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
   const token = ref<string | null>(null);
@@ -93,39 +94,50 @@ export const useAuthStore = defineStore('auth', () => {
     originalToken.value = null;
     setAuthToken(null);
     sessionStorage.removeItem(SESSION_KEY);
-    void resetOtherStores();        // ⚠️ сброс кэшей
+    _refreshPromise = null;
+    void resetOtherStores();        
   }
 
-  async function refreshUser() {
+      async function refreshUser() {
     if (!token.value) return;
-    try {
-      const { user: fresh } = await authApi.verify();
-      if (!fresh) return;
+    if (_refreshPromise) return _refreshPromise;
 
-      // ⚠️ сравнение прав / роли / mustChange
-      const oldPerms = JSON.stringify(user.value?.permissions || user.value?.extraPermissions || []);
-      const newPerms = JSON.stringify(fresh.permissions || fresh.extraPermissions || []);
-      const roleChanged =
-        user.value?.role !== fresh.role ||
-        user.value?.isAdmin !== fresh.isAdmin;
-      const mustChanged =
-        !!user.value?.mustChangePassword !== !!fresh.mustChangePassword ||
-        !!user.value?.mustSetPassword    !== !!fresh.mustSetPassword;
+    _refreshPromise = (async () => {
+      const tokenAtStart = token.value;
+      try {
+        const { user: fresh } = await authApi.verify();
+        if (!fresh) return;
+        if (token.value !== tokenAtStart) return;   
 
-      user.value = fresh;
-      const s = readSession();
-      if (s) { s.user = fresh; sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+        const norm = (a?: string[]) => JSON.stringify([...(a || [])].sort());
+        const oldPerms = norm(user.value?.permissions || user.value?.extraPermissions);
+        const newPerms = norm(fresh.permissions || fresh.extraPermissions);
+        const roleChanged =
+          user.value?.role !== fresh.role ||
+          user.value?.isAdmin !== fresh.isAdmin;
+        const mustChanged =
+          !!user.value?.mustChangePassword !== !!fresh.mustChangePassword ||
+          !!user.value?.mustSetPassword    !== !!fresh.mustSetPassword;
 
-      if (oldPerms !== newPerms || roleChanged) {
-        try {
-          const { useToastStore } = await import('@/stores/toast');
-          useToastStore().success('Ваши права были обновлены администратором');
-        } catch { /* ignore */ }
+        user.value = fresh;
+        const s = readSession();
+        if (s) { s.user = fresh; sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+
+        if (oldPerms !== newPerms || roleChanged) {
+          try {
+            const { useToastStore } = await import('@/stores/toast');
+            useToastStore().success('Ваши права были обновлены администратором');
+          } catch { /* ignore */ }
+        }
+        if (oldPerms !== newPerms || roleChanged || mustChanged) {
+          window.dispatchEvent(new CustomEvent('auth:changed'));
+        }
+      } catch { /* тихо */ } finally {
+        _refreshPromise = null;
       }
-      if (oldPerms !== newPerms || roleChanged || mustChanged) {
-        window.dispatchEvent(new CustomEvent('auth:changed'));
-      }
-    } catch { /* тихо */ }
+    })();
+
+    return _refreshPromise;
   }
 
   function hasPermission(key: string): boolean {
