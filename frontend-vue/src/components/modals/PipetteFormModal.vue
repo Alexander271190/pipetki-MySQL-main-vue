@@ -81,21 +81,37 @@
           <input v-else-if="f.type === 'date'" v-model="form[f.id]" type="date" />
           <input v-else-if="f.type === 'number'" v-model="form[f.id]" type="number" />
           <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
-            <input
-              v-model="form[f.id]"
-              type="text"
-              :placeholder="f.label"
-              style="flex:1;"
-              :disabled="isFieldDisabled(f.id)"
-              :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
-            />
-            <button type="button" class="btn btn-secondary" @click="generateBarcode" title="Заполнить из инв. номера / серийного / ID">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
-            </button>
-            <button v-if="isEdit" type="button" class="btn btn-warning" @click="resetBarcodeValue" title="Сбросить ручной — вернуть к авто">
-              <i class="fa-solid fa-rotate-left"></i>
-            </button>
-          </div>
+  <input
+    v-model="form[f.id]"
+    type="text"
+    :placeholder="f.label"
+    style="flex:1;"
+    :readonly="!canManageBarcodes"
+    :disabled="!canManageBarcodes || isFieldDisabled(f.id)"
+    :style="!canManageBarcodes
+      ? { background: '#f1f5f9', cursor: 'not-allowed' }
+      : (isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {})"
+    :title="!canManageBarcodes ? 'Меняется администратором. Авто из инв. номера.' : ''"
+  />
+  <button
+    v-if="canManageBarcodes"
+    type="button"
+    class="btn btn-secondary"
+    @click="generateBarcode"
+    title="Заполнить из инв. номера / серийного / ID"
+  >
+    <i class="fa-solid fa-wand-magic-sparkles"></i>
+  </button>
+  <button
+    v-if="canManageBarcodes && isEdit"
+    type="button"
+    class="btn btn-warning"
+    @click="resetBarcodeValue"
+    title="Сбросить ручной — вернуть к авто"
+  >
+    <i class="fa-solid fa-rotate-left"></i>
+  </button>
+</div>
           <input
             v-else
             v-model="form[f.id]"
@@ -125,7 +141,7 @@ import { ref, computed, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import BulkCreateTab from './BulkCreateTab.vue';
 import { useUiStore } from '@/stores/ui';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore, usePermissions } from '@/stores/auth';   
 import { useSettingsStore } from '@/stores/settings';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useStatsStore } from '@/stores/stats';
@@ -143,6 +159,8 @@ import { getResponsibles } from '@/api/users';
 
 const ui = useUiStore();
 const auth = useAuthStore();
+const perm = usePermissions();                                  
+const canManageBarcodes = perm.canManageBarcodes;  
 const settings = useSettingsStore();
 const pip = usePipettesStore();
 const stats = useStatsStore();
@@ -256,6 +274,7 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
   if (f.id === 'equipmentType') {
     return settings.equipmentTypes.map(t => ({ value: t.value, label: t.label }));
   }
+
   if (f.id === 'result') {
     return [
       { value: 'pass', label: '✅ Годен' },
@@ -263,51 +282,71 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
       { value: 'wip',  label: '⏳ В процессе' },
     ];
   }
+
   if (f.id === 'active') {
     return [
       { value: 'true',  label: '✅ В работе' },
       { value: 'false', label: '⛔ Не используется' },
     ];
   }
+
   if (f.id === 'department') {
-    return [
-      { value: '', label: '— не указан —' },
-      ...settings.departments.map(d => ({ value: d, label: d })),
-    ];
-  }
-  if (f.id === 'responsible') {
-  const opts: { value: string; label: string }[] = [];
-  if (!f.required) opts.push({ value: '', label: '— не указан —' });
+    let deps = settings.departments;
 
-  const self = auth.user?.fullName || '';
-  if (auth.isAdmin) {
-    // ⚠️ Полный список + self + текущее значение
-    const names = new Set<string>(responsibles.value);
-    if (self) names.add(self);
-    const current = form.value.responsible;
-    if (current) names.add(current);
+    // И.о. работает в отделе основного
+    if (auth.user?.isActing && auth.user?.actingDepartment) {
+      deps = [auth.user.actingDepartment];
+    }
+    // Не-админ с ограничением «только свой отдел»
+    else if (!auth.isAdmin && auth.user?.onlyOwnDepartment && auth.user?.department) {
+      deps = [auth.user.department];
+    }
 
-    const sorted = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
-    sorted.forEach(n => opts.push({ value: n, label: n }));
+    const opts = deps.map(d => ({ value: d, label: d }));
+    if (!f.required && deps.length > 1) {
+      return [{ value: '', label: '— не указан —' }, ...opts];
+    }
     return opts;
   }
 
-  if (auth.user?.isActing && auth.user?.actingForName) {
-    opts.push({ value: auth.user.actingForName, label: `${auth.user.actingForName} (основной)` });
-  } else if (self) {
-    opts.push({ value: self, label: self });
+  if (f.id === 'responsible') {
+    const opts: { value: string; label: string }[] = [];
+    if (!f.required) opts.push({ value: '', label: '— не указан —' });
+
+    const self = auth.user?.fullName || '';
+
+    if (auth.isAdmin) {
+      // Полный список + self + текущее значение
+      const names = new Set<string>(responsibles.value);
+      if (self) names.add(self);
+      const current = form.value.responsible;
+      if (current) names.add(current);
+
+      const sorted = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
+      sorted.forEach(n => opts.push({ value: n, label: n }));
+      return opts;
+    }
+
+    if (auth.user?.isActing && auth.user?.actingForName) {
+      opts.push({ value: auth.user.actingForName, label: `${auth.user.actingForName} (основной)` });
+    } else if (self) {
+      opts.push({ value: self, label: self });
+    }
+    return opts;
   }
-  return opts;
-}
+
   const raw = Array.isArray(f.options) ? f.options : [];
   const opts = raw.map(o => ({ value: o, label: o }));
-  if (!f.required && !opts.some(o => o.value === '')) return [{ value: '', label: '—' }, ...opts];
+  if (!f.required && !opts.some(o => o.value === '')) {
+    return [{ value: '', label: '—' }, ...opts];
+  }
   return opts;
 }
 
 function isFieldDisabled(fid: string): boolean {
   if (fid === 'department' && auth.user?.isActing) return true;
   if (fid === 'responsible' && !auth.isAdmin) return true;
+  if (fid === 'barcode' && !canManageBarcodes.value) return true; 
   return false;
 }
 
