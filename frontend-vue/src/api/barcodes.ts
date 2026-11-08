@@ -45,3 +45,13 @@ export interface PrintResult {
 export function printBarcodes(ids: string[], copies: number, printerId: number): Promise<PrintResult> {
   return apiRequest<PrintResult>('/barcodes/print', 'POST', { ids, copies, printerId });
 }
+
+// === 1.5 === шрифты для этикеток
+export interface BarcodeFont {
+  value: string;
+  label: string;
+}
+
+export function getBarcodeFonts(): Promise<BarcodeFont[]> {
+  return apiRequest<BarcodeFont[]>('/barcodes/fonts');
+}
