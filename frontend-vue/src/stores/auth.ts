@@ -42,6 +42,11 @@ async function resetOtherStores() {
 
     const pip = usePipettesStore();
     pip.items = [];
+    pip.total = 0;
+    pip.page = 1;
+    pip.totalPages = 1;
+    pip.search = '';                    
+    pip.filterState = {};              
     pip.clearSelection();
 
     useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
