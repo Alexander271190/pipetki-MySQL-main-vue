@@ -7,6 +7,9 @@ const SESSION_KEY = 'pipette_session';
 
 let authToken: string | null = null;
 
+let _lastPermsCheck = 0;
+const PERMS_CHECK_INTERVAL = 60_000;
+
 export function setAuthToken(token: string | null) {
   authToken = token;
 }
@@ -45,6 +48,16 @@ export async function apiRequest<T = unknown>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   data?: unknown
 ): Promise<T> {
+ 
+  const now = Date.now();
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (!path.startsWith('/auth/') && now - _lastPermsCheck > PERMS_CHECK_INTERVAL) {
+    _lastPermsCheck = now;
+    void import('@/stores/auth')
+      .then(({ useAuthStore }) => useAuthStore().refreshUser())
+      .catch(() => {});
+  }
+
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
