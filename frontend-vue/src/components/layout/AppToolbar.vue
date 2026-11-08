@@ -167,7 +167,11 @@ const pip = usePipettesStore();
 const toast = useToastStore();
 const prefs = usePrefsStore();
 const menuOpen = ref(false);
-const showFilter = ref(false);
+// === 2.3 === панель фильтра через ui-store
+const showFilter = computed({
+  get: () => ui.filterPanelOpen,
+  set: (v) => v ? ui.openFilterPanel() : ui.closeFilterPanel(),
+});
 const mql = window.matchMedia('(max-width: 900px)');
 const isMobile = ref(mql.matches);
 const onMqlChange = (e: MediaQueryListEvent) => { isMobile.value = e.matches; };
