@@ -169,18 +169,37 @@ async function savePrinter(p: BarcodePrinterFull) {
 }
 
 async function checkPrinter(p: BarcodePrinterFull) {
-  if (p.mode !== 'zebra-ip') {
-    toast.warn('Проверка связи — только для Zebra IP');
+  if (p.mode === 'zebra-ip') {
+    try {
+      const res = await api.checkPrinterStatus(p.ip || '', p.port);
+      toast.show(res.message, res.ok ? 'success' : 'error');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
+    }
     return;
   }
-  try {
-    const res = await api.checkPrinterStatus(p.ip || '', p.port);
-    toast.show(res.message, res.ok ? 'success' : 'error');
-  } catch (e) {
-    toast.error(e instanceof Error ? e.message : 'Ошибка');
-  }
-}
 
+  if (p.mode === 'zebra-agent') {
+    const port = p.port || 9200;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+      const res = await fetch(`http://localhost:${port}/status`, { signal: controller.signal });
+      toast.show(
+        res.ok ? `Агент отвечает на порту ${port}` : `Агент ответил ${res.status}`,
+        res.ok ? 'success' : 'warn'
+      );
+    } catch {
+      toast.error('Агент не отвечает. Проверьте, запущен ли он.');
+    } finally {
+      clearTimeout(timer);
+    }
+    return;
+  }
+
+  toast.warn('Для этого режима проверка не требуется');
+}
+  
 async function deletePrinter(p: BarcodePrinterFull) {
   const ok = await showConfirm(`Удалить принтер «${p.name}»?`, {
     icon: '🖨️', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger',
