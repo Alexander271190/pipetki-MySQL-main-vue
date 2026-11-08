@@ -81,37 +81,38 @@
           <input v-else-if="f.type === 'date'" v-model="form[f.id]" type="date" />
           <input v-else-if="f.type === 'number'" v-model="form[f.id]" type="number" />
           <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
-  <input
-    v-model="form[f.id]"
-    type="text"
-    :placeholder="f.label"
-    style="flex:1;"
-    :readonly="!canManageBarcodes"
-    :disabled="!canManageBarcodes || isFieldDisabled(f.id)"
-    :style="!canManageBarcodes
-      ? { background: '#f1f5f9', cursor: 'not-allowed' }
-      : (isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {})"
-    :title="!canManageBarcodes ? 'Меняется администратором. Авто из инв. номера.' : ''"
-  />
-  <button
-    v-if="canManageBarcodes"
-    type="button"
-    class="btn btn-secondary"
-    @click="generateBarcode"
-    title="Заполнить из инв. номера / серийного / ID"
-  >
-    <i class="fa-solid fa-wand-magic-sparkles"></i>
-  </button>
-  <button
-    v-if="canManageBarcodes && isEdit"
-    type="button"
-    class="btn btn-warning"
-    @click="resetBarcodeValue"
-    title="Сбросить ручной — вернуть к авто"
-  >
-    <i class="fa-solid fa-rotate-left"></i>
-  </button>
-</div>
+            <!-- === 2.1 === readonly + disabled + title + v-if на кнопках -->
+            <input
+              v-model="form[f.id]"
+              type="text"
+              :placeholder="f.label"
+              style="flex:1;"
+              :readonly="!canManageBarcodes"
+              :disabled="!canManageBarcodes || isFieldDisabled(f.id)"
+              :style="!canManageBarcodes
+                ? { background: '#f1f5f9', cursor: 'not-allowed' }
+                : (isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {})"
+              :title="!canManageBarcodes ? 'Меняется администратором. Авто из инв. номера.' : ''"
+            />
+            <button
+              v-if="canManageBarcodes"
+              type="button"
+              class="btn btn-secondary"
+              @click="generateBarcode"
+              title="Заполнить из инв. номера / серийного / ID"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
+            <button
+              v-if="canManageBarcodes && isEdit"
+              type="button"
+              class="btn btn-warning"
+              @click="resetBarcodeValue"
+              title="Сбросить ручной — вернуть к авто"
+            >
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+          </div>
           <input
             v-else
             v-model="form[f.id]"
@@ -159,8 +160,8 @@ import { getResponsibles } from '@/api/users';
 
 const ui = useUiStore();
 const auth = useAuthStore();
-const perm = usePermissions();                                  
-const canManageBarcodes = perm.canManageBarcodes;  
+const perm = usePermissions();                                      // === 2.1 ===
+const canManageBarcodes = perm.canManageBarcodes;                  // === 2.1 ===
 const settings = useSettingsStore();
 const pip = usePipettesStore();
 const stats = useStatsStore();
@@ -235,7 +236,7 @@ async function _handleIdleTimeout() {
   }
   _stopIdleTracking();
 
- const id = editId.value;
+  const id = editId.value;
 
   let draftSaved = false;
   try {
@@ -247,7 +248,7 @@ async function _handleIdleTimeout() {
 
   try {
     await api.releaseLock(id);
-    _skipUnlock = true;                  
+    _skipUnlock = true;
   } catch (e) {
     console.warn('releaseLock при idle timeout:', e);
   }
@@ -290,20 +291,19 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
     ];
   }
 
+  // === 2.2 === фильтр по onlyOwnDepartment / isActing
   if (f.id === 'department') {
     let deps = settings.departments;
 
-    // И.о. работает в отделе основного
     if (auth.user?.isActing && auth.user?.actingDepartment) {
       deps = [auth.user.actingDepartment];
     }
-    // Не-админ с ограничением «только свой отдел»
     else if (!auth.isAdmin && auth.user?.onlyOwnDepartment && auth.user?.department) {
       deps = [auth.user.department];
     }
 
     const opts = deps.map(d => ({ value: d, label: d }));
-    if (!f.required && deps.length > 1) {
+    if (!f.required) {
       return [{ value: '', label: '— не указан —' }, ...opts];
     }
     return opts;
@@ -316,7 +316,6 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
     const self = auth.user?.fullName || '';
 
     if (auth.isAdmin) {
-      // Полный список + self + текущее значение
       const names = new Set<string>(responsibles.value);
       if (self) names.add(self);
       const current = form.value.responsible;
@@ -346,7 +345,6 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
 function isFieldDisabled(fid: string): boolean {
   if (fid === 'department' && auth.user?.isActing) return true;
   if (fid === 'responsible' && !auth.isAdmin) return true;
-  if (fid === 'barcode' && !canManageBarcodes.value) return true; 
   return false;
 }
 
@@ -402,8 +400,7 @@ async function resetBarcodeValue() {
 async function openForm() {
   _stopIdleTracking();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
- 
-  // ⚠️ Загружаем список ответственных (только админу)
+
   if (auth.isAdmin && responsibles.value.length === 0) {
     try {
       const users = await getResponsibles();
@@ -444,7 +441,6 @@ async function openForm() {
 
               const id = editId.value;
 
-              // 1. Пытаемся сохранить через onSubmit (тихо)
               let saved = false;
               let savedError = '';
               try {
@@ -455,7 +451,6 @@ async function openForm() {
                 savedError = e?.message || 'ошибка сохранения';
               }
 
-              // 2. Если не сохранилось — черновик
               let draftSaved = false;
               if (!saved && id) {
                 try {
@@ -466,12 +461,10 @@ async function openForm() {
                 }
               }
 
-              // 3. Закрываем модалку (если onSubmit не закрыл)
               if (ui.activeModal === 'form') {
                 await close();
               }
 
-              // 4. Формируем сообщение
               const name = r.lockedBy || '';
               const pos = r.lockedByPosition;
               const displayUser = pos ? `${name} (${pos})` : (name || 'другой пользователь');
@@ -500,14 +493,12 @@ async function openForm() {
                   `Скопируйте важные данные, если они есть.`;
               }
 
-              // 5. Тост (краткий)
               toast.warn(saved
                 ? `Сессия завершена. Прибор забрал ${displayUser}.`
                 : draftSaved
                   ? 'Сессия завершена. Данные сохранены как черновик.'
                   : 'Сессия завершена. Сохранить не удалось.');
 
-              // 6. Модалка OK
               try {
                 await showConfirm(message, {
                   icon, title, okText: 'ОК', hideCancel: true, okClass: 'btn-secondary',
