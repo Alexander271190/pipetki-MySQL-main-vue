@@ -19,6 +19,18 @@
             <span>Fallback на PDF</span>
           </label>
         </div>
+
+        <!-- === 1.5 === шрифт и порт агента -->
+        <div class="bc-cell">
+          <label>Шрифт</label>
+          <select v-model="font">
+            <option v-for="f in availableFonts" :key="f.value" :value="f.value">{{ f.label }}</option>
+          </select>
+        </div>
+        <div class="bc-cell">
+          <label>Порт агента</label>
+          <input v-model.number="agentPort" type="number" />
+        </div>
       </div>
       <div class="bc-fields-section">
         <div class="bc-fields-label">Поля на этикетке:</div>
@@ -46,6 +58,7 @@ import { ref, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
 import * as api from '@/api/settings';
+import { getBarcodeFonts } from '@/api/barcodes';   // === 1.5 ===
 
 defineEmits<{ (e: 'close'): void }>();
 
@@ -59,6 +72,9 @@ const maxLength = ref(255);
 const fallbackToPdf = ref(true);
 const selectedFields = ref<string[]>(['id', 'model', 'serial', 'department']);
 const saving = ref(false);
+const font = ref('dejavu');                                          // === 1.5 ===
+const agentPort = ref(9200);                                          // === 1.5 ===
+const availableFonts = ref<{ value: string; label: string }[]>([]);   // === 1.5 ===
 
 const labelFields = [
   { id: 'id', label: 'Внутренний номер' },
@@ -78,6 +94,13 @@ onMounted(async () => {
     maxLength.value = Math.min(255, parseInt(String(s.barcode_max_length), 10) || 255);
     fallbackToPdf.value = s.barcode_fallback_to_pdf !== '0';
     try { selectedFields.value = JSON.parse(String(s.barcode_label_fields || '[]')); } catch { /* ignore */ }
+
+    // === 1.5 === шрифт и порт агента
+    font.value = String(s.barcode_font || 'dejavu');
+    agentPort.value = Number(s.barcode_agent_port) || 9200;
+    try {
+      availableFonts.value = await getBarcodeFonts();
+    } catch { /* ignore */ }
   } catch { /* ignore */ }
 });
 
@@ -98,6 +121,8 @@ async function onSave() {
       barcode_max_length: String(Math.min(255, Math.max(8, maxLength.value || 255))),
       barcode_fallback_to_pdf: fallbackToPdf.value ? '1' : '0',
       barcode_label_fields: JSON.stringify(selectedFields.value),
+      barcode_font: font.value || 'dejavu',                    // === 1.5 ===
+      barcode_agent_port: String(agentPort.value),              // === 1.5 ===
     });
     toast.success('Настройки сохранены');
     await settings.loadAll();
