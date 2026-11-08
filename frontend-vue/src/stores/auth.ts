@@ -41,6 +41,7 @@ async function resetOtherStores() {
     useSettingsStore().loaded = false;
 
     const pip = usePipettesStore();
+    pip.resetLoadState(); 
     pip.items = [];
     pip.total = 0;
     pip.page = 1;
