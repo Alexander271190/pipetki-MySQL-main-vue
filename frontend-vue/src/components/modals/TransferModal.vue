@@ -40,6 +40,7 @@ import { useUiStore } from '@/stores/ui';
 import { useSettingsStore } from '@/stores/settings';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useToastStore } from '@/stores/toast';
+import { useAuthStore, usePermissions } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
 import { showLockWarning } from '@/composables/useLockWarning';
 import { apiRequest } from '@/api/client';
@@ -50,7 +51,8 @@ const ui = useUiStore();
 const settings = useSettingsStore();
 const pip = usePipettesStore();
 const toast = useToastStore();
-
+const auth = useAuthStore();        
+const perm = usePermissions();
 const pipette = ref<Pipette | null>(null);
 const newDept = ref('');
 const newResp = ref('');
@@ -221,6 +223,9 @@ async function onDeptChange() {
 
 async function onSubmit() {
   error.value = '';
+  await auth.refreshUser();
+  if (!perm.canTransferPipette.value) { error.value = 'Нет прав'; return; }
+
   if (!newDept.value) { error.value = 'Выберите отдел'; return; }
   if (!newResp.value) { error.value = 'Выберите ответственного'; return; }
   if (!pipette.value) { error.value = 'Прибор не найден'; return; }
