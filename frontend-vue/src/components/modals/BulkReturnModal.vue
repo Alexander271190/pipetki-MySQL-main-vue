@@ -113,7 +113,7 @@ import { usePipettesStore } from '@/stores/pipettes';
 import { useSettingsStore } from '@/stores/settings';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore, usePermissions } from '@/stores/auth';
 import { todayStr, formatDate } from '@/utils/format';
 import { buildHeaderHtml } from '@/utils/header';
 import { isExternalCalibration } from '@/utils/equipment';
@@ -128,7 +128,7 @@ const settings = useSettingsStore();
 const stats = useStatsStore();
 const toast = useToastStore();
 const auth = useAuthStore();
-
+const perm = usePermissions(); 
 const items = ref<Pipette[]>([]);
 const date = ref('');
 const org = ref('');
@@ -222,6 +222,9 @@ function toggleSingleCert() {
 
 async function onSubmit() {
   error.value = '';
+  await auth.refreshUser();
+  if (!perm.canBulkReturn.value) { error.value = 'Нет прав'; return; }
+
   if (!date.value) { error.value = 'Укажите дату'; return; }
   if (date.value > todayStr()) { error.value = 'Дата не может быть в будущем'; return; }
   if (singleCert.value && !commonCert.value.trim()) {
