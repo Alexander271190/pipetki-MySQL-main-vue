@@ -51,6 +51,7 @@ import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
+import { useAuthStore, usePermissions } from '@/stores/auth'; 
 import { showConfirm } from '@/composables/useConfirm';
 import { showLockWarning } from '@/composables/useLockWarning';
 import { todayStr } from '@/utils/format';
@@ -62,7 +63,8 @@ const ui = useUiStore();
 const pip = usePipettesStore();
 const stats = useStatsStore();
 const toast = useToastStore();
-
+const auth = useAuthStore();       
+const perm = usePermissions(); 
 const pipette = ref<Pipette | null>(null);
 const form = ref({ date: '', cert: '', result: 'pass', org: '', note: '' });
 const saving = ref(false);
@@ -264,10 +266,12 @@ async function open() {
 
 async function onSubmit() {
   error.value = '';
+  await auth.refreshUser();
+  if (!perm.canQuickCal.value) { error.value = 'Нет прав'; return; }
+
   if (!form.value.date) { error.value = 'Заполните дату'; return; }
   if (form.value.date > todayStr()) { error.value = 'Дата не может быть в будущем'; return; }
   if (!pipette.value) { error.value = 'Прибор не найден'; return; }
-
   saving.value = true;
   try {
     await api.addCalibration(pipette.value.id, form.value);
