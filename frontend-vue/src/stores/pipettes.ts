@@ -116,6 +116,10 @@ export const usePipettesStore = defineStore('pipettes', () => {
     selected.value = s;
   }
 
+  function resetLoadState() {
+    _loadPagedPromise = null;
+  }
+
   function clearSelection() {
     selected.value = new Set();
   }
@@ -185,6 +189,6 @@ async function fetchOne(id: string): Promise<Pipette | null> {
     selected, hasSelection,
     loadPaged, setSearch, setFilter, resetFilters,
     sortBy, changePage, toggleSelected, selectAllOnPage, clearSelection, syncFilterState, fetchByIds,
-fetchOne,
+fetchOne, resetLoadState,
   };
 });
