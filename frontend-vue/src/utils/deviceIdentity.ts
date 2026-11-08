@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/stores/settings';
 // Возвращает HTML для компактной идентификации прибора (для модалок)
 export function getDeviceIdentityHtml(p: Pipette): string {
   const settings = useSettingsStore();
-  const fields = settings.bulkIdentityFields || ['id', 'model', 'serial', 'department'];
+  const fields = settings.bulkIdentityFields || ['id', 'model', 'serial', 'inventorynumber', 'department'];
 
   const main: string[] = [];
   const sub: string[] = [];
