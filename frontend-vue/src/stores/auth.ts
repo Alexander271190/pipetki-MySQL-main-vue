@@ -181,6 +181,7 @@ export function usePermissions() {
     canImport:                  computed(() => p('import_data')),
     canManageUsers:             computed(() => p('manage_users')),
     canManageSettings:          computed(() => p('manage_settings')),
+    canManageBarcodes:          computed(() => p('manage_barcodes')),
     canManagePrinters:          computed(() => p('manage_printers')),
     canViewLog:                 computed(() => p('view_log')),
     canViewAudit:               computed(() => p('view_audit')),
