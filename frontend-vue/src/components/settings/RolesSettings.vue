@@ -76,7 +76,7 @@ function openEdit(r: Role | null) {
 }
 
 function closeEdit() { showEdit.value = false; editingRole.value = null; }
-function onSaved() { closeEdit(); load(); }
+function onSaved() { closeEdit(); api.invalidateRolesCache(); load(); }
 
 function openActions(e: MouseEvent, r: Role) {
   const items: MenuItem[] = [{ label: '<i class="fa-solid fa-pen"></i> Редактировать', action: () => openEdit(r) }];
@@ -98,6 +98,7 @@ async function deleteRole(r: Role) {
   try {
     await api.deleteRole(r.id);
     toast.success('Удалена');
+    api.invalidateRolesCache();
     load();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
