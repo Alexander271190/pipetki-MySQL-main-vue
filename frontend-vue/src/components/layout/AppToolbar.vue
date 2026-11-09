@@ -158,7 +158,8 @@ import { useExport } from '@/composables/useExport';
 import FilterPanel from '@/components/table/FilterPanel.vue';
 import { usePrefsStore } from '@/stores/prefs';
 import { showConfirm } from '@/composables/useConfirm';
-
+import { isMobileDevice } from '@/utils/device';
+  
 const modals = useModals();
 const perm = usePermissions();
 const ui = useUiStore();
@@ -172,11 +173,7 @@ const showFilter = computed({
   get: () => ui.filterPanelOpen,
   set: (v) => v ? ui.openFilterPanel() : ui.closeFilterPanel(),
 });
-const mql = window.matchMedia('(max-width: 900px)');
-const isMobile = ref(mql.matches);
-const onMqlChange = (e: MediaQueryListEvent) => { isMobile.value = e.matches; };
-mql.addEventListener('change', onMqlChange);
-onUnmounted(() => mql.removeEventListener('change', onMqlChange));
+const isMobile = isMobileDevice();
 const hasCustomLayout = computed(
   () =>
     (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) ||
