@@ -53,7 +53,6 @@ import FiltersSettings from './FiltersSettings.vue';
 import ExportSettings from './ExportSettings.vue';
 import EquipmentTypesSettings from './EquipmentTypesSettings.vue';
 import UsersSettings from './UsersSettings.vue';
-import RolesSettings from './RolesSettings.vue';
 import ViewTemplatesSettings from './ViewTemplatesSettings.vue';
 import PrintersSettings from './PrintersSettings.vue';
 import BarcodesSettings from './BarcodesSettings.vue';
