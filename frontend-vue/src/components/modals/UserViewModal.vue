@@ -177,13 +177,13 @@ import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { useToastStore } from '@/stores/toast';
-import { apiRequest } from '@/api/client';
 import * as usersApi from '@/api/users';
 import * as viewTplApi from '@/api/viewTemplates';
 import type { FullUser } from '@/api/users';
 import type { ViewTemplate } from '@/api/viewTemplates';
 import { showConfirm } from '@/composables/useConfirm';
-
+import { getUserPrefs, getUserPrefsEffective, saveUserPrefs, resetUserPrefs, applyFieldsToAll } from '@/api/settings';
+  
 const ui = useUiStore();
 const auth = useAuthStore();
 const settings = useSettingsStore();
@@ -289,7 +289,7 @@ async function loadAll() {
     // Загрузка prefs
     let prefs: Record<string, unknown> = {};
     try {
-      prefs = await apiRequest(`/settings/user-preferences/${userId.value}`);
+      prefs = await getUserPrefs(userId.value as string);
     } catch { /* ignore */ }
 
     const allEnabled = settings.fields.filter(f => f.enabled).map(f => f.id);
@@ -350,9 +350,7 @@ function togglePrintField(docKey: string, fieldId: string, checked: boolean) {
 async function copyFromUser() {
   if (!copyFromUserId.value) { toast.error('Выберите пользователя'); return; }
   try {
-    const res = await apiRequest<{ visibleFields: string[] }>(
-      `/settings/user-preferences/${copyFromUserId.value}/effective`
-    );
+    const res = await getUserPrefsEffective(copyFromUserId.value);
     if (!res.visibleFields || res.visibleFields.length === 0) {
       toast.error('У пользователя нет активных полей');
       return;
@@ -404,10 +402,7 @@ async function applyToAll(mode: 'missing' | 'add') {
   );
   if (!ok) return; 
   try {
-    const res = await apiRequest<{ updated: number; message?: string }>(
-      '/settings/apply-fields-to-all', 'POST',
-      { visibleFields: visibleFields.value, mode }
-    );
+    const res = await applyFieldsToAll({ visibleFields: visibleFields.value, mode });
     toast.success(res.message || `Обновлено: ${res.updated}`);
     ui.close();
   } catch (e) {
@@ -423,8 +418,7 @@ async function save() {
   saving.value = true;
   try {
     let existing: Record<string, unknown> = {};
-    try { existing = await apiRequest(`/settings/user-preferences/${userId.value}`); } catch { /* ignore */ }
-
+    try { existing = await getUserPrefs(userId.value); } catch { /* ignore */ }
     const merged = {
       ...existing,
       visibleFields: visibleFields.value,
@@ -439,7 +433,7 @@ async function save() {
         : { useIndividual: false },
       _virtualsInitialized: true,
     };
-    await apiRequest(`/settings/user-preferences/${userId.value}`, 'PUT', merged);
+    await saveUserPrefs(userId.value, merged);
     toast.success('Настройки сохранены');
     ui.close();
 
@@ -464,7 +458,7 @@ async function resetUserView() {
   );
   if (!ok) return;
   try {
-    await apiRequest(`/settings/user-preferences/${userId.value}`, 'DELETE');
+    await resetUserPrefs(userId.value);
     toast.success('Сброшено. Пользователь увидит все включённые поля.');
     ui.close();
   } catch (e) {
