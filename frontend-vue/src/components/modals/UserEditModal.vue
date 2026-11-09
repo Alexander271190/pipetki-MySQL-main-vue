@@ -251,7 +251,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { useToastStore } from '@/stores/toast';
@@ -585,4 +585,23 @@ function closeAndBack() {
   ui.close();
   ui.open('settings', 'users');
 }
+
+function onStorageChange(e: StorageEvent) {
+  if (e.key === 'pipette_session') {
+    // Сессия изменилась в другой вкладке — сбрасываем кеш пресетов
+    usersApi.invalidatePresetsCache();
+    usersApi.invalidateUsersCache();
+    if (ui.activeModal === 'userEdit') {
+      void loadAll();
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('storage', onStorageChange);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('storage', onStorageChange);
+});
 </script>
