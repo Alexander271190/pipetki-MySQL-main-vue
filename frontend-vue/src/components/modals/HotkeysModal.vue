@@ -64,13 +64,22 @@ function cleanTitle(t: string): string {
   return t.replace(/\{icon:.*?\}/g, '').trim();
 }
 
-function onClick(s: HelpSection) {
+async function onClick(s: HelpSection) {
   if (!s.filePath) {
-    toast.warn(`Раздел «${cleanTitle(s.title)}» пока без файла. Обратитесь к администратору.`);
+    toast.warn(`Раздел «${cleanTitle(s.title)}» пока без файла.`);
     return;
   }
   const url = s.filePath.startsWith('/') ? s.filePath : '/' + s.filePath;
-  window.open(url, '_blank');
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    if (!res.ok) {
+      toast.error(`Файл раздела «${cleanTitle(s.title)}» не найден.`);
+      return;
+    }
+    window.open(url, '_blank');
+  } catch {
+    toast.error('Не удалось проверить файл');
+  }
 }
 
 function close() { ui.close(); }
