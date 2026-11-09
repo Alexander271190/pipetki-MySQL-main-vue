@@ -66,11 +66,22 @@ export function getExportField(id: string): FieldDef | null {
 }
 
 export function getActiveExportFields(printDocsFields?: string[]): string[] {
-  if (printDocsFields && Array.isArray(printDocsFields) && printDocsFields.length > 0) {
+  // 1) индивидуальные
+  if (printDocsFields && printDocsFields.length > 0) {
     return printDocsFields.filter(id => !!getExportField(id));
   }
+
+  // 2) глобальные из /settings/export (если есть кеш)
   const settings = useSettingsStore();
+  const globalFields = (settings as any).exportFields as string[] | undefined;
+  if (globalFields && globalFields.length > 0) {
+    return globalFields.filter(id => !!getExportField(id));
+  }
+
+  // 3) все доступные
   const custom = settings.fields.filter(f => f.enabled).map(f => f.id);
-  const system = ['id','serial','manufacturer','model','equipmentType','volume','department','lastCalibration','nextCalibration','interval','daysLeft','responsible','location','status','cert','notes'];
+  const system = ['id','serial','manufacturer','model','equipmentType','volume','department',
+    'lastCalibration','nextCalibration','interval','daysLeft','responsible','location',
+    'status','cert','notes'];
   return [...system, ...custom].filter(id => !!getExportField(id));
 }
