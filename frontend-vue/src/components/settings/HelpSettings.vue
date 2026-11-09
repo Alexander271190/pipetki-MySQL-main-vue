@@ -32,10 +32,13 @@
         <tr v-for="s in sortedSections" :key="s.slug">
           <td><strong>{{ s.title }}</strong></td>
           <td>
-            <span v-if="!s.filePath" style="font-size:.8rem;color:#94a3b8;">— нет файла —</span>
-            <span v-else style="font-size:.8rem;color:#0369a1;">
-              <i class="fa-solid fa-file"></i> {{ fileName(s.filePath) }}
-            </span>
+             <span v-if="!s.filePath" style="font-size:.8rem;color:#94a3b8;">— нет файла —</span>
+             <span v-else-if="fileExistsMap.get(s.slug) === false" style="font-size:.8rem;color:#dc2626;font-weight:600;">
+                <i class="fa-solid fa-triangle-exclamation"></i> ⚠ ОТСУТСТВУЕТ
+             </span>
+             <span v-else style="font-size:.8rem;color:#0369a1;">
+                <i class="fa-solid fa-file"></i> {{ fileName(s.filePath) }}
+             </span>
           </td>
           <td style="text-align:center;">{{ s.enabled ? '✅' : '❌' }}</td>
           <td style="text-align:center;">
@@ -92,6 +95,21 @@ const uploadTitle = ref('');
 const uploadError = ref('');
 const uploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+  
+const fileExistsMap = ref<Map<string, boolean>>(new Map());
+
+async function checkFiles() {
+  const map = new Map<string, boolean>();
+  await Promise.all(sections.value.map(async s => {
+    if (!s.filePath) { map.set(s.slug, false); return; }
+    const url = s.filePath.startsWith('/') ? s.filePath : '/' + s.filePath;
+    try {
+      const r = await fetch(url, { method: 'HEAD' });
+      map.set(s.slug, r.ok);
+    } catch { map.set(s.slug, false); }
+  }));
+  fileExistsMap.value = map;
+}
 
 const sortedSections = computed(() => [...sections.value].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)));
 
@@ -101,7 +119,10 @@ function fileName(path: string): string {
 
 async function load() {
   loading.value = true;
-  try { sections.value = await api.getHelpSections(); }
+  try {
+    sections.value = await api.getHelpSections();
+    await checkFiles();                                   
+  }
   catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
   finally { loading.value = false; }
 }
