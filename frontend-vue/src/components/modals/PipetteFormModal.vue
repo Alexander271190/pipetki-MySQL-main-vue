@@ -156,12 +156,12 @@ import * as tplApi from '@/api/templates';
 import type { FieldConfig } from '@/api/settings';
 import type { Pipette } from '@/types';
 import type { DraftData } from '@/api/pipettes';
-import { getResponsibles } from '@/api/users';
+
 
 const ui = useUiStore();
 const auth = useAuthStore();
-const perm = usePermissions();                                      // === 2.1 ===
-const canManageBarcodes = perm.canManageBarcodes;                  // === 2.1 ===
+const perm = usePermissions();                                      
+const canManageBarcodes = perm.canManageBarcodes;                  
 const settings = useSettingsStore();
 const pip = usePipettesStore();
 const stats = useStatsStore();
@@ -401,12 +401,10 @@ async function openForm() {
   _stopIdleTracking();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
 
-  if (auth.isAdmin && responsibles.value.length === 0) {
-    try {
-      const users = await getResponsibles();
-      responsibles.value = users.map(u => u.fullName).filter(Boolean);
-    } catch { /* ignore */ }
-  }
+  if (auth.isAdmin) {
+  await settings.loadResponsibles();
+  responsibles.value = settings.responsibles;
+ }
 
   const data = ui.modalData as string | null;
   editId.value = data || null;
