@@ -267,7 +267,7 @@ async function open() {
 async function onSubmit() {
   error.value = '';
   await auth.refreshUser();
-  if (!perm.canQuickCal.value) { error.value = 'Нет прав'; return; }
+  if (!perm.canQuickCal.value) { error.value = 'Нет прав на поверку'; return; }
 
   if (!form.value.date) { error.value = 'Заполните дату'; return; }
   if (form.value.date > todayStr()) { error.value = 'Дата не может быть в будущем'; return; }
