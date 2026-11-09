@@ -53,6 +53,18 @@ export const usePrefsStore = defineStore('prefs', () => {
     visibleFields.value = [...set].filter(id => allowed.has(id));
   }
 
+  function syncWithFieldsAddMissing(activeFieldIds: string[]) {
+  const allowed = new Set([...activeFieldIds, ...VIRTUAL_IDS]);
+  const set = new Set(visibleFields.value);
+
+  for (const id of activeFieldIds) set.add(id);         
+  for (const v of VIRTUAL_IDS) set.add(v);              
+
+  visibleFields.value = [...set].filter(id => allowed.has(id));
+  virtualsInitialized.value = true;
+  saveDebounced();
+}
+
   async function save() {
     if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
     try {
@@ -98,7 +110,7 @@ export const usePrefsStore = defineStore('prefs', () => {
 }
   return {
     loaded, visibleFields, columnOrder, columnWidths, virtualsInitialized,
-    load, syncWithFields, save, saveDebounced,
+    load, syncWithFields, save, saveDebounced, syncWithFieldsAddMissing,
     setVisibleFields, setColumnOrder, setColumnWidth, resetLayout,
   };
 });
