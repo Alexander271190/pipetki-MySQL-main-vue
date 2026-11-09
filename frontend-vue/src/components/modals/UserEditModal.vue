@@ -321,7 +321,7 @@ async function loadAll() {
   loading.value = true;
   try {
     roles.value = await rolesApi.getCachedRoles();
-    try { presets.value = await usersApi.getPresets(); } catch { /* ignore */ }
+    try { presets.value = await usersApi.getCachedPresets(); } catch { /* ignore */ }
 
     if (editId.value) {
       const users = await usersApi.getUsers();
@@ -407,7 +407,8 @@ async function saveCurrentPermsAsPreset() {
   try {
     await usersApi.createPreset(name.trim(), selected);
     toast.success('Пресет сохранён');
-    presets.value = await usersApi.getPresets();
+    usersApi.invalidatePresetsCache();
+    presets.value = await usersApi.getCachedPresets(true);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   }
@@ -423,6 +424,7 @@ async function deleteCustomPreset(id: number) {
   if (!ok) return;
   try {
     await usersApi.deletePreset(id);
+    usersApi.invalidatePresetsCache();
     presets.value = presets.value.filter(p => p.id !== id);
     toast.success('Пресет удалён');
   } catch (e) {
