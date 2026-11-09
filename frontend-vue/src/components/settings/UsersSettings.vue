@@ -196,6 +196,7 @@ async function deleteUser(u: FullUser) {
   try {
     await api.deleteUser(u.id);
     toast.success('Удалён');
+    api.invalidateUsersCache();
     load();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
