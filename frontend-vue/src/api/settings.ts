@@ -88,6 +88,18 @@ export const getMyPrefsEffective  = () => apiRequest<UserPrefsRaw>('/settings/my
 export const getMyPrefs           = () => apiRequest<UserPrefsRaw>('/settings/my-preferences');
 export const saveMyPrefs          = (data: UserPrefsRaw) => apiRequest('/settings/my-preferences', 'PUT', data);
 
+// === 3.1 === user-preferences для конкретного пользователя (админ)
+export const getUserPrefs          = (id: string) =>
+  apiRequest<UserPrefsRaw>(`/settings/user-preferences/${id}`);
+export const getUserPrefsEffective = (id: string) =>
+  apiRequest<UserPrefsRaw>(`/settings/user-preferences/${id}/effective`);
+export const saveUserPrefs         = (id: string, data: UserPrefsRaw) =>
+  apiRequest(`/settings/user-preferences/${id}`, 'PUT', data);
+export const resetUserPrefs        = (id: string) =>
+  apiRequest(`/settings/user-preferences/${id}`, 'DELETE');
+export const applyFieldsToAll      = (payload: { visibleFields: string[]; mode: 'missing' | 'add' }) =>
+  apiRequest<{ updated: number; message?: string }>('/settings/apply-fields-to-all', 'POST', payload);
+
 // ═══ МУТАЦИИ ═══
 export const saveFields = (fields: FieldConfig[]) =>
   apiRequest<FieldConfig[]>('/settings/fields', 'PUT', fields);
