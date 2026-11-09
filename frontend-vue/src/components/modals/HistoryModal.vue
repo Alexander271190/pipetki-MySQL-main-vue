@@ -43,7 +43,7 @@
         </div>
       </div>
 
-      <!-- 🆕 Кнопка «Добавить поверку» -->
+      <!--  Кнопка «Добавить поверку» -->
       <div style="margin-top:16px;text-align:right;">
         <button
           v-if="canManagePipettes"
@@ -55,7 +55,7 @@
         </button>
       </div>
 
-      <!-- 🆕 Форма добавления поверки -->
+      <!-- Форма добавления поверки -->
       <div v-if="showCalForm" style="margin-top:16px;padding-top:16px;border-top:2px solid #e2e8f0;">
         <h3 style="margin-bottom:15px;font-size:1rem;color:#1e293b;">Новая запись о поверке</h3>
         <div class="form-row">
@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';                               // === 1.3 === onUnmounted
+import { ref, watch, onUnmounted } from 'vue';                               
 import AppModal from '@/components/ui/AppModal.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useUiStore } from '@/stores/ui';
@@ -120,14 +120,14 @@ import { usePipettesStore } from '@/stores/pipettes';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
-import { usePermissions, useAuthStore } from '@/stores/auth';                // === 1.3 === useAuthStore
+import { usePermissions, useAuthStore } from '@/stores/auth';                
 import { calcStatus, getNextDate } from '@/utils/status';
 import { formatDate, todayStr } from '@/utils/format';
 import { RESULT_LABELS } from '@/constants';
 import type { Pipette } from '@/types';
 import * as api from '@/api/pipettes';
 import type { CalibrationRecord } from '@/api/pipettes';
-import { showLockWarning } from '@/composables/useLockWarning';              // === 1.3 === showLockWarning
+import { showLockWarning } from '@/composables/useLockWarning';              
 
 const ui = useUiStore();
 const pip = usePipettesStore();
@@ -135,7 +135,7 @@ const stats = useStatsStore();
 const toast = useToastStore();
 const settings = useSettingsStore();
 const perm = usePermissions();
-const auth = useAuthStore();                                                 // === 1.3 ===
+const auth = useAuthStore();                                                 
 
 const canManagePipettes = perm.canManagePipettes;
 
@@ -181,7 +181,7 @@ watch(() => ui.activeModal, async (v) => {
 });
 
 function close() {
-  // === 1.3 === снять лок при закрытии
+  
   if (_lockedId) {
     api.releaseLock(_lockedId).catch(() => {});
     _lockedId = null;
@@ -204,11 +204,11 @@ async function addCalibration() {
   if (!calForm.value.date) { calError.value = 'Заполните дату поверки'; return; }
   if (calForm.value.date > todayStr()) { calError.value = 'Дата не может быть в будущем'; return; }
 
-  // === 1.3 === проверка прав после refresh
+  
   await auth.refreshUser();
   if (!perm.canManagePipettes.value) { calError.value = 'Нет прав'; return; }
 
-  // === 1.3 === захват лока
+  
   try {
     const lockRes = await api.getLock(pipette.value.id);
     if (lockRes.locked && !lockRes.mine) {
@@ -226,7 +226,7 @@ async function addCalibration() {
   try {
     await api.addCalibration(pipette.value.id, calForm.value);
 
-    // === 1.3 === снять лок после успешного POST
+    
     if (_lockedId) {
       await api.releaseLock(_lockedId).catch(() => {});
       _lockedId = null;
@@ -250,7 +250,7 @@ async function addCalibration() {
     calError.value = e instanceof Error ? e.message : 'Ошибка сохранения';
   } finally {
     calSaving.value = false;
-    // === 1.3 === страховка: если лок остался (ошибка POST) — снять
+    
     if (_lockedId) {
       api.releaseLock(_lockedId).catch(() => {});
       _lockedId = null;
@@ -258,7 +258,7 @@ async function addCalibration() {
   }
 }
 
-// === 1.3 === страховка при размонтировании
+
 onUnmounted(() => {
   if (_lockedId) {
     api.releaseLock(_lockedId).catch(() => {});
