@@ -19,10 +19,12 @@ export const useSettingsStore = defineStore('settings', () => {
     hasPermission: false,
     export: false, actSend: false, actReturn: false, history: false,
   });
+  // === 2.8 === Глобальные поля экспорта (fallback, если нет printDocs.exportFields)
+  const exportFields = ref<string[]>([]);
 
   async function loadAll() {
     const [
-      systemRes, typesRes, fieldsRes, depsRes, filtersRes, printRes,
+      systemRes, typesRes, fieldsRes, depsRes, filtersRes, printRes, exportRes,  // ← добавили exportRes
     ] = await Promise.allSettled([
       api.getSystemSettings(),
       api.getEquipmentTypes(),
@@ -30,6 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
       api.getDepartments(),
       api.getFilters(),
       api.getPrintDocsEffective(),
+      api.getExport(),                                                           // ← 7-й промис
     ]);
 
     if (systemRes.status === 'fulfilled') {
@@ -42,15 +45,19 @@ export const useSettingsStore = defineStore('settings', () => {
         } catch { /* ignore */ }
       }
     }
+
     if (typesRes.status === 'fulfilled' && Array.isArray(typesRes.value)) {
       equipmentTypes.value = typesRes.value;
     }
+
     if (fieldsRes.status === 'fulfilled' && Array.isArray(fieldsRes.value)) {
       fields.value = fieldsRes.value;
     }
+
     if (depsRes.status === 'fulfilled' && Array.isArray(depsRes.value)) {
       departments.value = depsRes.value;
     }
+
     if (filtersRes.status === 'fulfilled' && Array.isArray(filtersRes.value)) {
       filters.value = filtersRes.value.filter(f => f.enabled);
       for (const f of filters.value) {
@@ -79,15 +86,27 @@ export const useSettingsStore = defineStore('settings', () => {
         }
       }
     }
+
     if (printRes.status === 'fulfilled') {
       printDocs.value = printRes.value;
     }
 
-    loaded.value = true;
+    // === 2.8 === глобальные поля экспорта (fallback)
+    if (exportRes.status === 'fulfilled') {
+      const exp = exportRes.value as { fields?: string[] } | string[] | null;
+      if (Array.isArray(exp)) {
+        exportFields.value = exp;
+      } else if (exp?.fields && Array.isArray(exp.fields)) {
+        exportFields.value = exp.fields;
+      }
+    }
+
+    loaded.value = true;   // ← один раз, в конце
   }
 
   return {
     loaded, warnDays, bulkIdentityFields, equipmentTypes, departments, fields, filters, printDocs,
+    exportFields,
     loadAll,
   };
 });
