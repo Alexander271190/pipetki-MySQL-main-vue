@@ -320,7 +320,7 @@ const permissionGroups = computed(() => {
 async function loadAll() {
   loading.value = true;
   try {
-    roles.value = await rolesApi.getRoles();
+    roles.value = await rolesApi.getCachedRoles();
     try { presets.value = await usersApi.getPresets(); } catch { /* ignore */ }
 
     if (editId.value) {
@@ -465,7 +465,8 @@ async function saveQuickRole() {
       isAdmin: quickRoleIsAdmin.value,
     });
 
-    roles.value = await rolesApi.getRoles();
+    rolesApi.invalidateRolesCache();
+    roles.value = await rolesApi.getCachedRoles(true);
 
     const newRole = roles.value.find(r => r.name === name);
     if (newRole) {
