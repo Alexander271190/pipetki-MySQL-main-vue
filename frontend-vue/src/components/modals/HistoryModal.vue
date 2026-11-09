@@ -98,8 +98,13 @@
     </template>
 
     <div class="form-actions">
-      <button type="button" class="btn btn-warning" @click="onExportHistory">
-        <i class="fa-solid fa-print"></i> Печать истории
+      <button
+        v-if="settings.printDocs?.history !== false"
+        type="button"
+        class="btn btn-warning"
+        @click="onExportHistory"
+      >
+       <i class="fa-solid fa-print"></i> Печать истории
       </button>
       <button type="button" class="btn btn-secondary" @click="close">Закрыть</button>
     </div>
