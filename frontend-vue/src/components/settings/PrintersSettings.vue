@@ -126,8 +126,20 @@ async function onAdd() {
     });
     if (!ipIn) return;
     ip = ipIn;
+  
+    const portStr = await showPrompt('Порт принтера', {
+      icon: 'fa-plug', title: 'Порт', okText: 'Далее',
+      defaultValue: '9100',
+      validator: v => {
+        const n = parseInt(v, 10);
+        if (!Number.isFinite(n) || n < 1 || n > 65535) return 'Порт 1..65535';
+        return null;
+      },
+    });
+    if (!portStr) return;
+    port = parseInt(portStr, 10) || 9100;
   }
-
+  
   try {
     await api.createBarcodePrinter({
       name: name.trim(),
