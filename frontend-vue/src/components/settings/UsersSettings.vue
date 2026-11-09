@@ -65,6 +65,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
+import { useSettingsStore } from '@/stores/settings';
 import { showConfirm } from '@/composables/useConfirm';
 import * as api from '@/api/users';
 import type { FullUser } from '@/api/users';
@@ -74,7 +75,7 @@ defineEmits<{ (e: 'close'): void }>();
 const toast = useToastStore();
 const ui = useUiStore();
 const auth = useAuthStore();
-
+const settings = useSettingsStore();
 const users = ref<FullUser[]>([]);
 const loading = ref(false);
 const search = ref('');
@@ -197,6 +198,7 @@ async function deleteUser(u: FullUser) {
     await api.deleteUser(u.id);
     toast.success('Удалён');
     api.invalidateUsersCache();
+    settings.invalidateResponsibles();   
     load();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
