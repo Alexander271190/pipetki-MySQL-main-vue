@@ -20,8 +20,23 @@ export const useSettingsStore = defineStore('settings', () => {
     hasPermission: false,
     export: false, actSend: false, actReturn: false, history: false,
   });
-  // === 2.8 === Глобальные поля экспорта (fallback, если нет printDocs.exportFields)
+  
+  const responsibles = ref<string[]>([]);
+  
   const exportFields = ref<string[]>([]);
+
+async function loadResponsibles(force = false) {
+  if (!force && responsibles.value.length > 0) return;
+  try {
+    const { getResponsibles } = await import('@/api/users');
+    const users = await getResponsibles();
+    responsibles.value = users.map(u => u.fullName).filter(Boolean);
+  } catch { /* ignore */ }
+}
+
+function invalidateResponsibles() {
+  responsibles.value = [];
+}
 
   async function loadAll() {
     const [
@@ -94,8 +109,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (printRes.status === 'fulfilled') {
       printDocs.value = printRes.value;
     }
-
-    // === 2.8 === глобальные поля экспорта (fallback)
+    
     if (exportRes.status === 'fulfilled') {
       const exp = exportRes.value as { fields?: string[] } | string[] | null;
       if (Array.isArray(exp)) {
@@ -105,12 +119,12 @@ export const useSettingsStore = defineStore('settings', () => {
       }
     }
 
-    loaded.value = true;   // ← один раз, в конце
+    loaded.value = true;  
   }
 
   return {
     loaded, warnDays, bulkIdentityFields, equipmentTypes, departments, fields, filters, printDocs,
-    exportFields,
-    loadAll,
+    exportFields, responsibles,
+    loadAll, loadResponsibles, invalidateResponsibles, 
   };
 });
