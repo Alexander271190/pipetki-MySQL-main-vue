@@ -88,7 +88,6 @@ import { showConfirm } from '@/composables/useConfirm';
 import { todayStr } from '@/utils/format';
 import * as bulkApi from '@/api/bulk';
 import type { FieldConfig } from '@/api/settings';
-import { getResponsibles } from '@/api/users';
 
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'created', count: number): void }>();
 
@@ -264,10 +263,8 @@ async function onSave() {
 
 onMounted(async () => {
   if (auth.isAdmin) {
-    try {
-      const users = await getResponsibles();
-      responsibles.value = users.map(u => u.fullName).filter(Boolean);
-    } catch { /* ignore */ }
+    await settings.loadResponsibles();
+    responsibles.value = settings.responsibles;
   }
   addRow();
 });
