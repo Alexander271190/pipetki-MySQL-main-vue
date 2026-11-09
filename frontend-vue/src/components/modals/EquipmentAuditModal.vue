@@ -1,6 +1,10 @@
 <template>
   <AppModal :visible="ui.activeModal === 'equipmentAudit'" @close="close" modal-class="modal-lg">
-    <h2><i class="fa-solid fa-clipboard-list"></i> Аудит изменений — <strong>{{ info?.id }}</strong></h2>
+    <h2>
+       <i class="fa-solid fa-clipboard-list"></i> Аудит изменений —
+       <strong>{{ info?.id }}</strong>
+       <template v-if="info?.model"> · {{ info.model }}</template>
+     </h2>
 
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <input v-model="search" type="text" placeholder="Поиск…"
