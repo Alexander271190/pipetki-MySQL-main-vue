@@ -93,7 +93,12 @@
       <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" @click="close">Отмена</button>
-        <button type="button" class="btn btn-info" @click="printAct">
+        <button
+          v-if="settings.printDocs?.actReturn !== false"
+          type="button"
+          class="btn btn-info"
+          @click="printAct"
+        >
           <i class="fa-solid fa-print"></i> Распечатать акт
         </button>
         <button type="submit" class="btn btn-success" :disabled="saving">
