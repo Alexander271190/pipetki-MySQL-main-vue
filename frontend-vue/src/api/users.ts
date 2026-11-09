@@ -75,3 +75,26 @@ export function invalidateUsersCache() {
   _cachedUsers = null;
   _cachedUsersTime = 0;
 }
+
+let _cachedPresets: Preset[] | null = null;
+let _cachedPresetsTime = 0;
+const PRESETS_CACHE_TTL = 30_000;
+
+export async function getCachedPresets(force = false): Promise<Preset[]> {
+  const now = Date.now();
+  if (!force && _cachedPresets && now - _cachedPresetsTime < PRESETS_CACHE_TTL) {
+    return _cachedPresets;
+  }
+  try {
+    _cachedPresets = await getPresets();
+    _cachedPresetsTime = now;
+    return _cachedPresets;
+  } catch {
+    return _cachedPresets || [];
+  }
+}
+
+export function invalidatePresetsCache() {
+  _cachedPresets = null;
+  _cachedPresetsTime = 0;
+}
