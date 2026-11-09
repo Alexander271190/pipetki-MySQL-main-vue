@@ -521,6 +521,7 @@ async function onSubmit() {
       // ═══ EDIT ═══
       await usersApi.updateUser(editId.value, payload);
       toast.success('Пользователь обновлён');
+      usersApi.invalidateUsersCache();
 
       if (savedId) await savePageSize(savedId);
 
@@ -532,6 +533,7 @@ async function onSubmit() {
     } else {
       // ═══ CREATE ═══
       const res = await usersApi.createUser(payload);
+      usersApi.invalidateUsersCache();
       savedId = res.id;
       toast.success('Пользователь создан');
 
