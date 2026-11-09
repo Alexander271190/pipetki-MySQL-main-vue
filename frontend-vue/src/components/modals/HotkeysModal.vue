@@ -66,21 +66,24 @@ function cleanTitle(t: string): string {
 
 async function onClick(s: HelpSection) {
   if (!s.filePath) {
-    toast.warn(`Раздел «${cleanTitle(s.title)}» пока без файла.`);
+    toast.warn(`Раздел «${cleanTitle(s.title)}» пока без файла. Обратитесь к администратору.`);
     return;
   }
   const url = s.filePath.startsWith('/') ? s.filePath : '/' + s.filePath;
+
+  // HEAD-проверка: файл физически есть?
   try {
     const res = await fetch(url, { method: 'HEAD' });
     if (!res.ok) {
-      toast.error(`Файл раздела «${cleanTitle(s.title)}» не найден.`);
+      toast.error(`Файл раздела «${cleanTitle(s.title)}» не найден на сервере.`);
       return;
     }
-    window.open(url, '_blank');
   } catch {
     toast.error('Не удалось проверить файл');
+    return;
   }
-}
 
+  window.open(url, '_blank');
+}
 function close() { ui.close(); }
 </script>
