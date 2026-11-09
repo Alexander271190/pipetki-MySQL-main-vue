@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';   
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';   
 import { useStatsStore } from '@/stores/stats';
 import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
@@ -63,7 +63,16 @@ watch(
 
 onMounted(() => {
   setTimeout(() => check(), 600);
+  window.addEventListener('reminders:check', onRemindersCheck);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('reminders:check', onRemindersCheck);
+});
+
+function onRemindersCheck() {
+  if (!visible.value) check();
+}
 
 function check() {
   if (!auth.user) return;
