@@ -177,8 +177,11 @@ async function open() {
 
 async function onSubmit() {
   error.value = '';
-  await auth.refreshUser();
-  if (!perm.canBulkSend.value) { error.value = 'Нет прав'; return; }
+await auth.refreshUser();
+  if (!perm.canBulkSend.value) {
+    error.value = 'Нет прав на отправку';
+    return;
+  }
 
   if (!sentDate.value) { error.value = 'Укажите дату'; return; }
   if (sentDate.value > todayStr()) { error.value = 'Дата не может быть в будущем'; return; }
