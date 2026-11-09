@@ -281,7 +281,7 @@ watch(() => ui.activeModal, async (v) => {
 async function loadAll() {
   loading.value = true;
   try {
-    users.value = await usersApi.getUsers();
+    users.value = await usersApi.getCachedUsers();
     const u = users.value.find(x => x.id === userId.value);
     if (!u) { toast.error('Пользователь не найден'); ui.close(); return; }
     userName.value = u.fullName;
