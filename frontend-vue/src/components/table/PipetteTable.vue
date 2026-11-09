@@ -250,9 +250,9 @@ function startColumnResize(e: MouseEvent, colId: string) {
     document.removeEventListener('mouseup', onMouseUp);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    _colResizeState = null;
+    // Снимаем флаг на следующем тике — чтобы click не запустил сортировку
+    setTimeout(() => { _colResizeState = null; }, 0);
   }
-
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
   _colResizeState = { colId };
