@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import * as api from '@/api/settings';
+import { pluralizeType } from '@/utils/string';
 import type {
   FieldConfig, EquipmentType, FilterConfig, PrintDocsEffective,
 } from '@/api/settings';
@@ -24,7 +25,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function loadAll() {
     const [
-      systemRes, typesRes, fieldsRes, depsRes, filtersRes, printRes, exportRes,  // ← добавили exportRes
+      systemRes, typesRes, fieldsRes, depsRes, filtersRes, printRes, exportRes,  
     ] = await Promise.allSettled([
       api.getSystemSettings(),
       api.getEquipmentTypes(),
@@ -32,8 +33,8 @@ export const useSettingsStore = defineStore('settings', () => {
       api.getDepartments(),
       api.getFilters(),
       api.getPrintDocsEffective(),
-      api.getExport(),                                                           // ← 7-й промис
-    ]);
+      api.getExport(),                                                           
+      ]);
 
     if (systemRes.status === 'fulfilled') {
       const s = systemRes.value;
@@ -76,7 +77,10 @@ export const useSettingsStore = defineStore('settings', () => {
               { value: 'unknown', label: 'Не задано' },
             ];
           } else if (f.optionsSource === 'equipment_type_list') {
-            f.options = equipmentTypes.value.map(t => ({ value: t.value, label: t.label }));
+            f.options = equipmentTypes.value.map(t => ({
+            value: t.value,
+            label: pluralizeType(t.label),
+        }));
           } else if (f.optionsSource === 'active_list') {
             f.options = [
               { value: 'true', label: 'В работе' },
