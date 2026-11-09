@@ -246,7 +246,8 @@ async function onSave() {
     const { usePrefsStore } = await import('@/stores/prefs');
     const prefs = usePrefsStore();
     const activeIds = settings.fields.filter(f => f.enabled).map(f => f.id);
-    prefs.syncWithFields(activeIds);
+    prefs.syncWithFieldsAddMissing(activeIds);
+    await prefs.save();
     toast.success('Поля сохранены');
     // Перезагрузить таблицу
     await pip.loadPaged();
@@ -267,7 +268,8 @@ async function onSave() {
         const { usePrefsStore } = await import('@/stores/prefs');
         const prefs = usePrefsStore();
         const activeIds = settings.fields.filter(f => f.enabled).map(f => f.id);
-        prefs.syncWithFields(activeIds);
+        prefs.syncWithFieldsAddMissing(activeIds);
+        await prefs.save();
         toast.success(`Поле удалено, данные очищены у ${affected} записей`);
       } catch (e2) {
         toast.error(e2 instanceof Error ? e2.message : 'Ошибка');
