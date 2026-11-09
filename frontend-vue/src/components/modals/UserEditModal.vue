@@ -29,7 +29,14 @@
           <select v-model="form.department">
             <option value="">— не указан —</option>
             <option v-for="d in settings.departments" :key="d" :value="d">{{ d }}</option>
-          </select>
+            <option
+              v-if="form.department && !settings.departments.includes(form.department)"
+              :value="form.department"
+              style="color:#dc2626;"
+            >
+              {{ form.department }} ⚠ (нет в списке)
+           </option>
+        </select>
         </div>
       </div>
       <div class="form-row">
@@ -339,6 +346,10 @@ async function loadAll() {
           isActing: !!u.isActing,
           actingForId: u.actingForId || '',
         };
+        // Проверка «битого» отдела
+        if (u.department && !settings.departments.includes(u.department)) {
+        toast.error(`Отдел «${u.department}» отсутствует в справочнике`);
+       }
         if (u.isActing) await onActingChange();
 
         try {
