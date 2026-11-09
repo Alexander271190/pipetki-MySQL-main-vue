@@ -45,6 +45,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { useUiStore } from '@/stores/ui';
+import { useAuthPullToRefresh } from '@/composables/useAuthPullToRefresh';
 
 const loginStr = ref('');
 const password = ref('');
@@ -56,8 +57,9 @@ const auth = useAuthStore();
 const toast = useToastStore();
 const router = useRouter();
 
+useAuthPullToRefresh();
+
 onMounted(() => {
-  
   try {
     const last = localStorage.getItem('pipette_last_login');
     if (last) loginStr.value = last;
@@ -71,7 +73,7 @@ async function onSubmit() {
   try {
     await auth.login(loginStr.value.trim(), password.value);
     try { localStorage.setItem('pipette_last_login', loginStr.value.trim()); } catch { /* ignore */ }
-    
+
     if (auth.user?.mustSetPassword) {
       ui.open('changePassword', 'setup');
     } else if (auth.user?.mustChangePassword) {
