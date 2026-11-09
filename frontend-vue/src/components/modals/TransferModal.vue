@@ -224,7 +224,7 @@ async function onDeptChange() {
 async function onSubmit() {
   error.value = '';
   await auth.refreshUser();
-  if (!perm.canTransferPipette.value) { error.value = 'Нет прав'; return; }
+  if (!perm.canTransferPipette.value) { error.value = 'Нет прав на передачу'; return; }
 
   if (!newDept.value) { error.value = 'Выберите отдел'; return; }
   if (!newResp.value) { error.value = 'Выберите ответственного'; return; }
