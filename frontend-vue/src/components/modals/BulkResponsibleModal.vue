@@ -112,7 +112,7 @@ async function open() {
 async function onSubmit() {
   error.value = '';
    await auth.refreshUser();
-  if (!perm.canBulkChangeResponsible.value) { error.value = 'Нет прав'; return; }
+  if (!perm.canBulkChangeResponsible.value) { error.value = 'Нет прав на смену ответственного'; return; }
 
   if (!newResp.value) { error.value = 'Выберите ответственного'; return; }
   const ok = await showConfirm(
