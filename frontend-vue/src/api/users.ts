@@ -51,3 +51,27 @@ export const createPreset = (name: string, permissions: string[]) =>
   apiRequest<Preset>('/users/presets', 'POST', { name, permissions });
 export const deletePreset = (id: number) =>
   apiRequest('/users/presets/' + id, 'DELETE');
+
+// ── Кеш пользователей (как в старом _cachedUsersList) ──
+const USERS_CACHE_TTL = 30_000;
+let _cachedUsers: FullUser[] | null = null;
+let _cachedUsersTime = 0;
+
+export async function getCachedUsers(force = false): Promise<FullUser[]> {
+  const now = Date.now();
+  if (!force && _cachedUsers && now - _cachedUsersTime < USERS_CACHE_TTL) {
+    return _cachedUsers;
+  }
+  try {
+    _cachedUsers = await getUsers();
+    _cachedUsersTime = now;
+    return _cachedUsers;
+  } catch {
+    return _cachedUsers || [];
+  }
+}
+
+export function invalidateUsersCache() {
+  _cachedUsers = null;
+  _cachedUsersTime = 0;
+}
