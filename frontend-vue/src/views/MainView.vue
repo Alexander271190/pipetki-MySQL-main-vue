@@ -37,6 +37,9 @@ onMounted(async () => {
 
   // 3) Данные таблицы + статистика параллельно
   await Promise.all([pip.loadPaged(), stats.load()]);
-});
   
+   // Напоминание проверяем после загрузки статистики (как в старом)
+  window.dispatchEvent(new CustomEvent('reminders:check'));
+});
+ 
 </script>
