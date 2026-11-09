@@ -8,6 +8,7 @@ import { calcStatus } from '@/utils/status';
 import * as api from '@/api/pipettes';
 import type { Pipette } from '@/types';
 import { showLockWarning } from '@/composables/useLockWarning';
+import { requirePasswordChange } from './useGuard';
 
 export function useModals() {
   const ui = useUiStore();
@@ -18,6 +19,7 @@ export function useModals() {
   const stats = useStatsStore();
 
   function openForm(id?: string) {
+    if (!requirePasswordChange()) return;
     const isEdit = !!id;
     const can = isEdit ? perm.canEditPipette.value : perm.canAddPipette.value;
     if (!can) { toast.error(isEdit ? 'Нет прав на редактирование' : 'Нет прав на добавление'); return; }
@@ -29,11 +31,13 @@ export function useModals() {
   }
 
   function openQuickCal(id: string) {
+    if (!requirePasswordChange()) return;
     if (!perm.canQuickCal.value) { toast.error('Нет прав на быструю поверку'); return; }
     ui.open('quickCal', id);
   }
 
   function openTransfer(id: string) {
+    if (!requirePasswordChange()) return;
     if (!perm.canTransferPipette.value) { toast.error('Нет прав на передачу'); return; }
     ui.open('transfer', id);
   }
@@ -110,104 +114,106 @@ export function useModals() {
     ui.openRowActions(event.currentTarget as HTMLElement, items);
   }
 
- async function cancelSendConfirm(id: string) {
-  if (!perm.canBulkSend.value) {
-    toast.error('Нет прав на отмену отправки');
-    return;
-  }
-
-  const p = pip.items.find(x => x.id === id);
-  if (!p) return;
-  
-  try {
-    const lockRes = await api.getLock(id);
-    if (lockRes.locked && !lockRes.mine) {
-      const proceed = await showLockWarning(lockRes, 'Отмены отправки');
-      if (!proceed) return;
+  async function cancelSendConfirm(id: string) {
+    if (!perm.canBulkSend.value) {
+      toast.error('Нет прав на отмену отправки');
+      return;
     }
-    await api.setLock(id);
-  } catch {
-    toast.error('Ошибка проверки блокировки');
-    return;
-  }
 
-  const hasRepl = !!p.replaced_by;
-  const msg = hasRepl
-    ? `Отменить отправку «${id}» на поверку?\n\nЗамена «${p.replaced_by}» вернётся на склад.`
-    : `Отменить отправку «${id}» на поверку?`;
+    const p = pip.items.find(x => x.id === id);
+    if (!p) return;
 
-  const ok = await showConfirm(msg, {
-    icon: '↩️', title: 'Отмена отправки', okText: 'Отменить', okClass: 'btn-warning',
-  });
-  if (!ok) {
-    api.releaseLock(id).catch(() => {});
-    return;
-  }
-
-  try {
-    await api.cancelSend(id);
-    toast.success('Отправка отменена');
-    await pip.loadPaged();
-    await stats.load();
-  } catch (e) {
-    toast.error(e instanceof Error ? e.message : 'Ошибка');
-  } finally {
-    api.releaseLock(id).catch(() => {});    
-  }
-}
- async function deleteConfirm(id: string) {
-  if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
-  const p = pip.items.find(x => x.id === id);
-  if (!p) return;
-  
-  try {
-    const lockRes = await api.getLock(id);
-    if (lockRes.locked && !lockRes.mine) {
-      const proceed = await showLockWarning(lockRes, 'Удаления');
-      if (!proceed) return;
+    try {
+      const lockRes = await api.getLock(id);
+      if (lockRes.locked && !lockRes.mine) {
+        const proceed = await showLockWarning(lockRes, 'Отмены отправки');
+        if (!proceed) return;
+      }
+      await api.setLock(id);
+    } catch {
+      toast.error('Ошибка проверки блокировки');
+      return;
     }
-    await api.setLock(id);
-  } catch {
-    toast.error('Ошибка проверки блокировки');
-    return;
+
+    const hasRepl = !!p.replaced_by;
+    const msg = hasRepl
+      ? `Отменить отправку «${id}» на поверку?\n\nЗамена «${p.replaced_by}» вернётся на склад.`
+      : `Отменить отправку «${id}» на поверку?`;
+
+    const ok = await showConfirm(msg, {
+      icon: '↩️', title: 'Отмена отправки', okText: 'Отменить', okClass: 'btn-warning',
+    });
+    if (!ok) {
+      api.releaseLock(id).catch(() => {});
+      return;
+    }
+
+    try {
+      await api.cancelSend(id);
+      toast.success('Отправка отменена');
+      await pip.loadPaged();
+      await stats.load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      api.releaseLock(id).catch(() => {});
+    }
   }
 
-  let fresh: Pipette | null = null;
-  try { fresh = await api.getById(id); } catch { /* ignore */ }
+  async function deleteConfirm(id: string) {
+    if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
+    const p = pip.items.find(x => x.id === id);
+    if (!p) return;
 
-  if (fresh?.sent_for_calibration) {
-    toast.error(`Нельзя удалить ${id}: прибор отправлен на поверку`);
-    api.releaseLock(id).catch(() => {});
-    return;
-  }
-  if (fresh?.replacing) {
-    toast.error(`Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}`);
-    api.releaseLock(id).catch(() => {});
-    return;
-  }
+    try {
+      const lockRes = await api.getLock(id);
+      if (lockRes.locked && !lockRes.mine) {
+        const proceed = await showLockWarning(lockRes, 'Удаления');
+        if (!proceed) return;
+      }
+      await api.setLock(id);
+    } catch {
+      toast.error('Ошибка проверки блокировки');
+      return;
+    }
 
-  const ok = await showConfirm(
-    `Удалить оборудование «${id}» вместе со всей историей поверок? Действие необратимо.`,
-    { icon: '🗑️', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger' }
-  );
-  if (!ok) {
-    api.releaseLock(id).catch(() => {});
-    return;
-  }
+    let fresh: Pipette | null = null;
+    try { fresh = await api.getById(id); } catch { /* ignore */ }
 
-  try {
-    await api.deletePipette(id);
-    toast.success('Оборудование удалено');
-    await pip.loadPaged();
-    await stats.load();
-  } catch (e) {
-    toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
-  } finally {
-    api.releaseLock(id).catch(() => {});
+    if (fresh?.sent_for_calibration) {
+      toast.error(`Нельзя удалить ${id}: прибор отправлен на поверку`);
+      api.releaseLock(id).catch(() => {});
+      return;
+    }
+    if (fresh?.replacing) {
+      toast.error(`Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}`);
+      api.releaseLock(id).catch(() => {});
+      return;
+    }
+
+    const ok = await showConfirm(
+      `Удалить оборудование «${id}» вместе со всей историей поверок? Действие необратимо.`,
+      { icon: '🗑️', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger' }
+    );
+    if (!ok) {
+      api.releaseLock(id).catch(() => {});
+      return;
+    }
+
+    try {
+      await api.deletePipette(id);
+      toast.success('Оборудование удалено');
+      await pip.loadPaged();
+      await stats.load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка удаления');
+    } finally {
+      api.releaseLock(id).catch(() => {});
+    }
   }
-}
 
   function openBulkSend() {
+    if (!requirePasswordChange()) return;
     if (!perm.canBulkSend.value) { toast.error('Нет прав на отправку'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
@@ -215,6 +221,7 @@ export function useModals() {
   }
 
   function openBulkReturn() {
+    if (!requirePasswordChange()) return;
     if (!perm.canBulkReturn.value) { toast.error('Нет прав на возврат'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
@@ -222,43 +229,47 @@ export function useModals() {
   }
 
   function openBulkResponsible() {
+    if (!requirePasswordChange()) return;
     if (!perm.canBulkChangeResponsible.value) { toast.error('Нет прав на смену ответственного'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkResponsible', ids);
   }
 
-async function openBarcodeScanner() {
-  if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
-  await auth.refreshUser();
-  if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
-  ui.open('barcodeScanner');
-}
+  async function openBarcodeScanner() {
+    if (!requirePasswordChange()) return;
+    if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
+    await auth.refreshUser();
+    if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
+    ui.open('barcodeScanner');
+  }
 
-async function openBarcodePrint() {
-  if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
-  await auth.refreshUser();
-  if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
-  ui.open('barcodePrint');
-}
+  async function openBarcodePrint() {
+    if (!requirePasswordChange()) return;
+    if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
+    await auth.refreshUser();
+    if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
+    ui.open('barcodePrint');
+  }
 
-async function openImport() {
-  if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
-  await auth.refreshUser();
-  if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
-  ui.open('import');
-}
-  
+  async function openImport() {
+    if (!requirePasswordChange()) return;
+    if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
+    await auth.refreshUser();
+    if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
+    ui.open('import');
+  }
+
   function openAudit() {
     if (!perm.canViewLog.value) { toast.error('Нет прав на журнал'); return; }
     ui.open('audit');
   }
-  
+
   function openEquipmentAudit(id: string) {
     if (!perm.canViewAudit.value) { toast.error('Нет прав на аудит'); return; }
     ui.open('equipmentAudit', id);
   }
-  
+
   function openHelp() { ui.open('help'); }
 
   return {
