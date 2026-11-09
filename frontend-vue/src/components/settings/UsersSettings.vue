@@ -3,7 +3,8 @@
     <h3>Управление пользователями</h3>
     <div style="margin-bottom:12px;position:relative;">
       <input
-        v-model="search"
+        :value="searchInput"
+        @input="onSearchInput"
         type="text"
         placeholder="Поиск по логину, ФИО, должности, отделу…"
         style="width:100%;padding:9px 12px 9px 36px;border:1px solid var(--border-hard);border-radius:8px;background:var(--card);color:var(--text);"
@@ -78,10 +79,21 @@ const auth = useAuthStore();
 const settings = useSettingsStore();
 const users = ref<FullUser[]>([]);
 const loading = ref(false);
-const search = ref('');
+const searchInput = ref('');
+const searchDebounced = ref('');
+
+let _searchTimer: number | null = null;
+function onSearchInput(e: Event) {
+  const v = (e.target as HTMLInputElement).value;
+  searchInput.value = v;
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = window.setTimeout(() => {
+    searchDebounced.value = v;
+  }, 250);
+}
 
 const filteredUsers = computed(() => {
-  const q = search.value.trim().toLowerCase();
+  const q = searchDebounced.value.trim().toLowerCase();
   if (!q) return users.value;
   return users.value.filter(u =>
     [u.login, u.fullName, u.position, u.department, u.roleName, u.role]
@@ -101,10 +113,12 @@ onMounted(() => {
   load();
   window.addEventListener('users:reload', load);
 });
+
 onUnmounted(() => {
   window.removeEventListener('users:reload', load);
+  if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }
 });
-
+  
 function onAdd() {
   ui.open('userEdit', null);
 }
