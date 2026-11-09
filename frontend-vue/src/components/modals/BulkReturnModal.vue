@@ -228,7 +228,7 @@ function toggleSingleCert() {
 async function onSubmit() {
   error.value = '';
   await auth.refreshUser();
-  if (!perm.canBulkReturn.value) { error.value = 'Нет прав'; return; }
+  if (!perm.canBulkReturn.value) { error.value = 'Нет прав на возврат'; return; }
 
   if (!date.value) { error.value = 'Укажите дату'; return; }
   if (date.value > todayStr()) { error.value = 'Дата не может быть в будущем'; return; }
