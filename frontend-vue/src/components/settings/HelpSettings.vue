@@ -32,14 +32,16 @@
         <tr v-for="s in sortedSections" :key="s.slug">
           <td><strong>{{ s.title }}</strong></td>
           <td>
-             <span v-if="!s.filePath" style="font-size:.8rem;color:#94a3b8;">— нет файла —</span>
-             <span v-else-if="fileExistsMap.get(s.slug) === false" style="font-size:.8rem;color:#dc2626;font-weight:600;">
-                <i class="fa-solid fa-triangle-exclamation"></i> ⚠ ОТСУТСТВУЕТ
-             </span>
-             <span v-else style="font-size:.8rem;color:#0369a1;">
-                <i class="fa-solid fa-file"></i> {{ fileName(s.filePath) }}
-             </span>
-          </td>
+            <span v-if="!s.filePath" style="font-size:.8rem;color:#94a3b8;">— нет файла —</span>
+            <span v-else-if="fileExistsMap.get(s.slug) === false"
+            style="font-size:.8rem;color:#dc2626;font-weight:600;"
+            title="Файл прописан в БД, но отсутствует на сервере">
+        <i class="fa-solid fa-triangle-exclamation"></i> {{ fileName(s.filePath) }} — ОТСУТСТВУЕТ
+            </span>
+            <span v-else style="font-size:.8rem;color:#0369a1;">
+         <i class="fa-solid fa-file"></i> {{ fileName(s.filePath) }}
+        </span>
+      </td>
           <td style="text-align:center;">{{ s.enabled ? '✅' : '❌' }}</td>
           <td style="text-align:center;">
             <button class="row-actions-btn" @click.stop="openActions($event, s)">
