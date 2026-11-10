@@ -8,6 +8,15 @@ import type {
 
 export type { FieldConfig, EquipmentType, FilterConfig, PrintDocsEffective };
 
+const DEFAULT_EQUIPMENT_TYPES: EquipmentType[] = [
+  { value: 'pipette',     label: 'Пипетка',     prefix: 'P', calibrationPlace: 'external', interval: 12 },
+  { value: 'analyzer',    label: 'Анализатор',  prefix: 'A', calibrationPlace: 'external', interval: 12 },
+  { value: 'thermometer', label: 'Термометр',   prefix: 'T', calibrationPlace: 'internal', interval: 12 },
+  { value: 'scales',      label: 'Весы',        prefix: 'S', calibrationPlace: 'internal', interval: 12 },
+  { value: 'photometer',  label: 'Фотометр',    prefix: 'F', calibrationPlace: 'internal', interval: 12 },
+  { value: 'microscope',  label: 'Микроскоп',   prefix: 'M', calibrationPlace: 'internal', interval: 12 },
+];
+
 export const useSettingsStore = defineStore('settings', () => {
   const loaded = ref(false);
   const warnDays = ref(30);
@@ -20,27 +29,27 @@ export const useSettingsStore = defineStore('settings', () => {
     hasPermission: false,
     export: false, actSend: false, actReturn: false, history: false,
   });
-  
+
   const responsibles = ref<string[]>([]);
-  
+
   const exportFields = ref<string[]>([]);
 
-async function loadResponsibles(force = false) {
-  if (!force && responsibles.value.length > 0) return;
-  try {
-    const { getResponsibles } = await import('@/api/users');
-    const users = await getResponsibles();
-    responsibles.value = users.map(u => u.fullName).filter(Boolean);
-  } catch { /* ignore */ }
-}
+  async function loadResponsibles(force = false) {
+    if (!force && responsibles.value.length > 0) return;
+    try {
+      const { getResponsibles } = await import('@/api/users');
+      const users = await getResponsibles();
+      responsibles.value = users.map(u => u.fullName).filter(Boolean);
+    } catch { /* ignore */ }
+  }
 
-function invalidateResponsibles() {
-  responsibles.value = [];
-}
+  function invalidateResponsibles() {
+    responsibles.value = [];
+  }
 
   async function loadAll() {
     const [
-      systemRes, typesRes, fieldsRes, depsRes, filtersRes, printRes, exportRes,  
+      systemRes, typesRes, fieldsRes, depsRes, filtersRes, printRes, exportRes,
     ] = await Promise.allSettled([
       api.getSystemSettings(),
       api.getEquipmentTypes(),
@@ -48,8 +57,8 @@ function invalidateResponsibles() {
       api.getDepartments(),
       api.getFilters(),
       api.getPrintDocsEffective(),
-      api.getExport(),                                                           
-      ]);
+      api.getExport(),
+    ]);
 
     if (systemRes.status === 'fulfilled') {
       const s = systemRes.value;
@@ -62,8 +71,11 @@ function invalidateResponsibles() {
       }
     }
 
-    if (typesRes.status === 'fulfilled' && Array.isArray(typesRes.value)) {
+    // Fallback на дефолтные типы оборудования, если API вернул пустой массив или упал
+    if (typesRes.status === 'fulfilled' && Array.isArray(typesRes.value) && typesRes.value.length > 0) {
       equipmentTypes.value = typesRes.value;
+    } else {
+      equipmentTypes.value = DEFAULT_EQUIPMENT_TYPES;
     }
 
     if (fieldsRes.status === 'fulfilled' && Array.isArray(fieldsRes.value)) {
@@ -93,9 +105,9 @@ function invalidateResponsibles() {
             ];
           } else if (f.optionsSource === 'equipment_type_list') {
             f.options = equipmentTypes.value.map(t => ({
-            value: t.value,
-            label: pluralizeType(t.label),
-        }));
+              value: t.value,
+              label: pluralizeType(t.label),
+            }));
           } else if (f.optionsSource === 'active_list') {
             f.options = [
               { value: 'true', label: 'В работе' },
@@ -109,7 +121,7 @@ function invalidateResponsibles() {
     if (printRes.status === 'fulfilled') {
       printDocs.value = printRes.value;
     }
-    
+
     if (exportRes.status === 'fulfilled') {
       const exp = exportRes.value as { fields?: string[] } | string[] | null;
       if (Array.isArray(exp)) {
@@ -119,12 +131,12 @@ function invalidateResponsibles() {
       }
     }
 
-    loaded.value = true;  
+    loaded.value = true;
   }
 
   return {
     loaded, warnDays, bulkIdentityFields, equipmentTypes, departments, fields, filters, printDocs,
     exportFields, responsibles,
-    loadAll, loadResponsibles, invalidateResponsibles, 
+    loadAll, loadResponsibles, invalidateResponsibles,
   };
 });
