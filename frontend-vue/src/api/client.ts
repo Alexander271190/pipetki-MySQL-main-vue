@@ -31,16 +31,27 @@ export function loadTokenFromSession(): string | null {
   return null;
 }
 
-// Хук для обработки 401 (перенаправление на логин)
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn;
 }
 
-// Хук для обработки 403 password_change_required
 let onPasswordRequired: ((mode: 'setup' | 'change') => void) | null = null;
 export function setPasswordRequiredHandler(fn: (mode: 'setup' | 'change') => void) {
   onPasswordRequired = fn;
+}
+
+/**
+ * Единая обработка 401 — используется и в apiRequest, и в download.ts.
+ * Без перезагрузки: очистка сессии + toast + onUnauthorized (auth.logout + router.push).
+ */
+export function triggerUnauthorized() {
+  sessionStorage.removeItem(SESSION_KEY);
+  authToken = null;
+  void import('@/stores/toast')
+    .then(({ useToastStore }) => useToastStore().error('Сессия истекла, войдите заново'))
+    .catch(() => {});
+  if (onUnauthorized) onUnauthorized();
 }
 
 export async function apiRequest<T = unknown>(
@@ -66,15 +77,9 @@ export async function apiRequest<T = unknown>(
 
   const response = await fetch(`${API_URL}${endpoint}`, options);
 
-  // 401 — сессия истекла
+  // 401 — сессия истекла (вся логика — в triggerUnauthorized)
   if (response.status === 401 && !endpoint.startsWith('/auth/login')) {
-    sessionStorage.removeItem(SESSION_KEY);
-    authToken = null;
-    try {
-      const { useToastStore } = await import('@/stores/toast');
-      useToastStore().error('Сессия истекла, войдите заново');
-    } catch { /* ignore */ }
-    if (onUnauthorized) onUnauthorized();
+    triggerUnauthorized();
     throw new ApiError('Сессия истекла, войдите заново', 401, 'unauthorized', {});
   }
 
@@ -92,7 +97,6 @@ export async function apiRequest<T = unknown>(
     }
   }
 
-  // 429 — слишком много запросов
   if (response.status === 429) {
     try {
       const { useToastStore } = await import('@/stores/toast');
