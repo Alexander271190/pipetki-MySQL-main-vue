@@ -1,7 +1,9 @@
 <template>
   <div class="filter-panel show" style="position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 60;">
     <div id="filter-fields-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px;">
-      
+    <div v-if="settings.filters.length === 0" style="color:#94a3b8; padding:8px; grid-column:1/-1;">
+      Нет доступных фильтров
+    </div>
       <template v-for="f in settings.filters" :key="f.id">
         <!-- Фильтр периода -->
         <div
@@ -32,8 +34,14 @@
             class="form-group"
             style="grid-column: 1 / -1; display: flex; gap: 8px;"
           >
-            <input type="date" v-model="localState[f.id].from" style="flex: 1; padding: 6px;" />
-            <input type="date" v-model="localState[f.id].to" style="flex: 1; padding: 6px;" />
+            <div style="flex: 1;">
+              <label style="display:block; font-size:.75rem; margin-bottom:3px; font-weight:600; color:#475569;">С даты</label>
+              <input type="date" v-model="localState[f.id].from" style="width: 100%; padding: 6px;" />
+            </div>
+            <div style="flex: 1;">
+              <label style="display:block; font-size:.75rem; margin-bottom:3px; font-weight:600; color:#475569;">По дату</label>
+              <input type="date" v-model="localState[f.id].to" style="width: 100%; padding: 6px;" />
+            </div>
           </div>
         </div>
 
