@@ -165,10 +165,41 @@ export function useModals() {
   }
 
   async function deleteConfirm(id: string) {
-    if (!await requirePasswordChange()) return;
-    if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
     const p = pip.items.find(x => x.id === id);
     if (!p) return;
+
+    // ── Быстрая пре-проверка по кэшу (как в старом) ──
+    const isSent = !!(
+      p.sent_for_calibration &&
+      String(p.sent_for_calibration).trim() !== '' &&
+      String(p.sent_for_calibration) !== 'null'
+    );
+    const isReplacing = !!(
+      p.replacing &&
+      String(p.replacing).trim() !== '' &&
+      String(p.replacing) !== 'null' &&
+      String(p.replacing) !== '0'
+    );
+
+    if (isSent) {
+      toast.error(
+        `Нельзя удалить ${p.id}: прибор отправлен на поверку` +
+        (p.replaced_by ? `, замена: ${p.replaced_by}` : '') +
+        `. Сначала отмените отправку или оформите возврат.`
+      );
+      return;
+    }
+    if (isReplacing) {
+      toast.error(
+        `Нельзя удалить ${p.id}: прибор используется как замена для ${p.replacing}. ` +
+        `Сначала оформите возврат оригинала с поверки.`
+      );
+      return;
+    }
+
+    // ── Полный флоу (как в текущем) ──
+    if (!await requirePasswordChange()) return;
+    if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
 
     try {
       const lockRes = await api.getLock(id);
@@ -186,12 +217,19 @@ export function useModals() {
     try { fresh = await api.getById(id); } catch { /* ignore */ }
 
     if (fresh?.sent_for_calibration) {
-      toast.error(`Нельзя удалить ${id}: прибор отправлен на поверку`);
+      toast.error(
+        `Нельзя удалить ${id}: прибор отправлен на поверку` +
+        (fresh.replaced_by ? `, замена: ${fresh.replaced_by}` : '') +
+        `. Сначала отмените отправку или оформите возврат.`
+      );
       api.releaseLock(id).catch(() => {});
       return;
     }
     if (fresh?.replacing) {
-      toast.error(`Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}`);
+      toast.error(
+        `Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}. ` +
+        `Сначала оформите возврат оригинала с поверки.`
+      );
       api.releaseLock(id).catch(() => {});
       return;
     }
