@@ -263,9 +263,22 @@ async function _handleIdleTimeout() {
 }
 
 const isEdit = computed(() => !!editId.value);
-const visibleFields = computed<FieldConfig[]>(() =>
-  settings.fields.filter(f => f.enabled).sort((a, b) => (a.order || 0) - (b.order || 0))
-);
+import { usePrefsStore } from '@/stores/prefs';
+const prefs = usePrefsStore();
+
+const visibleFields = computed<FieldConfig[]>(() => {
+  const enabled = settings.fields
+    .filter(f => f.enabled)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  // Если у пользователя нет своих настроек — все enabled
+  const vis = prefs.visibleFields;
+  if (!Array.isArray(vis) || vis.length === 0) return enabled;
+
+  // Иначе — только отмеченные в «Настроить видимые поля»
+  const set = new Set(vis);
+  return enabled.filter(f => set.has(f.id));
+});
 
 const hasAnyFilled = computed(() => {
   return Object.values(form.value).some(v => v && v.trim && v.trim() !== '');
