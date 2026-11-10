@@ -681,7 +681,14 @@ async function discardDraft() {
 async function onSubmit() {
   error.value = '';
   const payload = { ...form.value };
-
+  
+  if (isEdit.value && editId.value && !_skipUnlock) {
+    const currentPipette = pip.items.find(p => p.id === editId.value);
+    if (currentPipette?.updated_at) {
+      payload.updatedAt = currentPipette.updated_at;
+    }
+  }
+  
   const missing: string[] = [];
   for (const f of visibleFields.value) {
     if (!f.required) continue;
@@ -706,7 +713,7 @@ async function onSubmit() {
     await close();
     await pip.loadPaged();
     await stats.load();
-  } catch (e: unknown) {
+    } catch (e: unknown) {
     const err = e as { status?: number; response?: { code?: string; draftAuthor?: string }; message?: string };
     if (err?.status === 409 && err?.response?.code === 'draft_conflict' && editId.value) {
       const author = err.response?.draftAuthor || 'другого пользователя';
@@ -736,6 +743,18 @@ async function onSubmit() {
       } catch (err2) {
         error.value = err2 instanceof Error ? err2.message : 'Ошибка перезаписи';
       }
+    } else if (err?.status === 409 && editId.value) {
+     
+      delete payload.updatedAt;
+      try {
+        const res2 = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
+        toast.success(res2.idChanged && res2.newId ? `Сохранено. Новый ID: ${res2.newId}` : 'Оборудование обновлено');
+        await close();
+        await pip.loadPaged();
+        await stats.load();
+      } catch (err2) {
+        error.value = err2 instanceof Error ? err2.message : 'Ошибка сохранения';
+      }
     } else {
       error.value = err.message || 'Ошибка сохранения';
     }
@@ -743,7 +762,7 @@ async function onSubmit() {
     saving.value = false;
   }
 }
-
+  
 function onBulkCreated(_count: number) {
   _skipUnlock = true;
   ui.close();
