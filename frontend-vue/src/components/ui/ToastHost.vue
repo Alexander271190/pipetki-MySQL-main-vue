@@ -6,6 +6,7 @@
         :key="t.id"
         class="toast show"
         :class="t.type"
+        style="white-space: pre-line;"
         @click="toast.dismiss(t.id)"
       >{{ t.text }}</div>
     </transition-group>
