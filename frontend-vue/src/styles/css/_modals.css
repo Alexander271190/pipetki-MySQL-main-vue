@@ -9,7 +9,7 @@
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 100;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 16px;
 }
@@ -540,11 +540,13 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
     padding: 10px !important; 
   }
 
-  /* ❗️ ВАЖНО: display: flex применяем ТОЛЬКО к активным модалкам */
   .modal-overlay.active {
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-start !important; 
     justify-content: center !important;
+    overflow-y: auto !important; 
+    padding-top: 20px !important;    
+    padding-bottom: 20px !important; 
   }
 
   /* Принудительно центрируем и жестко задаем ширину */
