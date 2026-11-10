@@ -182,20 +182,15 @@ async function onStopImpersonate() {
   try {
     const { stopImpersonate } = await import('@/api/auth');
     await stopImpersonate();
-
-    if (auth.originalUser && auth.originalToken) {
-      auth.applySession({
-        user: auth.originalUser,
-        token: auth.originalToken,
-      });
-
-      await auth.resetOtherStores();       
-
-      toast.success('Вернулись к своей учётной записи');
-      window.dispatchEvent(new CustomEvent('auth:changed'));
-    }
   } catch (e) {
-    toast.error(e instanceof Error ? e.message : 'Ошибка');
+    console.warn('Не удалось залогировать возврат:', e);
+  }
+
+  if (auth.originalUser && auth.originalToken) {
+    auth.applySession({ user: auth.originalUser, token: auth.originalToken });
+    await auth.resetOtherStores();
+    toast.success('Вернулись к своей учётной записи');
+    window.dispatchEvent(new CustomEvent('auth:changed'));
   }
 }
 
