@@ -218,7 +218,6 @@ function updateField(i: number, fieldId: string, value: string) {
   if (i < 0 || i >= rows.value.length) return;
   rows.value[i][fieldId] = value;
 
-  // Автообновление interval при смене equipmentType
   if (fieldId === 'equipmentType') {
     const t = settings.equipmentTypes.find(x => x.value === value);
     const iv = t?.interval && t.interval > 0 ? t.interval : 12;
@@ -229,8 +228,7 @@ function updateField(i: number, fieldId: string, value: string) {
 async function onSave() {
   error.value = '';
   if (rows.value.length === 0) { error.value = 'Добавьте хотя бы одну строку'; return; }
-
-  // Валидация обязательных
+  
   const errors: string[] = [];
   rows.value.forEach((r, i) => {
     const n = i + 1;
@@ -247,6 +245,17 @@ async function onSave() {
       + (errors.length > 5 ? ` (+${errors.length - 5})` : '');
     return;
   }
+  
+  const shownIds = new Set(fields.value.map(f => f.id));
+  const defaultResp = auth.user?.isActing && auth.user?.actingForName
+    ? auth.user.actingForName
+    : auth.user?.fullName || '';
+
+  rows.value.forEach(r => {
+    if (!shownIds.has('model') && !r.model) r.model = 'Не указана';
+    if (!shownIds.has('lastCalibration') && !r.lastCalibration) r.lastCalibration = todayStr();
+    if (!shownIds.has('responsible') && !r.responsible) r.responsible = defaultResp;
+  });
 
   if (rows.value.length >= 20) {
     const ok = await showConfirm(
