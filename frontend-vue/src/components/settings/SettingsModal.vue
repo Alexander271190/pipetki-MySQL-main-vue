@@ -53,6 +53,7 @@ import FiltersSettings from './FiltersSettings.vue';
 import ExportSettings from './ExportSettings.vue';
 import EquipmentTypesSettings from './EquipmentTypesSettings.vue';
 import UsersSettings from './UsersSettings.vue';
+import RolesSettings from './RolesSettings.vue';
 import ViewTemplatesSettings from './ViewTemplatesSettings.vue';
 import PrintersSettings from './PrintersSettings.vue';
 import BarcodesSettings from './BarcodesSettings.vue';
@@ -82,6 +83,7 @@ const ALL_SECTIONS: Group[] = [
     group: 'Пользователи',
     items: [
       { id: 'users', label: 'Пользователи', component: UsersSettings },
+      { id: 'roles', label: 'Роли',         component: RolesSettings },
     ],
   },
   {
@@ -107,9 +109,12 @@ const visibleGroups = computed<Group[]>(() => {
   return ALL_SECTIONS.map(g => ({
     group: g.group,
     items: g.items.filter(it => {
-      if (it.id === 'users') return perm.canManageUsers.value || auth.isAdmin;
+      if (it.id === 'users' || it.id === 'roles') {
+
+        return perm.canManageUsers.value || auth.isAdmin;
+     }
       return true;
-    }),
+     }),
   })).filter(g => g.items.length > 0);
 });
 
