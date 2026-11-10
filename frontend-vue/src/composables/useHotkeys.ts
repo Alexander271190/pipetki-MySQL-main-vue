@@ -4,6 +4,7 @@ import { useAuthStore, usePermissions } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useExport } from './useExport';
+import { useModals } from './useModals';
 
 export function useHotkeys() {
   const ui = useUiStore();
@@ -12,6 +13,7 @@ export function useHotkeys() {
   const toast = useToastStore();
   const pip = usePipettesStore();
   const exportComposable = useExport();
+  const modals = useModals();
 
   function handler(e: KeyboardEvent) {
     if (!auth.isAuthenticated) return;
@@ -54,9 +56,9 @@ export function useHotkeys() {
     if (!e.ctrlKey && !e.metaKey) return;
     const k = e.key.toLowerCase();
 
-    if (k === 'n' || k === 'т') {
+       if (k === 'n' || k === 'т') {
       e.preventDefault();
-      if (perm.canAddPipette.value) ui.open('form');
+      if (perm.canAddPipette.value) void modals.openForm();   
       return;
     }
     if (k === 'e' || k === 'у') {
@@ -72,20 +74,20 @@ export function useHotkeys() {
     }
     if (k === 'p' || k === 'з') {
       e.preventDefault();
-      if (perm.canPrintLabels.value) ui.open('barcodePrint');
+      if (perm.canPrintLabels.value) void modals.openBarcodePrint();   
       return;
     }
     if (k === 'h' || k === 'р') {
       e.preventDefault();
       const selected = [...pip.selected];
-      if (selected.length === 1) ui.open('history', selected[0]);
+      if (selected.length === 1) void modals.openHistory(selected[0]);   
       else toast.warn('Выберите ровно один прибор');
       return;
     }
     if ((k === 'a' || k === 'ф') && e.shiftKey) {
       e.preventDefault();
       const selected = [...pip.selected];
-      if (selected.length === 1) ui.open('equipmentAudit', selected[0]);
+      if (selected.length === 1) void modals.openEquipmentAudit(selected[0]);  
       else toast.warn('Выберите ровно один прибор');
       return;
     }
