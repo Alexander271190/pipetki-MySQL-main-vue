@@ -19,6 +19,7 @@
           <div class="form-group">
             <label>Пароль</label>
             <input
+              ref="passwordRef"
               v-model="password"
               type="password"
               placeholder="Введите пароль"
@@ -40,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
@@ -56,7 +57,8 @@ const ui = useUiStore();
 const auth = useAuthStore();
 const toast = useToastStore();
 const router = useRouter();
-
+const passwordRef = ref<HTMLInputElement | null>(null);
+  
 useAuthPullToRefresh();
 
 onMounted(() => {
@@ -85,6 +87,8 @@ async function onSubmit() {
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка входа';
     password.value = '';
+    await nextTick();
+    passwordRef.value?.focus();
   } finally {
     loading.value = false;
   }
