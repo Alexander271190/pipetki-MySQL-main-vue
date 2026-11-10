@@ -105,10 +105,19 @@ const rows = ref<Record<string, string>[]>([]);
 const saving = ref(false);
 const error = ref('');
 
+import { usePrefsStore } from '@/stores/prefs';
+const prefs = usePrefsStore();
+
 const fields = computed<FieldConfig[]>(() => {
-  return settings.fields
-    .filter(f => f.enabled && f.id !== 'id')
+  const enabled = settings.fields
+    .filter(f => f.enabled && f.id !== 'id')   // id в партии не показываем — генерируется сервером
     .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const vis = prefs.visibleFields;
+  if (!Array.isArray(vis) || vis.length === 0) return enabled;
+
+  const set = new Set(vis);
+  return enabled.filter(f => set.has(f.id));
 });
 
 function plural(n: number): string {
