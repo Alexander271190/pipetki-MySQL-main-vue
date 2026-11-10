@@ -66,7 +66,11 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value && !!token.value);
   const isAdmin = computed(() => user.value?.isAdmin === true);
   const isImpersonating = computed(() => !!originalUser.value && !!originalToken.value);
-
+  const isSeniorLab = computed(() =>
+    user.value?.role === 'senior_lab' ||
+    user.value?.roleName === 'Ст. лаборант'
+  );
+  
   function applySession(data: SessionData) {
     user.value = data.user;
     token.value = data.token;
@@ -156,7 +160,8 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user, token, originalUser, originalToken,
     isAuthenticated, isAdmin, isImpersonating,
-    initFromStorage, applySession, login, logout, refreshUser, hasPermission,
+    initFromStorage, applySession, login, logout, refreshUser, hasPermission, 
+    isSeniorLab,
     
     resetOtherStores,
   };
@@ -190,8 +195,7 @@ export function usePermissions() {
       p('manage_pipettes') || p('add_pipette') || p('edit_pipette') ||
       p('delete_pipette') || p('quick_calibration') || p('bulk_send') || p('bulk_return')
     ),
-    canManageRoles: computed(() =>
-      auth.isAdmin || auth.user?.role === 'senior_lab'
+     canManageRoles: computed(() => auth.isAdmin || auth.isSeniorLab),
     ),
   };
 }
