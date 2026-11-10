@@ -11,16 +11,18 @@
         @click="modals.openBulkSend()"
       >
         <i class="fa-solid fa-box"></i> Отправить
-        <span v-if="selectedToSend.length < pip.selected.size">({{ selectedToSend.length }})</span>
+        <span>({{ selectedToSend.length < pip.selected.size
+         ? selectedToSend.length + ' / ' + pip.selected.size
+         : selectedToSend.length }})</span>
       </button>
       <button
-         v-if="perm.canBulkReturn.value && selectedToReturn.length > 0"
-         class="btn btn-success btn-sm"
-         @click="modals.openBulkReturn()"
-        >
-          <i class="fa-solid fa-box-open"></i> Вернуть
-          <span v-if="selectedToReturn.length < pip.selected.size">({{ selectedToReturn.length }})</span>
-      </button>
+        v-if="perm.canBulkReturn.value && selectedToReturn.length > 0"
+        class="btn btn-success btn-sm"
+        @click="modals.openBulkReturn()"
+       >
+        <i class="fa-solid fa-box-open"></i> Вернуть
+        <span>({{ selectedToReturn.length }})</span>
+     </button>
      <button
         v-if="perm.canBulkChangeResponsible.value && selectedVisible.length > 0"
         class="btn btn-secondary btn-sm"
