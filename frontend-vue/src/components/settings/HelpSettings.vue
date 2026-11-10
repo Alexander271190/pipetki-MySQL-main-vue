@@ -52,7 +52,7 @@
       </tbody>
     </table>
 
-    <!-- Модалка загрузки -->
+        <!-- Модалка загрузки -->
     <AppModal :visible="showUpload" @close="showUpload = false" modal-class="modal-compact">
       <h2><i class="fa-solid fa-upload"></i> {{ editingSlug ? 'Изменить раздел' : 'Новый раздел' }}</h2>
       <div class="form-group">
@@ -64,6 +64,27 @@
         <input ref="fileInput" type="file" accept=".pdf,.docx,.doc" />
         <small v-if="editingSlug" style="color:#64748b;display:block;margin-top:4px;">Оставьте пустым, чтобы сохранить текущий</small>
       </div>
+      <div class="form-group">
+        <label>Права доступа (кто увидит раздел)</label>
+        <div class="hup-multiselect-wrap">
+          <div class="hup-multiselect-trigger" @click="togglePermsMenu">
+            <span>Выбрано: {{ selectedPerms.length }} прав</span>
+            <i class="fa-solid fa-caret-down"></i>
+          </div>
+          <div v-if="permsMenuOpen" class="hup-multiselect-menu">
+            <div v-for="group in permGroups" :key="group.name">
+              <div style="font-size:.7rem;font-weight:700;color:#94a3b8;margin:8px 0 4px 4px;text-transform:uppercase;">{{ group.name }}</div>
+              <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;">
+                <input type="checkbox" :value="p.key" v-model="selectedPerms" />
+                <span v-html="p.label"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <small style="color:#64748b;margin-top:6px;display:block;">
+          Если ничего не выбрано — раздел видят все.
+        </small>
+      </div>
       <div v-if="uploadError" class="auth-error" style="visibility:visible;opacity:1;">{{ uploadError }}</div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" @click="showUpload = false">Отмена</button>
@@ -72,7 +93,6 @@
         </button>
       </div>
     </AppModal>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -83,6 +103,8 @@ import { useUiStore } from '@/stores/ui';
 import { showConfirm } from '@/composables/useConfirm';
 import * as api from '@/api/help';
 import type { HelpSection } from '@/api/help';
+import { ALL_PERMISSIONS } from '@/constants/permissions';
+
 
 defineEmits<{ (e: 'close'): void }>();
 
@@ -99,6 +121,18 @@ const uploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
   
 const fileExistsMap = ref<Map<string, boolean>>(new Map());
+
+const selectedPerms = ref<string[]>([]);
+const permsMenuOpen = ref(false);
+
+const permGroups = computed(() => {
+  const groups: Record<string, { key: string; label: string }[]> = {};
+  for (const p of ALL_PERMISSIONS) {
+    if (!groups[p.group]) groups[p.group] = [];
+    groups[p.group].push({ key: p.key, label: p.label });
+  }
+  return Object.entries(groups).map(([name, items]) => ({ name, items }));
+});
 
 async function checkFiles() {
   const map = new Map<string, boolean>();
@@ -136,10 +170,11 @@ function openUpload(slug: string | null) {
   const sec = slug ? sections.value.find(s => s.slug === slug) : null;
   uploadTitle.value = sec?.title || '';
   uploadError.value = '';
+  selectedPerms.value = sec?.requiredPermissions ? [...sec.requiredPermissions] : [];
+  permsMenuOpen.value = false;
   showUpload.value = true;
   if (fileInput.value) fileInput.value.value = '';
 }
-
 function openActions(e: MouseEvent, s: HelpSection) {
   ui.openRowActions(e.currentTarget as HTMLElement, [
     { label: '<i class="fa-solid fa-pen"></i> Заменить файл', action: () => openUpload(s.slug) },
@@ -158,7 +193,7 @@ async function onUpload() {
     const fd = new FormData();
     fd.append('title', uploadTitle.value.trim());
     if (editingSlug.value) fd.append('slug', editingSlug.value);
-    fd.append('requiredPermissions', '[]');
+    fd.append('requiredPermissions', JSON.stringify(selectedPerms.value));   
     fd.append('enabled', 'true');
     if (file) fd.append('file', file);
 
@@ -199,5 +234,9 @@ async function resetFactory() {
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   }
+}
+
+function togglePermsMenu() {
+  permsMenuOpen.value = !permsMenuOpen.value;
 }
 </script>
