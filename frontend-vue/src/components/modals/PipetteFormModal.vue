@@ -624,12 +624,19 @@ function applyTemplate(templateId: number) {
   }
   let applied = 0;
   for (const [fieldId, value] of Object.entries(tpl.data || {})) {
-    if (value === undefined || value === null || value === '') continue;
-    if (!(fieldId in form.value)) continue;
-    if (form.value[fieldId] === String(value)) continue;
-    form.value[fieldId] = String(value);
-    applied++;
+  if (value === undefined || value === null || value === '') continue;
+  if (!(fieldId in form.value)) continue;
+  if (form.value[fieldId] === String(value)) continue;
+
+  const field = settings.fields.find(f => f.id === fieldId);
+  if (field?.type === 'select') {
+    const opts = getOptions(field);
+    if (!opts.some(o => String(o.value) === String(value))) continue;
   }
+
+  form.value[fieldId] = String(value);
+  applied++;
+}
   toast.success(`Применено полей: ${applied}`);
 }
 
