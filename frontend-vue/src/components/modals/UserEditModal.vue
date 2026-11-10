@@ -47,6 +47,7 @@
               <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.name }}</option>
             </select>
             <button
+              v-if="perm.canManageRoles.value"
               type="button"
               class="btn btn-secondary"
               @click="openQuickRoleModal"
@@ -263,6 +264,7 @@ import { apiRequest } from '@/api/client';
 import * as usersApi from '@/api/users';
 import * as rolesApi from '@/api/roles';
 import { ALL_PERMISSIONS } from '@/constants/permissions';
+import { usePermissions } from '@/stores/auth';
 import type { Preset } from '@/api/users';
 import type { Role } from '@/api/roles';
 
@@ -270,7 +272,8 @@ const ui = useUiStore();
 const toast = useToastStore();
 const settings = useSettingsStore();
 const auth = useAuthStore();
-
+const perm = usePermissions();
+  
 interface FormShape {
   login: string;
   fullName: string;
