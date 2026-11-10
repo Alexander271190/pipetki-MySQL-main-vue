@@ -43,13 +43,13 @@
         </div>
       </div>
 
-      <!--  Кнопка «Добавить поверку» -->
+      <!-- Кнопка «Добавить поверку» (Пункт 5.4 — toggleCalForm) -->
       <div style="margin-top:16px;text-align:right;">
         <button
           v-if="canManagePipettes"
           type="button"
           class="btn btn-info"
-          @click="showCalForm = !showCalForm"
+          @click="toggleCalForm"
         >
           <i class="fa-solid fa-plus"></i> {{ showCalForm ? 'Скрыть форму' : 'Добавить поверку' }}
         </button>
@@ -88,7 +88,7 @@
         </div>
         <div v-if="calError" class="auth-error" style="visibility:visible;opacity:1;">{{ calError }}</div>
         <div class="form-actions">
-          <button type="button" class="btn btn-secondary" @click="showCalForm = false">Отмена</button>
+          <button type="button" class="btn btn-secondary" @click="toggleCalForm">Отмена</button>
           <button type="button" class="btn btn-success" :disabled="calSaving" @click="addCalibration">
             <i class="fa-solid" :class="calSaving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
             Записать
@@ -104,7 +104,7 @@
         class="btn btn-warning"
         @click="onExportHistory"
       >
-       <i class="fa-solid fa-print"></i> Печать истории
+        <i class="fa-solid fa-print"></i> Печать истории
       </button>
       <button type="button" class="btn btn-secondary" @click="close">Закрыть</button>
     </div>
@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';                               
+import { ref, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useUiStore } from '@/stores/ui';
@@ -120,22 +120,23 @@ import { usePipettesStore } from '@/stores/pipettes';
 import { useStatsStore } from '@/stores/stats';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
-import { usePermissions, useAuthStore } from '@/stores/auth';                
+import { useAuthStore, usePermissions } from '@/stores/auth';
 import { calcStatus, getNextDate } from '@/utils/status';
 import { formatDate, todayStr } from '@/utils/format';
 import { RESULT_LABELS } from '@/constants';
 import type { Pipette } from '@/types';
 import * as api from '@/api/pipettes';
 import type { CalibrationRecord } from '@/api/pipettes';
-import { showLockWarning } from '@/composables/useLockWarning';              
+import { showLockWarning } from '@/composables/useLockWarning';
+import { showConfirm } from '@/composables/useConfirm';
 
+const auth = useAuthStore();
+const perm = usePermissions();
 const ui = useUiStore();
 const pip = usePipettesStore();
 const stats = useStatsStore();
 const toast = useToastStore();
 const settings = useSettingsStore();
-const perm = usePermissions();
-const auth = useAuthStore();                                                 
 
 const canManagePipettes = perm.canManagePipettes;
 
@@ -148,14 +149,58 @@ const calForm = ref({ date: '', cert: '', result: 'pass', org: '', note: '' });
 const calSaving = ref(false);
 const calError = ref('');
 
-// === 1.3 === Lock-сессия
-let _lockedId: string | null = null;
+
+let _calLockId: string | null = null;
+let _skipCalUnlock = false;
+
+
+async function acquireCalLock(id: string): Promise<boolean> {
+  try {
+    const lockRes = await api.getLock(id);
+    if (lockRes.locked && !lockRes.mine) {
+      const proceed = await showLockWarning(lockRes, 'Добавление поверки');
+      if (!proceed) return false;
+    }
+    await api.setLock(id);
+    _calLockId = id;
+    return true;
+  } catch {
+    toast.error('Ошибка проверки блокировки');
+    return false;
+  }
+}
+
+async function releaseCalLock() {
+  if (_calLockId && !_skipCalUnlock) {
+    try { await api.releaseLock(_calLockId); } catch { /* ignore */ }
+  }
+  _calLockId = null;
+  _skipCalUnlock = false;
+}
+
+
+async function toggleCalForm() {
+  if (showCalForm.value) {
+    await releaseCalLock();
+    showCalForm.value = false;
+  } else {
+    await auth.refreshUser();
+    if (!perm.canManagePipettes.value) {
+      toast.error('Нет прав на добавление поверки');
+      return;
+    }
+    if (!pipette.value) return;
+    const ok = await acquireCalLock(pipette.value.id);
+    if (!ok) return;
+    showCalForm.value = true;
+    calForm.value = { date: todayStr(), cert: '', result: 'pass', org: '', note: '' };
+  }
+}
 
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'history') return;
   const id = ui.modalData as string;
 
-  // сброс состояния формы
   showCalForm.value = false;
   calError.value = '';
   loading.value = true;
@@ -180,12 +225,9 @@ watch(() => ui.activeModal, async (v) => {
   }
 });
 
+
 function close() {
-  
-  if (_lockedId) {
-    api.releaseLock(_lockedId).catch(() => {});
-    _lockedId = null;
-  }
+  void releaseCalLock();
   ui.close();
 }
 
@@ -198,43 +240,31 @@ function onExportHistory() {
   ui.open('historyExport', pipette.value.id);
 }
 
+
 async function addCalibration() {
   calError.value = '';
   if (!pipette.value) return;
-  if (!calForm.value.date) { calError.value = 'Заполните дату поверки'; return; }
-  if (calForm.value.date > todayStr()) { calError.value = 'Дата не может быть в будущем'; return; }
 
-  
   await auth.refreshUser();
   if (!perm.canManagePipettes.value) { calError.value = 'Нет прав'; return; }
 
-  
-  try {
-    const lockRes = await api.getLock(pipette.value.id);
-    if (lockRes.locked && !lockRes.mine) {
-      const proceed = await showLockWarning(lockRes, 'Добавление поверки');
-      if (!proceed) return;
-    }
-    await api.setLock(pipette.value.id);
-    _lockedId = pipette.value.id;
-  } catch {
-    calError.value = 'Ошибка проверки блокировки';
-    return;
+
+  if (!_calLockId) {
+    const ok = await acquireCalLock(pipette.value.id);
+    if (!ok) return;
   }
+
+  if (!calForm.value.date) { calError.value = 'Заполните дату поверки'; return; }
+  if (calForm.value.date > todayStr()) { calError.value = 'Дата не может быть в будущем'; return; }
 
   calSaving.value = true;
   try {
     await api.addCalibration(pipette.value.id, calForm.value);
 
-    
-    if (_lockedId) {
-      await api.releaseLock(_lockedId).catch(() => {});
-      _lockedId = null;
-    }
-
     toast.success('Запись о поверке добавлена');
+    
     showCalForm.value = false;
-    calForm.value = { date: '', cert: '', result: 'pass', org: '', note: '' };
+    await releaseCalLock();
 
     const h = await api.getCalibrationHistory(pipette.value.id);
     history.value = (h || []).sort((a, b) => {
@@ -250,19 +280,14 @@ async function addCalibration() {
     calError.value = e instanceof Error ? e.message : 'Ошибка сохранения';
   } finally {
     calSaving.value = false;
-    
-    if (_lockedId) {
-      api.releaseLock(_lockedId).catch(() => {});
-      _lockedId = null;
-    }
   }
 }
 
 
 onUnmounted(() => {
-  if (_lockedId) {
-    api.releaseLock(_lockedId).catch(() => {});
-    _lockedId = null;
+  if (_calLockId) {
+    void api.releaseLock(_calLockId).catch(() => {});
+    _calLockId = null;
   }
 });
 </script>
