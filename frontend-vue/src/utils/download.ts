@@ -28,11 +28,11 @@ export async function downloadFile(
 
   const disposition = response.headers.get('Content-Disposition');
   let filename = defaultFilename;
-  if (disposition) {
+  if (!defaultFilename && disposition) {
     const match = disposition.match(/filename="?([^"]+)"?/);
     if (match) filename = decodeURIComponent(match[1]);
-  }
-
+   }
+  
   const blob = await response.blob();
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
