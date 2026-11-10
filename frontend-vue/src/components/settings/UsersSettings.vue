@@ -65,6 +65,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useUiStore } from '@/stores/ui';
+import { useModals } from '@/composables/useModals';
 import { useAuthStore } from '@/stores/auth';
 import { useSettingsStore } from '@/stores/settings';
 import { showConfirm } from '@/composables/useConfirm';
@@ -75,6 +76,7 @@ defineEmits<{ (e: 'close'): void }>();
 
 const toast = useToastStore();
 const ui = useUiStore();
+const modals = useModals();
 const auth = useAuthStore();
 const settings = useSettingsStore();
 const users = ref<FullUser[]>([]);
@@ -137,7 +139,7 @@ function openActions(e: MouseEvent, u: FullUser) {
   }
   items.push({
     label: '<i class="fa-solid fa-list-check"></i> Настроить видимые поля',
-    action: () => ui.open('userView', u.id),
+    action: () => void modals.openUserView(u.id),
   });
 
   if (!isMe) {
