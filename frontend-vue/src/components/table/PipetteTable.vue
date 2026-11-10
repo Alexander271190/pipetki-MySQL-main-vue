@@ -25,12 +25,13 @@
             :style="thStyle(colId)"
             draggable="true"
             @dragstart="onDragStart($event, colId)"
-            @dragover="onDragOver"
+            @dragover="onDragOver($event, colId)"
+            @dragleave="onDragLeave"
             @drop="onDrop($event, colId)"
-            @dragend="onDragEnd"
+            @dragend="onDragEnd($event)"
             @click="onHeaderClick(colId, $event)"
             style="position: relative;"
-          >
+           >
             {{ labelFor(colId) }}
             <span v-if="isSortable(colId)" class="sort-arrow">{{ sortArrow(colId) }}</span>
             <div
@@ -261,26 +262,43 @@ function startColumnResize(e: MouseEvent, colId: string) {
 }
 
 function onDragStart(e: DragEvent, colId: string) {
-  
   if (_colResizeState) { e.preventDefault(); return; }
   _colDragState = { srcColId: colId };
+  (e.currentTarget as HTMLElement).classList.add('dragging');
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', colId);
   }
 }
-
-function onDragOver(e: DragEvent) {
+  
+function onDragOver(e: DragEvent, colId: string) {
+  if (!_colDragState) return;
+  if (_colDragState.srcColId === colId) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  (e.currentTarget as HTMLElement).classList.add('drag-over');
 }
 
+function onDragLeave(e: DragEvent) {
+  (e.currentTarget as HTMLElement).classList.remove('drag-over');
+}
+
+function onDragEnd(e: DragEvent) {
+  (e.currentTarget as HTMLElement).classList.remove('dragging');
+  document
+    .querySelectorAll<HTMLElement>('#pipettes-table th.drag-over')
+    .forEach(el => el.classList.remove('drag-over'));
+  _colDragState = null;
+}
+  
 function onDrop(e: DragEvent, targetColId: string) {
   e.preventDefault();
+  (e.currentTarget as HTMLElement).classList.remove('drag-over');
   if (!_colDragState || _colDragState.srcColId === targetColId) {
     _colDragState = null;
     return;
   }
+  
   const src = _colDragState.srcColId;
   const base = Array.isArray(prefs.columnOrder) ? prefs.columnOrder : [];
   const currentOrder = base.length ? [...base] : columns.value.slice();
@@ -295,10 +313,6 @@ function onDrop(e: DragEvent, targetColId: string) {
       prefs.setColumnOrder(currentOrder);
     }
   }
-  _colDragState = null;
-}
-
-function onDragEnd() {
   _colDragState = null;
 }
 
