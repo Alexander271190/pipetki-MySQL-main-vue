@@ -1,10 +1,5 @@
 import { onMounted, onUnmounted } from 'vue';
 
-/**
- * Pull-to-refresh на странице логина.
- * Потянул вниз → location.reload().
- * Только для мобильных (touch).
- */
 export function useAuthPullToRefresh() {
   if (!('ontouchstart' in window)) return;
 
