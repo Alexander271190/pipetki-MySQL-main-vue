@@ -55,7 +55,7 @@
         </div>
       </div>
 
-      <form v-if="!loadingData" @submit.prevent="onSubmit" novalidate>
+      <form v-if="!loadingData" @submit.prevent="onSubmit()" novalidate>
         <div v-for="f in visibleFields" :key="f.id" class="form-group">
           <label>{{ f.label }}<span v-if="f.required"> *</span></label>
 
