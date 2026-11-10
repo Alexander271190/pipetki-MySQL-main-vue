@@ -1,8 +1,7 @@
 <template>
   <AppModal :visible="visible" @close="$emit('close')" modal-class="modal-lg">
-        
-    <div style="max-height: 75vh; overflow-y: auto; padding-right: 8px;">
-      <h2><i class="fa-solid fa-user-shield"></i> {{ role ? 'Редактирование роли' : 'Новая роль' }}</h2>
+     <div style="max-height: 75vh; overflow-y: auto; padding-right: 4px;">
+        <h2 style="margin-top:0;"><i class="fa-solid fa-user-shield"></i> {{ role ? 'Редактирование роли' : 'Новая роль' }}</h2>
 
       <form @submit.prevent="onSubmit">
         <div class="form-group">
@@ -29,7 +28,7 @@
           </div>
         </div>
 
-        <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
+        <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;margin-bottom:12px;">{{ error }}</div>
 
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" @click="$emit('close')">Отмена</button>
@@ -38,10 +37,12 @@
           </button>
         </div>
       </form>
+
     </div>
   
   </AppModal>
 </template>
+
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
