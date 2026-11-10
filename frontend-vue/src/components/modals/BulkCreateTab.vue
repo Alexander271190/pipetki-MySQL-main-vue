@@ -1,13 +1,18 @@
 <template>
   <div>
     <div class="bulk-toolbar">
-      <button type="button" class="btn btn-primary btn-sm" @click="addRow">
+      <button type="button" class="btn btn-primary btn-sm" :disabled="fields.length === 0" @click="addRow">
         <i class="fa-solid fa-plus"></i> Добавить строку
       </button>
       <span class="bulk-counter">Строк: <b>{{ rows.length }}</b> / {{ MAX_ROWS }}</span>
     </div>
-
-    <div class="bulk-table-wrap">
+    <div
+      v-if="fields.length === 0"
+      style="color:#dc2626; padding:16px; text-align:center;"
+     >
+       Нет активных полей. Обратитесь к администратору.
+    </div>
+    <div v-else class="bulk-table-wrap">
       <table class="bulk-table">
         <thead>
           <tr>
@@ -69,7 +74,7 @@
 
     <div class="form-actions" style="justify-content:space-between;margin-top:16px;">
       <button type="button" class="btn btn-secondary" @click="$emit('cancel')">Отмена</button>
-      <button type="button" class="btn btn-success" :disabled="saving" @click="onSave">
+      <button type="button" class="btn btn-success" :disabled="saving || fields.length === 0" @click="onSave">
         <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
         Создать {{ rows.length }} {{ plural(rows.length) }}
       </button>
