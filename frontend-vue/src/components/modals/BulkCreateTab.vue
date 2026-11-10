@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore, usePermissions } from '@/stores/auth';
 import { usePipettesStore } from '@/stores/pipettes';
@@ -276,5 +276,10 @@ onMounted(async () => {
     responsibles.value = settings.responsibles;
   }
   addRow();
+});
+
+onUnmounted(() => {
+  rows.value = [];
+  error.value = '';
 });
 </script>
