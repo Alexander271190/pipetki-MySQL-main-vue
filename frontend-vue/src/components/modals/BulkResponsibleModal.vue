@@ -37,14 +37,15 @@ import { usePipettesStore } from '@/stores/pipettes';
 import { useToastStore } from '@/stores/toast';
 import { useAuthStore, usePermissions } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
-import { getResponsibles } from '@/api/users';
 import * as bulkApi from '@/api/bulk';
+import { useSettingsStore } from '@/stores/settings';
 
 const ui = useUiStore();
 const pip = usePipettesStore();
 const toast = useToastStore();
 const auth = useAuthStore();        
-const perm = usePermissions();     
+const perm = usePermissions(); 
+const settings = useSettingsStore();  
 const ids = ref<string[]>([]);
 const newResp = ref('');
 const namesList = ref<string[]>([]);
@@ -96,17 +97,13 @@ async function open() {
     return;
   }
 
-  ids.value = list;
+   ids.value = list;
 
-  // 2. Список имён
-  try {
-    const users = await getResponsibles();
-    if (gen !== _generation) return;
-    const names = new Set<string>();
-    users.forEach(u => u.fullName && names.add(u.fullName));
-    pip.items.forEach(p => p.responsible && names.add(p.responsible));
-    namesList.value = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
-  } catch { /* ignore */ }
+  // 2. Список имён (кеш settings + текущие значения)
+  await settings.loadResponsibles();
+  const names = new Set<string>(settings.responsibles);
+  pip.items.forEach(p => p.responsible && names.add(p.responsible));
+  namesList.value = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
 async function onSubmit() {
