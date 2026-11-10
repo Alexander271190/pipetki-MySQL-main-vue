@@ -304,7 +304,7 @@ function getOptions(f: FieldConfig): { value: string; label: string }[] {
     ];
   }
 
-  // === 2.2 === фильтр по onlyOwnDepartment / isActing
+  //  фильтр по onlyOwnDepartment / isActing
   if (f.id === 'department') {
     let deps = settings.departments;
 
@@ -756,6 +756,7 @@ async function close() {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
     _skipUnlock = true;
   }
+  tab.value = 'single';   
   ui.close();
 }
 </script>
