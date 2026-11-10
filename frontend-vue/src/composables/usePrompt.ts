@@ -34,8 +34,8 @@ export function showPrompt(message: string, options: PromptOptions = {}): Promis
     state.active = true;
     state.resolver = resolve;
     setTimeout(() => {
-      const el = document.getElementById('prompt-input');
-      if (el) (el as HTMLInputElement).focus();
+     const el = document.getElementById('prompt-input') as HTMLInputElement | null;
+     if (el) { el.focus(); el.select(); }
     }, 100);
   });
 }
