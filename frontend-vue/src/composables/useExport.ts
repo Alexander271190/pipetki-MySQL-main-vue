@@ -11,6 +11,7 @@ import { esc } from '@/utils/string';
 import { STATUS_LABELS } from '@/constants';
 import { apiRequest } from '@/api/client';
 import type { Pipette } from '@/types';
+import { requirePasswordChange } from './useGuard';
 
 export function useExport() {
   const pip = usePipettesStore();
@@ -37,7 +38,8 @@ export function useExport() {
     return Array.isArray(res.items) ? res.items : [];
   }
 
-  async function exportToXlsx() {
+ async function exportToXlsx() {
+    if (!await requirePasswordChange()) return;
     if (settings.printDocs?.export === false) {
       toast.error('Печать реестра отключена администратором');
       return;
@@ -65,7 +67,8 @@ export function useExport() {
     }
   }
 
-  async function exportToPDF() {
+ async function exportToPDF() {
+    if (!await requirePasswordChange()) return;
     if (settings.printDocs?.export === false) {
       toast.error('Печать реестра отключена администратором');
       return;
