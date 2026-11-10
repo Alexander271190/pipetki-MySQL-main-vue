@@ -6,25 +6,28 @@
         <i class="fa-solid fa-bolt"></i> Выбрано: <b>{{ pip.selected.size }}</b>
       </span>
       <button
-        v-if="perm.canBulkSend.value"
+        v-if="perm.canBulkSend.value && selectedToSend.length > 0"
         class="btn btn-info btn-sm"
         @click="modals.openBulkSend()"
       >
         <i class="fa-solid fa-box"></i> Отправить
+        <span v-if="selectedToSend.length < pip.selected.size">({{ selectedToSend.length }})</span>
       </button>
       <button
-        v-if="perm.canBulkReturn.value"
-        class="btn btn-success btn-sm"
-        @click="modals.openBulkReturn()"
-      >
-        <i class="fa-solid fa-box-open"></i> Вернуть
+         v-if="perm.canBulkReturn.value && selectedToReturn.length > 0"
+         class="btn btn-success btn-sm"
+         @click="modals.openBulkReturn()"
+        >
+          <i class="fa-solid fa-box-open"></i> Вернуть
+          <span v-if="selectedToReturn.length < pip.selected.size">({{ selectedToReturn.length }})</span>
       </button>
-      <button
-        v-if="perm.canBulkChangeResponsible.value"
+     <button
+        v-if="perm.canBulkChangeResponsible.value && selectedVisible.length > 0"
         class="btn btn-secondary btn-sm"
         @click="modals.openBulkResponsible()"
       >
         <i class="fa-solid fa-user-pen"></i> Ответственный
+        <span v-if="selectedVisible.length > 0">({{ selectedVisible.length }})</span>
       </button>
       <button class="btn btn-secondary btn-sm" @click="pip.clearSelection()">
         <i class="fa-solid fa-xmark"></i> Снять
@@ -159,7 +162,10 @@ import FilterPanel from '@/components/table/FilterPanel.vue';
 import { usePrefsStore } from '@/stores/prefs';
 import { showConfirm } from '@/composables/useConfirm';
 import { isMobileDevice } from '@/utils/device';
-  
+import { useSettingsStore } from '@/stores/settings';
+import { isExternalCalibration } from '@/utils/equipment';
+
+const settings = useSettingsStore();
 const modals = useModals();
 const perm = usePermissions();
 const ui = useUiStore();
@@ -180,6 +186,29 @@ const hasCustomLayout = computed(
     (!!prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0)
 );
 
+const selectedToSend = computed(() => {
+  return [...pip.selected].filter(id => {
+    const p = pip.items.find(x => x.id === id);
+    return p
+      && !p.sent_for_calibration
+      && !p.replacing
+      && isExternalCalibration(settings.equipmentTypes, p.equipment_type);
+  });
+});
+
+const selectedToReturn = computed(() => {
+  return [...pip.selected].filter(id => {
+    const p = pip.items.find(x => x.id === id);
+    return p
+      && !!p.sent_for_calibration
+      && isExternalCalibration(settings.equipmentTypes, p.equipment_type);
+  });
+});
+
+const selectedVisible = computed(() => {
+  return [...pip.selected].filter(id => pip.items.some(p => p.id === id));
+});
+  
 async function onResetLayout() {
   menuOpen.value = false;
   const ok = await showConfirm(
@@ -191,7 +220,7 @@ async function onResetLayout() {
       okClass: 'btn-warning',
     }
   );
-  if (!ok) return;
+if (!ok) return;
 
   try {
     await prefs.resetLayout();
