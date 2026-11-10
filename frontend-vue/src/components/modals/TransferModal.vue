@@ -242,8 +242,12 @@ async function onSubmit() {
     toast.success(`Передано в «${newDept.value}»`);
     await close();
     await pip.loadPaged();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Ошибка передачи';
+  } catch (e: any) {
+  if (e?.status === 409) {
+    _skipUnlock = true;
+    _lockedId = null;
+  }
+  error.value = e instanceof Error ? e.message : 'Ошибка передачи';
   } finally {
     saving.value = false;
   }
