@@ -18,8 +18,15 @@
         <div><label>Статус</label><span><StatusBadge :status="calcStatus(pipette)" /></span></div>
         <div><label>Ответственный</label><span>{{ pipette.responsible || '—' }}</span></div>
         <div><label>Место</label><span>{{ pipette.location || '—' }}</span></div>
+        <div v-if="pipette.sent_for_calibration">
+          <label>Отправлена на поверку</label>
+          <span>{{ formatDate(pipette.sent_for_calibration) }}</span>
+         </div>
+            <div v-if="pipette.sent_note">
+            <label>Примечание к отправке</label>
+            <span>{{ pipette.sent_note }}</span>
       </div>
-
+    </div>
       <h3 style="margin-top:20px;font-size:1rem;color:#1e293b;">Журнал поверок ({{ history.length }})</h3>
       <div v-if="history.length === 0" style="text-align:center;padding:30px;color:#94a3b8;">
         Записей о поверках пока нет.
