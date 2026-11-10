@@ -1,5 +1,5 @@
 <template>
-  <AppModal :visible="visible" @close="$emit('close')">
+  <AppModal :visible="visible" @close="$emit('close')" modal-class="modal-lg">
     <h2><i class="fa-solid fa-user-shield"></i> {{ role ? 'Редактирование роли' : 'Новая роль' }}</h2>
 
     <form @submit.prevent="onSubmit">
@@ -15,13 +15,16 @@
         </label>
       </div>
 
-      <div class="form-group" style="max-height:300px;overflow-y:auto;border:1px solid var(--border-hard);padding:8px;border-radius:8px;" :style="{ opacity: isAdmin ? 0.5 : 1, pointerEvents: isAdmin ? 'none' : 'auto' }">
-        <div v-for="group in permissionGroups" :key="group.name" style="margin-bottom:8px;">
-          <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;">{{ group.name }}</div>
-          <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;font-size:.85rem;">
-            <input type="checkbox" :value="p.key" :checked="permissions.includes(p.key)" @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)" />
-            {{ p.label }}
-          </label>
+        <div class="form-group" style="max-height:35vh;overflow-y:auto;border:1px solid var(--border-hard);padding:12px;border-radius:8px;" :style="{ opacity: isAdmin ? 0.5 : 1, pointerEvents: isAdmin ? 'none' : 'auto' }">
+        <div v-for="group in permissionGroups" :key="group.name" style="margin-bottom:12px;">
+          <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ group.name }}</div>
+          <!-- Вот эта сетка делает две колонки: -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
+            <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;">
+              <input type="checkbox" :value="p.key" :checked="permissions.includes(p.key)" @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)" />
+              <span>{{ p.label }}</span>
+            </label>
+          </div>
         </div>
       </div>
 
