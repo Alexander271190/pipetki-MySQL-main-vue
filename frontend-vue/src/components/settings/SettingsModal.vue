@@ -108,13 +108,11 @@ const sectionComponent = shallowRef<unknown>(null);
 const visibleGroups = computed<Group[]>(() => {
   return ALL_SECTIONS.map(g => ({
     group: g.group,
-    items: g.items.filter(it => {
-      if (it.id === 'users' || it.id === 'roles') {
-
-        return perm.canManageUsers.value || auth.isAdmin;
-     }
-      return true;
-     }),
+  items: g.items.filter(it => {
+  if (it.id === 'users') return perm.canManageUsers.value || auth.isAdmin;
+  if (it.id === 'roles') return perm.canManageRoles.value;   
+  return true;
+}),
   })).filter(g => g.items.length > 0);
 });
 
