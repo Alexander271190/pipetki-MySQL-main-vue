@@ -30,7 +30,7 @@
     </div>
 
     <!-- Вкладка «Партия» -->
-    <div v-if="!isEdit && tab === 'batch'">
+    <div v-if="!isEdit" v-show="tab === 'batch'">
       <BulkCreateTab @cancel="close" @created="onBulkCreated" />
     </div>
 
@@ -455,7 +455,7 @@ async function openForm() {
               let saved = false;
               let savedError = '';
               try {
-                await onSubmit();
+                await onSubmit(true);
                 saved = !error.value;
                 if (!saved) savedError = error.value || 'ошибка сохранения';
               } catch (e: any) {
@@ -675,6 +675,11 @@ async function onSaveAsTemplate() {
 
 async function discardDraft() {
   if (!editId.value) return;
+  const ok = await showConfirm(
+    'Отменить черновик? Данные, введённые другим пользователем, будут потеряны.',
+    { icon: '↩️', title: 'Отмена черновика', okText: 'Отменить черновик', okClass: 'btn-warning' }
+  );
+  if (!ok) return;
   try {
     await api.deleteDraft(editId.value);
     toast.success('Черновик отменён');
@@ -685,7 +690,7 @@ async function discardDraft() {
   }
 }
 
-async function onSubmit() {
+async function onSubmit(silent = false) {
   error.value = '';
   const payload = { ...form.value };
   
@@ -694,6 +699,20 @@ async function onSubmit() {
     if (currentPipette?.updated_at) {
       payload.updatedAt = currentPipette.updated_at;
     }
+  }
+
+  const isFieldVisible = (fid: string) => visibleFields.value.some(f => f.id === fid);
+  
+  if (!isFieldVisible('model') && !String(payload.model || '').trim()) {
+    payload.model = 'Не указана';
+  }
+  if (!isFieldVisible('lastCalibration') && !String(payload.lastCalibration || '').trim()) {
+    payload.lastCalibration = todayStr();
+  }
+  if (!isFieldVisible('responsible') && !String(payload.responsible || '').trim()) {
+    payload.responsible = auth.user?.isActing && auth.user?.actingForName
+      ? auth.user.actingForName
+      : (auth.user?.fullName || '');
   }
   
   const missing: string[] = [];
@@ -707,17 +726,21 @@ async function onSubmit() {
   try {
     if (isEdit.value && editId.value) {
       const res = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
-      if (res.idChanged && res.newId) {
-        toast.success(`Сохранено. Новый ID: ${res.newId}`);
-      } else {
-        toast.success('Оборудование обновлено');
+      if (!silent) {
+        if (res.idChanged && res.newId) {
+          toast.success(`Сохранено. Новый ID: ${res.newId}`);
+        } else {
+          toast.success('Оборудование обновлено');
+        }
       }
     } else {
       const res = await api.createPipette(payload);
-      toast.success(`Оборудование создано (${res.id || payload.id})`);
+      if (!silent) {
+        toast.success(`Оборудование создано (${res.id || payload.id})`);
+      }
     }
 
-    await close();
+    if (!silent) await close();
     await pip.loadPaged();
     await stats.load();
     } catch (e: unknown) {
@@ -734,17 +757,19 @@ async function onSubmit() {
         await api.deleteDraft(editId.value);
         if (isEdit.value) {
           const res2 = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
-          if (res2.idChanged && res2.newId) {
-            toast.success(`Сохранено. Новый ID: ${res2.newId}`);
-          } else {
-            toast.success('Оборудование сохранено');
+          if (!silent) {
+            if (res2.idChanged && res2.newId) {
+              toast.success(`Сохранено. Новый ID: ${res2.newId}`);
+            } else {
+              toast.success('Оборудование сохранено');
+            }
           }
         } else {
           await api.createPipette(payload);
-          toast.success('Оборудование сохранено');
+          if (!silent) toast.success('Оборудование сохранено');
         }
 
-        await close();
+        if (!silent) await close();
         await pip.loadPaged();
         await stats.load();
       } catch (err2) {
@@ -755,8 +780,10 @@ async function onSubmit() {
       delete payload.updatedAt;
       try {
         const res2 = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
-        toast.success(res2.idChanged && res2.newId ? `Сохранено. Новый ID: ${res2.newId}` : 'Оборудование обновлено');
-        await close();
+        if (!silent) {
+          toast.success(res2.idChanged && res2.newId ? `Сохранено. Новый ID: ${res2.newId}` : 'Оборудование обновлено');
+        }
+        if (!silent) await close();
         await pip.loadPaged();
         await stats.load();
       } catch (err2) {
