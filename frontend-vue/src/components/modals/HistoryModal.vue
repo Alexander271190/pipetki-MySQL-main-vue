@@ -129,6 +129,7 @@ import * as api from '@/api/pipettes';
 import type { CalibrationRecord } from '@/api/pipettes';
 import { showLockWarning } from '@/composables/useLockWarning';
 import { showConfirm } from '@/composables/useConfirm';
+import { requirePasswordChange } from '@/composables/useGuard';
 
 const auth = useAuthStore();
 const perm = usePermissions();
@@ -231,8 +232,9 @@ function close() {
   ui.close();
 }
 
-function onExportHistory() {
+async function onExportHistory() {
   if (!pipette.value) return;
+  if (!await requirePasswordChange()) return;
   if (!perm.canExport.value) { toast.error('Нет прав на печать'); return; }
   if (settings.printDocs?.history === false) {
     toast.error('Печать истории отключена');
