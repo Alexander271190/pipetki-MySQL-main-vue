@@ -50,11 +50,13 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
+import { useModals } from '@/composables/useModals';
 import { usePipettesStore } from '@/stores/pipettes';
 import { lookupBarcode } from '@/api/barcodes';
 import type { BarcodeLookupResult } from '@/api/barcodes';
 
 const ui = useUiStore();
+const modals = useModals();
 const pip = usePipettesStore();
 
 const barcode = ref('');
@@ -103,7 +105,7 @@ function goSend() {
   pip.clearSelection();
   ids.forEach(id => pip.toggleSelected(id, true));
   close();
-  ui.open('bulkSend', ids);
+  void modals.openBulkSend();
 }
 
 function goReturn() {
@@ -112,7 +114,7 @@ function goReturn() {
   pip.clearSelection();
   ids.forEach(id => pip.toggleSelected(id, true));
   close();
-  ui.open('bulkReturn', ids);
+  void modals.openBulkReturn();
 }
 
 function close() { ui.close(); }
