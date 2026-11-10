@@ -271,7 +271,14 @@ async function onSubmit() {
       note: note.value.trim(),
       returnReplacements: returnReplacements.value,
     });
-    toast.success(res.message || `Возврат оформлен для ${items.value.length} единиц`);
+    let msg = res.message || `Возврат оформлен для ${items.value.length} единиц`;
+    let type: 'success' | 'error' = 'success';
+    if (res.missingReplacements && res.missingReplacements.length > 0) {
+      msg += `. ⚠️ Замены не возвращены на склад: ${res.missingReplacements.length}`;
+      type = 'error';
+      console.warn('⚠️ Пропущенные замены:', res.missingReplacements);
+    }
+    toast.show(msg, type);
     close();
     pip.clearSelection();
 
