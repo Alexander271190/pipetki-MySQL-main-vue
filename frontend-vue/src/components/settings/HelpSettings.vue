@@ -93,6 +93,7 @@
         </button>
       </div>
     </AppModal>
+    </div>
 </template>
 
 <script setup lang="ts">
