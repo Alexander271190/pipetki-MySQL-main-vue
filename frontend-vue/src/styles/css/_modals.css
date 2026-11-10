@@ -9,7 +9,7 @@
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 100;
-  align-items: center; /* Идеальное центрирование */
+  align-items: center; 
   justify-content: center;
   padding: 20px;
 }
@@ -506,7 +506,7 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
     padding: 16px !important;
     resize: none !important;
     border-radius: 12px;
-    max-height: calc(100vh - 20px) !important; /* Чуть больше высоты */
+    max-height: calc(100vh - 20px) !important; 
   }
   
   /* Убираем зону ресайза на телефонах, чтобы не мешала */
