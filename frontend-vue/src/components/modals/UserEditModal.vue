@@ -43,8 +43,13 @@
         <div class="form-group">
           <label>Роль</label>
           <div style="display:flex;gap:8px;">
-            <select v-model="form.role" style="flex:1;">
-              <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.name }}</option>
+           <select
+             v-model="form.role"
+             :disabled="!canEditRole"
+             :title="!canEditRole ? 'Только встроенный admin может менять роль' : ''"
+             style="flex:1;"
+             >
+             <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.name }}</option>
             </select>
             <button
               v-if="perm.canManageRoles.value"
@@ -300,7 +305,7 @@ const presets = ref<Preset[]>([]);
 const roles = ref<Role[]>([]);
 const actingTargets = ref<{ id: string; fullName: string; department?: string }[]>([]);
 
-// 🆕 Быстрое создание роли
+// Быстрое создание роли
 const quickRoleVisible = ref(false);
 const quickRoleName = ref('');
 const quickRoleIsAdmin = ref(false);
@@ -308,7 +313,17 @@ const quickRoleSaving = ref(false);
 const quickRoleError = ref('');
 
 const isEdit = computed(() => !!editId.value);
+const editingAdminUser = computed(() => {
+  if (!isEdit.value) return false;
+  return !!(form.value.role && roles.value.find(r => r.value === form.value.role)?.isAdmin);
+});
 
+const canEditRole = computed(() => {
+  if (!isEdit.value) return true;
+  if (!editingAdminUser.value) return true;
+  return auth.user?.login === 'admin';   
+});
+  
 const availableRoles = computed(() =>
   roles.value.filter(r => !r.isAdmin || auth.isAdmin)
 );
