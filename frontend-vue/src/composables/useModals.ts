@@ -18,26 +18,27 @@ export function useModals() {
   const pip = usePipettesStore();
   const stats = useStatsStore();
 
-  function openForm(id?: string) {
-    if (!requirePasswordChange()) return;
+  async function openForm(id?: string) {
+    if (!await requirePasswordChange()) return;
     const isEdit = !!id;
     const can = isEdit ? perm.canEditPipette.value : perm.canAddPipette.value;
     if (!can) { toast.error(isEdit ? 'Нет прав на редактирование' : 'Нет прав на добавление'); return; }
     ui.open('form', id ?? null);
   }
 
-  function openHistory(id: string) {
+  async function openHistory(id: string) {
+    if (!await requirePasswordChange()) return;
     ui.open('history', id);
   }
 
-  function openQuickCal(id: string) {
-    if (!requirePasswordChange()) return;
+  async function openQuickCal(id: string) {
+    if (!await requirePasswordChange()) return;
     if (!perm.canQuickCal.value) { toast.error('Нет прав на быструю поверку'); return; }
     ui.open('quickCal', id);
   }
 
-  function openTransfer(id: string) {
-    if (!requirePasswordChange()) return;
+  async function openTransfer(id: string) {
+    if (!await requirePasswordChange()) return;
     if (!perm.canTransferPipette.value) { toast.error('Нет прав на передачу'); return; }
     ui.open('transfer', id);
   }
@@ -46,13 +47,15 @@ export function useModals() {
     ui.open('changePassword', mode);
   }
 
-  function openUserView(userId: string) {
+  async function openUserView(userId: string) {
+    if (!await requirePasswordChange()) return;
     if (!perm.canManageUsers.value) { toast.error('Нет прав'); return; }
     ui.open('userView', userId);
   }
 
   async function onRowActions(id: string, event: MouseEvent) {
     event.stopPropagation();
+    if (!await requirePasswordChange()) return;
     const p = pip.items.find(x => x.id === id);
     if (!p) return;
     const status = calcStatus(p);
@@ -115,6 +118,7 @@ export function useModals() {
   }
 
   async function cancelSendConfirm(id: string) {
+    if (!await requirePasswordChange()) return;
     if (!perm.canBulkSend.value) {
       toast.error('Нет прав на отмену отправки');
       return;
@@ -161,6 +165,7 @@ export function useModals() {
   }
 
   async function deleteConfirm(id: string) {
+    if (!await requirePasswordChange()) return;
     if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
     const p = pip.items.find(x => x.id === id);
     if (!p) return;
@@ -212,24 +217,24 @@ export function useModals() {
     }
   }
 
-  function openBulkSend() {
-    if (!requirePasswordChange()) return;
+  async function openBulkSend() {
+    if (!await requirePasswordChange()) return;
     if (!perm.canBulkSend.value) { toast.error('Нет прав на отправку'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkSend', ids);
   }
 
-  function openBulkReturn() {
-    if (!requirePasswordChange()) return;
+  async function openBulkReturn() {
+    if (!await requirePasswordChange()) return;
     if (!perm.canBulkReturn.value) { toast.error('Нет прав на возврат'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkReturn', ids);
   }
 
-  function openBulkResponsible() {
-    if (!requirePasswordChange()) return;
+  async function openBulkResponsible() {
+    if (!await requirePasswordChange()) return;
     if (!perm.canBulkChangeResponsible.value) { toast.error('Нет прав на смену ответственного'); return; }
     const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
@@ -237,35 +242,31 @@ export function useModals() {
   }
 
   async function openBarcodeScanner() {
-    if (!requirePasswordChange()) return;
-    if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
-    await auth.refreshUser();
+    if (!await requirePasswordChange()) return;
     if (!perm.canScanBarcode.value) { toast.error('Нет прав на сканирование'); return; }
     ui.open('barcodeScanner');
   }
 
   async function openBarcodePrint() {
-    if (!requirePasswordChange()) return;
-    if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
-    await auth.refreshUser();
+    if (!await requirePasswordChange()) return;
     if (!perm.canPrintLabels.value) { toast.error('Нет прав на печать этикеток'); return; }
     ui.open('barcodePrint');
   }
 
   async function openImport() {
-    if (!requirePasswordChange()) return;
-    if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
-    await auth.refreshUser();
+    if (!await requirePasswordChange()) return;
     if (!perm.canImport.value) { toast.error('Нет прав на импорт'); return; }
     ui.open('import');
   }
 
-  function openAudit() {
+  async function openAudit() {
+    if (!await requirePasswordChange()) return;
     if (!perm.canViewLog.value) { toast.error('Нет прав на журнал'); return; }
     ui.open('audit');
   }
 
-  function openEquipmentAudit(id: string) {
+  async function openEquipmentAudit(id: string) {
+    if (!await requirePasswordChange()) return;
     if (!perm.canViewAudit.value) { toast.error('Нет прав на аудит'); return; }
     ui.open('equipmentAudit', id);
   }
