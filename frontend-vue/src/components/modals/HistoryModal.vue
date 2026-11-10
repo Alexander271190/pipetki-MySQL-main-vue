@@ -233,6 +233,7 @@ function close() {
 
 function onExportHistory() {
   if (!pipette.value) return;
+  if (!perm.canExport.value) { toast.error('Нет прав на печать'); return; }
   if (settings.printDocs?.history === false) {
     toast.error('Печать истории отключена');
     return;
