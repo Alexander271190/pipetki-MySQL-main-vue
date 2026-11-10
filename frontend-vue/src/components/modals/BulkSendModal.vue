@@ -204,10 +204,16 @@ await auth.refreshUser();
     });
     let msg = `Отправлено: ${res.successful}`;
     if (res.skipped > 0) msg += `. Пропущено: ${res.skipped}`;
+    if (res.skippedReplacements && res.skippedReplacements.length > 0) {
+      msg += `. Замены не применены: ${res.skippedReplacements.length}`;
+      console.warn('⚠️ Пропущенные замены:', res.skippedReplacements);
+    }
     toast.success(msg);
 
-    close();                       // ← вместо ui.close(): снимает локи
+    close();                       
     pip.clearSelection();
+    pip.resetFilters();         
+    pip.page = 1;                
     await pip.loadPaged();
     await stats.load();
   } catch (e) {
@@ -288,7 +294,7 @@ ${buildHeaderHtml(settings.printDocs)}
   <div>
     <div>Сформировал: <b>${userPosition}, ${user}</b></div>
     <div>Дата отправки: <b>${formatDate(sentDate.value)}</b> · Приборов: <b>${toSendItems.value.length}</b></div>
-    <div>Дата печати: <b>${today}</b></div>
+    <div>Организация: <b>ФБУ «Красноярский ЦСМ»</b> · Дата печати: <b>${today}</b></div>
     ${note.value.trim() ? `<div>Примечание: <b>${note.value.trim()}</b></div>` : ''}
   </div>
   <div>Подпись: _______________</div>
