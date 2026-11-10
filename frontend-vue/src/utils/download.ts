@@ -1,4 +1,5 @@
 import { getAuthToken } from '@/api/client';
+import { buildErrorMessage } from './errorHints';
 
 export async function downloadFile(
   url: string,
@@ -20,12 +21,10 @@ export async function downloadFile(
   }
 
   if (!response.ok) {
-    let msg = `Ошибка ${response.status}`;
-    try {
-      const body = await response.json();
-      if (body?.error) msg = String(body.error);
-    } catch { /* ignore */ }
-    throw new Error(msg);
+    let body: Record<string, unknown> = {};
+    try { body = await response.json(); } catch { /* ignore */ }
+    const message = buildErrorMessage(body, response.status);
+    throw new Error(message);
   }
 
   const disposition = response.headers.get('Content-Disposition');
