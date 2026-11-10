@@ -28,5 +28,15 @@
 
 <script setup lang="ts">
 import { usePromptState, submitPrompt, resolvePrompt } from '@/composables/usePrompt';
+import { onMounted, onUnmounted } from 'vue';
+
+  
 const state = usePromptState();
+
+function onKey(e: KeyboardEvent) {
+  if (!state.active) return;
+  if (e.key === 'Escape') { e.preventDefault(); resolvePrompt(null); }
+}
+onMounted(() => window.addEventListener('keydown', onKey));
+onUnmounted(() => window.removeEventListener('keydown', onKey));  
 </script>
