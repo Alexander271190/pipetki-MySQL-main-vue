@@ -179,7 +179,12 @@ const showFilter = computed({
   get: () => ui.filterPanelOpen,
   set: (v) => v ? ui.openFilterPanel() : ui.closeFilterPanel(),
 });
-const isMobile = isMobileDevice();
+
+const isMobile = ref(isMobileDevice());
+
+function updateIsMobile() { isMobile.value = isMobileDevice(); }
+onMounted(() => window.addEventListener('resize', updateIsMobile));
+onUnmounted(() => window.removeEventListener('resize', updateIsMobile));
 const hasCustomLayout = computed(
   () =>
     (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) ||
@@ -220,6 +225,7 @@ async function onResetLayout() {
       okClass: 'btn-warning',
     }
   );
+  
 if (!ok) return;
 
   try {
