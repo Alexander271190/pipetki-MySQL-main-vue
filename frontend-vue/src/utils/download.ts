@@ -1,4 +1,4 @@
-import { getAuthToken } from '@/api/client';
+import { getAuthToken, triggerUnauthorized } from '@/api/client';
 import { buildErrorMessage } from './errorHints';
 
 export async function downloadFile(
@@ -15,8 +15,7 @@ export async function downloadFile(
   const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    sessionStorage.removeItem('pipette_session');
-    window.location.href = '/login';
+    triggerUnauthorized();
     throw new Error('Сессия истекла');
   }
 
