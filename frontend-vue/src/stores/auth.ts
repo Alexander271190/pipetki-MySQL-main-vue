@@ -196,6 +196,5 @@ export function usePermissions() {
       p('delete_pipette') || p('quick_calibration') || p('bulk_send') || p('bulk_return')
     ),
      canManageRoles: computed(() => auth.isAdmin || auth.isSeniorLab),
-    ),
   };
 }
