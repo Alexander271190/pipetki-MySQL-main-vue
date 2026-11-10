@@ -1,45 +1,47 @@
 <template>
   <AppModal :visible="visible" @close="$emit('close')" modal-class="modal-lg">
-    <h2><i class="fa-solid fa-user-shield"></i> {{ role ? 'Редактирование роли' : 'Новая роль' }}</h2>
+        
+    <div style="max-height: 75vh; overflow-y: auto; padding-right: 8px;">
+      <h2><i class="fa-solid fa-user-shield"></i> {{ role ? 'Редактирование роли' : 'Новая роль' }}</h2>
 
-    <form @submit.prevent="onSubmit">
-      <div class="form-group">
-        <label>Название роли *</label>
-        <input v-model="name" type="text" placeholder="Например: Заведующий лабораторией" />
-      </div>
+      <form @submit.prevent="onSubmit">
+        <div class="form-group">
+          <label>Название роли *</label>
+          <input v-model="name" type="text" placeholder="Например: Заведующий лабораторией" />
+        </div>
 
-      <div v-if="auth.isAdmin" class="form-group" style="padding:10px;background:var(--card-alt);border-radius:6px;">
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-          <input v-model="isAdmin" type="checkbox" :disabled="role?.value === 'admin'" style="width:18px;height:18px;" />
-          <span style="font-weight:600;color:#dc2626;">Дать полные права администратора</span>
-        </label>
-      </div>
+        <div v-if="auth.isAdmin" class="form-group" style="padding:10px;background:var(--card-alt);border-radius:6px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input v-model="isAdmin" type="checkbox" :disabled="role?.value === 'admin'" style="width:18px;height:18px;" />
+            <span style="font-weight:600;color:#dc2626;">Дать полные права администратора</span>
+          </label>
+        </div>
 
         <div class="form-group" style="max-height:35vh;overflow-y:auto;border:1px solid var(--border-hard);padding:12px;border-radius:8px;" :style="{ opacity: isAdmin ? 0.5 : 1, pointerEvents: isAdmin ? 'none' : 'auto' }">
-        <div v-for="group in permissionGroups" :key="group.name" style="margin-bottom:12px;">
-          <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ group.name }}</div>
-          <!-- Вот эта сетка делает две колонки: -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
-            <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;">
-              <input type="checkbox" :value="p.key" :checked="permissions.includes(p.key)" @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)" />
-              <span>{{ p.label }}</span>
-            </label>
+          <div v-for="group in permissionGroups" :key="group.name" style="margin-bottom:12px;">
+            <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ group.name }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
+              <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;">
+                <input type="checkbox" :value="p.key" :checked="permissions.includes(p.key)" @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)" />
+                <span>{{ p.label }}</span>
+              </label>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
+        <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
 
-      <div class="form-actions">
-        <button type="button" class="btn btn-secondary" @click="$emit('close')">Отмена</button>
-        <button type="submit" class="btn btn-success" :disabled="saving">
-          <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i> Сохранить
-        </button>
-      </div>
-    </form>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="$emit('close')">Отмена</button>
+          <button type="submit" class="btn btn-success" :disabled="saving">
+            <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i> Сохранить
+          </button>
+        </div>
+      </form>
+    </div>
+  
   </AppModal>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
