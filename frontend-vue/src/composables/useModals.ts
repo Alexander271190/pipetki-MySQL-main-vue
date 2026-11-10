@@ -55,7 +55,6 @@ export function useModals() {
 
   async function onRowActions(id: string, event: MouseEvent) {
     event.stopPropagation();
-    if (!await requirePasswordChange()) return;
     const p = pip.items.find(x => x.id === id);
     if (!p) return;
     const status = calcStatus(p);
