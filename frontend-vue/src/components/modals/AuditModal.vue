@@ -64,9 +64,24 @@
               </td>
             </tr>
             <tr v-else-if="filtered.length === 0">
-              <td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;">
-                📋 Записей нет
-              </td>
+              <td colspan="5" style="text-align:center;padding:30px 20px;">
+                <div style="font-size:32px;margin-bottom:8px;">
+                  {{ (search || category || period) ? '🔍' : '📋' }}
+                </div>
+                <div style="color: var(--text-muted); font-size: .85rem;">
+                  {{ (search || category || period)
+                    ? 'Ничего не найдено по выбранным фильтрам.'
+                    : 'Записей пока нет. Изменения будут появляться здесь автоматически.' }}
+                 </div>
+                 <button
+                   v-if="search || category || period"
+                   class="btn btn-secondary btn-sm"
+                   style="margin-top:12px;"
+                   @click="resetAuditFilters"
+                 >
+                   <i class="fa-solid fa-rotate-left"></i> Сбросить фильтры
+                 </button>
+               </td>
             </tr>
             <tr v-for="(r, i) in filtered" :key="i">
               <td class="timestamp">{{ fmtDateTime(r.timestamp) }}</td>
@@ -105,6 +120,10 @@
   <span style="align-self:center;">—</span>
   <input v-model="errorsTo" type="date" style="padding:6px;border:1px solid var(--border-hard);border-radius:8px;" />
 </div>
+      <div style="font-size: .85rem; color: var(--text-muted); margin-bottom: 10px;">
+        Показано: {{ errorsFiltered.length }} из {{ errorsCache.length }}
+        <template v-if="errorsLevelStats">{{ ' · ' + errorsLevelStats }}</template>
+      </div>
       <div class="log-container" style="max-height:55vh;">
         <table class="log-table">
           <thead>
@@ -127,7 +146,14 @@
             </tr>
             <tr v-for="(r, i) in errorsFiltered" :key="i">
               <td class="timestamp">{{ fmtDateTime(r.timestamp) }}</td>
-              <td :style="{ color: r.level === 'error' ? '#dc2626' : '#d97706', fontWeight: 600, textTransform: 'uppercase' }">{{ r.level }}</td>
+              <td :style="{
+                color: r.level === 'error' ? '#dc2626'
+                     : r.level === 'warn'  ? '#d97706'
+                     : r.level === 'info'  ? '#0ea5e9'
+                     : 'inherit',
+                fontWeight: 600,
+                textTransform: 'uppercase'
+              }">{{ r.level }}</td>
               <td>{{ r.source || '—' }}</td>
               <td>{{ r.user_full_name || '—' }}</td>
               <td style="font-size:.82rem;">
@@ -144,9 +170,12 @@
       </div>
     </div>
 
-    <div class="form-actions" style="margin-top:16px;">
-      <button class="btn btn-secondary" @click="close">Закрыть</button>
-    </div>
+<div class="form-actions" style="margin-top:16px;">
+  <span style="color:var(--text-muted);font-size:.85rem;margin-right:auto;">
+    Всего: {{ footerTotal }}
+  </span>
+  <button class="btn btn-secondary" @click="close">Закрыть</button>
+</div>
   </AppModal>
 </template>
 
@@ -216,7 +245,14 @@ async function loadErrors() {
   catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
   finally { loadingErrors.value = false; }
 }
-
+function resetAuditFilters() {
+  search.value = '';
+  category.value = '';
+  period.value = '';
+  from.value = '';
+  to.value = '';
+}
+  
 function onPeriodChange() { /* триггерит computed */ }
 
 const filtered = computed(() => {
@@ -291,6 +327,18 @@ const errorsFiltered = computed(() => {
     return true;
   });
 });
+
+const errorsLevelStats = computed(() => {
+  const lvls: Record<string, number> = {};
+  for (const r of errorsFiltered.value) {
+    lvls[r.level] = (lvls[r.level] || 0) + 1;
+  }
+  return Object.entries(lvls).map(([k, v]) => `${k}: ${v}`).join(' · ');
+});
+
+const footerTotal = computed(() =>
+  tab.value === 'errors' ? errorsFiltered.value.length : filtered.value.length
+);
 
 function actionColor(action: string): string {
   if (!action) return 'inherit';
