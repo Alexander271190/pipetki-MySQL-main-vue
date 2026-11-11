@@ -245,6 +245,7 @@ function onSearchInput(e: Event) {
   const value = (e.target as HTMLInputElement).value;
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = window.setTimeout(async () => {
+    ui.closeFilterPanel(); 
     pip.setSearch(value);
     await pip.loadPaged();
   }, 150);
