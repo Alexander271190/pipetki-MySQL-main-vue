@@ -23,9 +23,14 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading">
-            <td colspan="4" style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></td>
-          </tr>
+     <template v-if="loading">
+       <tr v-for="i in 5" :key="`sk-${i}`" class="skeleton-row">
+         <td><div class="skeleton-line" style="width:80%;"></div></td>
+         <td><div class="skeleton-line" style="width:60%;"></div></td>
+         <td><div class="skeleton-line" style="width:70%;"></div></td>
+         <td><div class="skeleton-line" style="width:90%;"></div></td>
+      </tr>
+    </template>
  <tr v-else-if="filtered.length === 0">
    <td colspan="4" style="text-align:center;padding:30px 20px;">
      <div style="font-size:32px;margin-bottom:8px;">
