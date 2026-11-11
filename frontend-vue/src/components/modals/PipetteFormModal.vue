@@ -614,7 +614,7 @@ onUnmounted(async () => {
   }
 });
 
-function applyTemplate(templateId: number) {
+async function applyTemplate(templateId: number) {
   selectedTemplateId.value = templateId;
   if (!templateId) return;
   const tpl = templates.value.find(t => t.id === templateId);
@@ -623,20 +623,42 @@ function applyTemplate(templateId: number) {
     return;
   }
   let applied = 0;
-  for (const [fieldId, value] of Object.entries(tpl.data || {})) {
-  if (value === undefined || value === null || value === '') continue;
-  if (!(fieldId in form.value)) continue;
-  if (form.value[fieldId] === String(value)) continue;
+  let equipmentTypeChanged = false;
 
-  const field = settings.fields.find(f => f.id === fieldId);
-  if (field?.type === 'select') {
-    const opts = getOptions(field);
-    if (!opts.some(o => String(o.value) === String(value))) continue;
+  for (const [fieldId, value] of Object.entries(tpl.data || {})) {
+    if (value === undefined || value === null || value === '') continue;
+    if (!(fieldId in form.value)) continue;
+    if (form.value[fieldId] === String(value)) continue;
+
+    const field = settings.fields.find(f => f.id === fieldId);
+    if (field?.type === 'select') {
+      const opts = getOptions(field);
+      if (!opts.some(o => String(o.value) === String(value))) continue;
+    }
+
+    form.value[fieldId] = String(value);
+    applied++;
+    if (fieldId === 'equipmentType') equipmentTypeChanged = true;
   }
 
-  form.value[fieldId] = String(value);
-  applied++;
-}
+  // Если тип оборудования изменился — пересчитать interval и next-id
+  // (эквивалент dispatch('change') на #p-equipmentType в старом)
+  if (equipmentTypeChanged) {
+    const typeVal = form.value.equipmentType;
+    const t = settings.equipmentTypes.find(x => x.value === typeVal);
+
+    if ('interval' in form.value) {
+      form.value.interval = String(t?.interval && t.interval > 0 ? t.interval : 12);
+    }
+
+    if (!isEdit.value) {
+      try {
+        const res = await api.getNextId(typeVal);
+        form.value.id = res.nextId;
+      } catch { /* ignore */ }
+    }
+  }
+
   toast.success(`Применено полей: ${applied}`);
 }
 
