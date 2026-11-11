@@ -61,7 +61,8 @@ import { downloadFile } from '@/utils/download';
 import { getAvailablePrinters, printBarcodes } from '@/api/barcodes';
 import type { BarcodePrinter } from '@/api/barcodes';
 import { getIdsForExport } from '@/api/pipettes';
-
+import { apiRequest } from '@/api/client';
+  
 const ui = useUiStore();
 const pip = usePipettesStore();
 const toast = useToastStore();
@@ -80,6 +81,14 @@ watch(() => ui.activeModal, async (v) => {
   scope.value = pip.selected.size > 0 ? 'selected' : 'filtered';
   copies.value = 1;
   error.value = '';
+
+  // Подтянуть дефолтное число копий из системных настроек (как в старом)
+  void apiRequest<{ barcode_default_copies?: string }>('/settings/system')
+    .then(s => {
+      const n = parseInt(String(s?.barcode_default_copies || ''), 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 50) copies.value = n;
+    })
+    .catch(() => {});
 
   try {
     const res = await getAvailablePrinters();
