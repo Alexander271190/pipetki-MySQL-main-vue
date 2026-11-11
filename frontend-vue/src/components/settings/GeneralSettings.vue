@@ -57,10 +57,14 @@ onMounted(async () => {
 async function onSaveWarn() {
   saving.value = true;
   try {
-    await api.saveSystem({ warn_days: String(warnDays.value) });
-    settings.warnDays = warnDays.value;
-    toast.success('Настройки сохранены');
-    await stats.load();
+await api.saveSystem({ warn_days: String(warnDays.value) });
+settings.warnDays = warnDays.value;
+await stats.load();
+
+const { usePipettesStore } = await import('@/stores/pipettes');
+await usePipettesStore().loadPaged();
+
+toast.success('Настройки сохранены');
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   } finally {
