@@ -140,11 +140,23 @@ async function onAdd() {
     port = parseInt(portStr, 10) || 9100;
   }
   
+  const department = await showPrompt(
+    'Отдел (оставьте пустым для общего принтера)',
+    {
+      icon: 'fa-building',
+      title: 'Отдел',
+      okText: 'Создать',
+      okClass: 'btn-success',
+      placeholder: 'Например: Гематологический',
+    }
+  );
+  if (department === null) return;
+
   try {
     await api.createBarcodePrinter({
       name: name.trim(),
       mode: selectedMode,
-      department: '',
+      department: department ? department.trim() : '',
       ip,
       port,
       labelSize: '58x40',
