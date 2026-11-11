@@ -26,11 +26,26 @@
           <tr v-if="loading">
             <td colspan="4" style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></td>
           </tr>
-          <tr v-else-if="filtered.length === 0">
-            <td colspan="4" style="text-align:center;padding:30px;color:#94a3b8;">
-              📋 Изменений не было
-            </td>
-          </tr>
+ <tr v-else-if="filtered.length === 0">
+   <td colspan="4" style="text-align:center;padding:30px 20px;">
+     <div style="font-size:32px;margin-bottom:8px;">
+       {{ search ? '🔍' : '📋' }}
+     </div>
+     <div style="color: var(--text-muted); font-size: .85rem;">
+       {{ search
+         ? 'Ничего не найдено по поиску.'
+         : 'В этом приборе пока не было изменений. Отредактируйте его — и аудит начнёт вестись.' }}
+     </div>
+     <button
+       v-if="search"
+       class="btn btn-secondary btn-sm"
+       style="margin-top:12px;"
+       @click="search = ''"
+     >
+      <i class="fa-solid fa-rotate-left"></i> Очистить поиск
+    </button>
+  </td>
+</tr>
           <tr v-for="(r, i) in filtered" :key="i">
             <td class="timestamp">{{ fmtDateTime(r.timestamp) }}</td>
             <td>{{ r.user_full_name || '—' }}</td>
@@ -42,8 +57,11 @@
     </div>
 
     <div class="form-actions" style="margin-top:16px;">
-      <button class="btn btn-secondary" @click="close">Закрыть</button>
-    </div>
+      <span style="color:var(--text-muted);font-size:.85rem;margin-right:auto;">
+         Всего: {{ filtered.length }} из {{ cache.length }}
+       </span>
+       <button class="btn btn-secondary" @click="close">Закрыть</button>
+      </div>
   </AppModal>
 </template>
 
