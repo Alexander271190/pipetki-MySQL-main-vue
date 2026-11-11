@@ -127,34 +127,46 @@ async function onSave() {
   saving.value = true;
   checkDuplicate();
   try {
-    const payload = departments.value
-      .filter(d => (d.name || '').trim())
-      .map(d => ({
-        name: d.name.trim(),
+    const seen = new Set<string>();
+    const payload: { name: string; enabled: boolean; oldName: string | null }[] = [];
+    for (const d of departments.value) {
+      const name = (d.name || '').trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      payload.push({
+        name,
         enabled: d.enabled !== false,
-        oldName: d._originalName && d._originalName !== d.name.trim() ? d._originalName : null,
-      }));
+        oldName: d._originalName && d._originalName !== name ? d._originalName : null,
+      });
+    }
 
-    if (payload.length === 0) { toast.error('Добавьте хотя бы один отдел'); saving.value = false; return; }
+    if (payload.length === 0) {
+      toast.error('Добавьте хотя бы один отдел');
+      saving.value = false;
+      return;
+    }
 
     await api.saveDepartments(payload);
     await settings.loadAll();
 
     const { usePipettesStore } = await import('@/stores/pipettes');
-    usePipettesStore().syncFilterState(settings.filters);
+    const pip = usePipettesStore();
+    pip.syncFilterState(settings.filters);
+    await pip.loadPaged();
 
     toast.success(`Отделы сохранены (${payload.length})`);
-
-    await usePipettesStore().loadPaged();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   } finally {
     saving.value = false;
   }
 }
+  
   function openActions(e: MouseEvent, idx: number) {
-  e.stopPropagation();
-  ui.openRowActions(e.currentTarget as HTMLElement, [
+   e.stopPropagation();
+   ui.openRowActions(e.currentTarget as HTMLElement, [
     {
       label: '<i class="fa-solid fa-trash"></i> Удалить',
       class: 'item-danger',
