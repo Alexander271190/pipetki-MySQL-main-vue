@@ -46,7 +46,7 @@
            <select
              v-model="form.role"
              :disabled="!canEditRole"
-             :title="!canEditRole ? 'Только встроенный admin может менять роль' : ''"
+             :title="!canEditRole ? 'Только администратор может менять роль администратора' : ''"
              style="flex:1;"
              >
              <option v-for="r in availableRoles" :key="r.value" :value="r.value">{{ r.name }}</option>
