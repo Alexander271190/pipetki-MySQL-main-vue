@@ -34,6 +34,7 @@ const settings = useSettingsStore();
 const auth = useAuthStore();
 
 const visible = ref(false);
+const sessionDismissed = ref(false);  
 const isDanger = ref(false);
 const title = ref('');
 const subtitle = ref('');
@@ -57,6 +58,7 @@ watch(
   () => auth.user?.id,
   () => {
     visible.value = false;
+    sessionDismissed.value = false; 
     setTimeout(check, 600);
   }
 );
@@ -76,6 +78,8 @@ function onRemindersCheck() {
 
 function check() {
   if (!auth.user) return;
+  if (sessionDismissed.value) return;    
+  if (visible.value) return;        
   const key = STORAGE_PREFIX + auth.user.id;
   const last = localStorage.getItem(key);
   if (last === todayStr()) return;
@@ -135,5 +139,5 @@ function confirm() {
   if (auth.user) localStorage.setItem(STORAGE_PREFIX + auth.user.id, todayStr());
 }
 
-function dismiss() { visible.value = false; }
+function dismiss() { visible.value = false; sessionDismissed.value = true; }
 </script>
