@@ -50,7 +50,9 @@ async function resetOtherStores() {
     pip.filterState = {};              
     pip.clearSelection();
 
-    useStatsStore().counters = { ok: 0, warn: 0, danger: 0, total: 0 };
+    const stats = useStatsStore();
+    stats.counters = { ok: 0, warn: 0, danger: 0, total: 0 };
+    stats.reminders = { danger: [], warn: [] };
   } catch (e) {
     console.warn('resetOtherStores:', e);
   }
