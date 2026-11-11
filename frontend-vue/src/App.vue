@@ -67,6 +67,8 @@ const router = useRouter();
 const ui = useUiStore();
 const sessionKey = ref(0);
 
+let _lastUserId: string | null = null;
+
 function checkMustChangePassword() {
   if (!auth.user) return;
   if (auth.user.mustSetPassword) {
@@ -77,11 +79,17 @@ function checkMustChangePassword() {
 }
 
 function onAuthChanged() {
-  ui.close();                    
-  checkMustChangePassword();        
-  sessionKey.value++;
-}
+  const currentId = auth.user?.id ?? null;
+  const userChanged = _lastUserId !== currentId;
+  _lastUserId = currentId;
+  
+  if (userChanged) {
+    ui.close();
+    sessionKey.value++;
+  }
 
+  checkMustChangePassword();
+}
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && auth.isAuthenticated) {
     auth.refreshUser();
@@ -93,6 +101,7 @@ function onWindowFocus() {
 
 onMounted(() => {
   auth.initFromStorage();
+  _lastUserId = auth.user?.id ?? null; 
   checkMustChangePassword();        
   void auth.refreshUser();          
 
