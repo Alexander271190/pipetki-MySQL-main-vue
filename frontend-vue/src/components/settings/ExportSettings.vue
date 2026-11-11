@@ -84,7 +84,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
 import * as api from '@/api/settings';
-
+import { SYSTEM_FIELD_IDS_IN_CONFIG } from '@/constants';
+  
 defineEmits<{ (e: 'close'): void }>();
 
 const settings = useSettingsStore();
@@ -113,12 +114,6 @@ const headerText = ref('');
 const headerAlign = ref<'left' | 'center' | 'right'>('center');
 const activeTab = ref<ExportKey>('export');
 const saving = ref(false);
-
-const SYSTEM_FIELD_IDS = new Set([
-  'id','serial','manufacturer','model','equipmentType','volume','department',
-  'lastCalibration','nextCalibration','interval','daysLeft','responsible',
-  'location','status','cert','notes','result','active',
-]);
 
 const tabs: { key: ExportKey; label: string }[] = [
   { key: 'export',    label: '📄 Печать реестра' },
@@ -160,6 +155,13 @@ const HISTORY_FIELDS = [
   { id: 'note', label: 'Примечание' },
 ];
 
+// Кастомные поля (созданные админом через «Поля формы» и включённые)
+const customFields = computed(() =>
+  settings.fields
+    .filter(f => f.enabled && !SYSTEM_FIELD_IDS_IN_CONFIG.has(f.id))
+    .map(f => ({ id: f.id, label: f.label }))
+);  
+
 const currentTabConfig = computed(() => {
   const map: Record<ExportKey, { title: string; hint: string; enabledKey: string; fieldsKey: string; fields: { id: string; label: string }[] }> = {
     export:    { title: 'Реестр оборудования',        hint: 'Документ при нажатии «Печать в Excel/PDF»', enabledKey: 'exportEnabled',    fieldsKey: 'fields',          fields: EXPORT_FIELDS },
@@ -167,7 +169,8 @@ const currentTabConfig = computed(() => {
     actReturn: { title: 'Акт возврата с поверки',     hint: 'Печатный документ при возврате',            enabledKey: 'actReturnEnabled', fieldsKey: 'actReturnFields', fields: ACT_RETURN_FIELDS },
     history:   { title: 'История поверок',            hint: 'Документ при нажатии «Печать истории»',     enabledKey: 'historyEnabled',   fieldsKey: 'historyFields',   fields: HISTORY_FIELDS },
   };
-  return map[activeTab.value];
+  const base = map[activeTab.value];
+  return { ...base, fields: [...base.fields, ...customFields.value] };
 });
 
 onMounted(async () => {
