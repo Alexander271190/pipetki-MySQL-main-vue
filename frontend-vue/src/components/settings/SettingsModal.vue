@@ -111,6 +111,7 @@ const visibleGroups = computed<Group[]>(() => {
   items: g.items.filter(it => {
   if (it.id === 'users') return perm.canManageUsers.value || auth.isAdmin;
   if (it.id === 'roles') return perm.canManageRoles.value;   
+  if (it.id === 'printers') return perm.canManagePrinters.value;  
   return true;
 }),
   })).filter(g => g.items.length > 0);
