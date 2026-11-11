@@ -58,11 +58,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading">
-              <td colspan="5" style="text-align:center;padding:20px;color:#94a3b8;">
-                <i class="fa-solid fa-spinner fa-spin"></i> Загрузка…
-              </td>
+          <template v-if="loading">
+            <tr v-for="i in 5" :key="`sk-a-${i}`" class="skeleton-row">
+              <td><div class="skeleton-line" style="width:80%;"></div></td>
+              <td><div class="skeleton-line" style="width:60%;"></div></td>
+              <td><div class="skeleton-line" style="width:70%;"></div></td>
+              <td><div class="skeleton-line" style="width:50%;"></div></td>
+              <td><div class="skeleton-line" style="width:90%;"></div></td>
             </tr>
+          </template>
             <tr v-else-if="filtered.length === 0">
               <td colspan="5" style="text-align:center;padding:30px 20px;">
                 <div style="font-size:32px;margin-bottom:8px;">
@@ -136,9 +140,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loadingErrors">
-              <td colspan="5" style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i></td>
-            </tr>
+        <template v-if="loadingErrors">
+          <tr v-for="i in 5" :key="`sk-e-${i}`" class="skeleton-row">
+            <td><div class="skeleton-line" style="width:80%;"></div></td>
+            <td><div class="skeleton-line" style="width:50%;"></div></td>
+            <td><div class="skeleton-line" style="width:70%;"></div></td>
+            <td><div class="skeleton-line" style="width:60%;"></div></td>
+            <td><div class="skeleton-line" style="width:90%;"></div></td>
+        </tr>
+      </template>
             <tr v-else-if="errorsFiltered.length === 0">
               <td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;">
                 ✅ Ошибок нет
