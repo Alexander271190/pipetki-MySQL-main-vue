@@ -128,16 +128,20 @@ async function onSave() {
   try {
     await api.saveFilters(filters.value);
     await settings.loadAll();
-    toast.success('Фильтры сохранены');
+
     const { usePipettesStore } = await import('@/stores/pipettes');
-    usePipettesStore().syncFilterState(settings.filters);
+    const pip = usePipettesStore();
+    pip.syncFilterState(settings.filters);
+    await pip.loadPaged();
+
+    toast.success('Фильтры сохранены');
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   } finally {
     saving.value = false;
   }
 }
-
+  
 function openActions(e: MouseEvent, idx: number) {
   e.stopPropagation();
   ui.openRowActions(e.currentTarget as HTMLElement, [
