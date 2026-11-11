@@ -321,7 +321,7 @@ const editingAdminUser = computed(() => {
 const canEditRole = computed(() => {
   if (!isEdit.value) return true;
   if (!editingAdminUser.value) return true;
-  return auth.user?.login === 'admin';   
+  return auth.isAdmin;   
 });
   
 const availableRoles = computed(() =>
