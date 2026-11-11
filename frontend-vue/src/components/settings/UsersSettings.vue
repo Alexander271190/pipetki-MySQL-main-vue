@@ -133,6 +133,8 @@ function openActions(e: MouseEvent, u: FullUser) {
   const items = [];
   const isBuiltinAdmin = u.login === 'admin';
   const isMe = u.id === auth.user?.id;
+  // Может ли текущий пользователь трогать админов
+  const canTouchAdmin = auth.isAdmin;
 
   if (!(isBuiltinAdmin && !isMe)) {
     items.push({ label: '<i class="fa-solid fa-pen"></i> Редактировать', action: () => editUser(u.id) });
@@ -144,6 +146,8 @@ function openActions(e: MouseEvent, u: FullUser) {
 
   if (!isMe) {
     items.push({ divider: true });
+
+    // «Войти как» — не для builtin admin (если ты не он)
     if (!(isBuiltinAdmin && !isMe)) {
       items.push({
         label: '<i class="fa-solid fa-right-to-bracket"></i> Войти как этот пользователь',
@@ -151,12 +155,18 @@ function openActions(e: MouseEvent, u: FullUser) {
         action: () => impersonate(u.id),
       });
     }
-    items.push({
-      label: '<i class="fa-solid fa-key"></i> Сбросить пароль',
-      class: 'item-warning',
-      action: () => resetPwd(u),
-    });
-    if (!isBuiltinAdmin) {
+
+    // «Сбросить пароль» — скрыть для админов, если ты не admin
+    if (!u.isAdmin || canTouchAdmin) {
+      items.push({
+        label: '<i class="fa-solid fa-key"></i> Сбросить пароль',
+        class: 'item-warning',
+        action: () => resetPwd(u),
+      });
+    }
+
+    // «Удалить» — не builtin admin + не админ (если ты не admin)
+    if (!isBuiltinAdmin && (!u.isAdmin || canTouchAdmin)) {
       items.push({ divider: true });
       items.push({
         label: '<i class="fa-solid fa-trash"></i> Удалить',
@@ -167,7 +177,7 @@ function openActions(e: MouseEvent, u: FullUser) {
   }
   ui.openRowActions(e.currentTarget as HTMLElement, items);
 }
-
+  
 async function impersonate(id: string) {
   try {
     const { impersonate: api_imp } = await import('@/api/auth');
@@ -193,6 +203,10 @@ async function impersonate(id: string) {
 }
   
 async function resetPwd(u: FullUser) {
+  if (u.isAdmin && !auth.isAdmin) {
+    toast.error('Только администратор может сбросить пароль администратора');
+    return;
+  }
   const ok = await showConfirm(`Сбросить пароль пользователя «${u.login}»?`, {
     icon: '<i class="fa-solid fa-key"></i>', title: 'Сброс пароля', okText: 'Сбросить', okClass: 'btn-warning',
   });
@@ -206,6 +220,10 @@ async function resetPwd(u: FullUser) {
 }
 
 async function deleteUser(u: FullUser) {
+  if (u.isAdmin && !auth.isAdmin) {
+    toast.error('Только администратор может удалить администратора');
+    return;
+  }
   const ok = await showConfirm(`Удалить пользователя «${u.fullName}»? Действие необратимо.`, {
     icon: '<i class="fa-solid fa-user"></i>', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger',
   });
@@ -214,7 +232,7 @@ async function deleteUser(u: FullUser) {
     await api.deleteUser(u.id);
     toast.success('Удалён');
     api.invalidateUsersCache();
-    settings.invalidateResponsibles();   
+    settings.invalidateResponsibles();
     load();
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
