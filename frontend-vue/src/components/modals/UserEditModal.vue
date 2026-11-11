@@ -581,8 +581,9 @@ async function onSubmit() {
         fullName: form.value.fullName,
         password: res.tempPassword,
       });
+      closeAndBack();
       saving.value = false;
-      return;                       // ← ранний выход: не доходим до closeAndBack
+      return;                       
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка сохранения';
