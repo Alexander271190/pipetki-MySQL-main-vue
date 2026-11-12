@@ -156,6 +156,7 @@ import * as tplApi from '@/api/templates';
 import type { FieldConfig } from '@/api/settings';
 import type { Pipette } from '@/types';
 import type { DraftData } from '@/api/pipettes';
+import { useIdleLock } from '@/composables/useIdleLock';
 
 
 const ui = useUiStore();
@@ -174,67 +175,20 @@ const saving = ref(false);
 const error = ref('');
 const editId = ref<string | null>(null);
 const draft = ref<DraftData | null>(null);
-
 const templates = ref<tplApi.EquipmentTemplate[]>([]);
 const selectedTemplateId = ref(0);
 
 let _heartbeat: number | null = null;
 let _skipUnlock = false;
 
-// ⏱ Idle timeout: снятие блокировки через 30 минут бездействия
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-let _idleStart = 0;
-let _idleCheckTimer: number | null = null;
-let _activityListenersAttached = false;
-
-function _onUserActivity() {
-  _idleStart = Date.now();
-}
-
-function _startIdleTracking() {
-  _idleStart = Date.now();
-  if (_idleCheckTimer) return;
-
-  _idleCheckTimer = window.setInterval(() => {
-    if (!_idleStart) return;
-    const elapsed = Date.now() - _idleStart;
-    if (elapsed >= IDLE_TIMEOUT_MS) {
-      _handleIdleTimeout();
-    }
-  }, 60 * 1000);
-
-  if (!_activityListenersAttached) {
-    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
-    events.forEach(ev =>
-      document.addEventListener(ev, _onUserActivity, { passive: true })
-    );
-    _activityListenersAttached = true;
-  }
-}
-
-function _stopIdleTracking() {
-  if (_idleCheckTimer) {
-    clearInterval(_idleCheckTimer);
-    _idleCheckTimer = null;
-  }
-  if (_activityListenersAttached) {
-    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
-    events.forEach(ev =>
-      document.removeEventListener(ev, _onUserActivity)
-    );
-    _activityListenersAttached = false;
-  }
-  _idleStart = 0;
-}
-
 async function _handleIdleTimeout() {
-  if (!editId.value || !_idleStart) return;
+  if (!editId.value) return;
 
   if (_heartbeat) {
     clearInterval(_heartbeat);
     _heartbeat = null;
   }
-  _stopIdleTracking();
+  // idle.stop() уже вызван внутри useIdleLock перед onTimeout — вручную не надо
 
   const id = editId.value;
 
@@ -261,6 +215,8 @@ async function _handleIdleTimeout() {
 
   toast.warn(msg);
 }
+
+const idle = useIdleLock(_handleIdleTimeout);
 
 const isEdit = computed(() => !!editId.value);
 import { usePrefsStore } from '@/stores/prefs';
@@ -411,7 +367,7 @@ async function resetBarcodeValue() {
 }
 
 async function openForm() {
-  _stopIdleTracking();
+  idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
 
   if (auth.isAdmin) {
@@ -439,7 +395,7 @@ async function openForm() {
           if (!proceed) { ui.close(); return; }
         }
         await api.setLock(editId.value);
-        _startIdleTracking();
+        idle.start();
 
         _heartbeat = window.setInterval(async () => {
           if (!editId.value) return;
@@ -447,7 +403,7 @@ async function openForm() {
             const r = await api.getLock(editId.value);
             if (!r.locked || !r.mine) {
               if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
-              _stopIdleTracking();
+              idle.stop();
               _skipUnlock = true;
 
               const id = editId.value;
@@ -607,7 +563,7 @@ watch(() => ui.activeModal, (v) => {
 });
 
 onUnmounted(async () => {
-  _stopIdleTracking();
+  idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
@@ -825,7 +781,7 @@ function onBulkCreated(_count: number) {
 }
 
 async function close() {
-  _stopIdleTracking();
+  idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (editId.value && !_skipUnlock) {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
