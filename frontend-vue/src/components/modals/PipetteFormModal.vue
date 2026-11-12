@@ -34,10 +34,13 @@
        <BulkCreateTab :key="bulkTabKey" @cancel="close" @created="onBulkCreated" />
      </div>
 
-    <!-- Вкладка «Одна единица» / Редактирование -->
-    <div v-show="isEdit || tab === 'single'">
-      <div v-if="loadingData" style="text-align:center;padding:30px;color:#94a3b8;">
-        <i class="fa-solid fa-spinner fa-spin"></i> Загрузка…
+   <!-- Вкладка «Одна единица» / Редактирование -->
+    <div v-show="isEdit || tab === 'single'" style="position: relative; height: 100%; display: flex; flex-direction: column;">
+      
+      <!-- Красивый оверлей загрузки -->
+      <div v-if="loadingData" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--card); z-index: 10; gap: 12px; color: #94a3b8; min-height: 60vh;">
+        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+        <span style="font-size: 1.1rem; font-weight: 500;">Загрузка данных...</span>
       </div>
 
       <!-- Черновик -->
