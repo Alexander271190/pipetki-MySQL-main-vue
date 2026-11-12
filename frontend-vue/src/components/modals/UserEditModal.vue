@@ -1,5 +1,5 @@
 <template>
-  <AppModal :visible="ui.activeModal === 'userEdit'" @close="closeAndBack" modal-class="modal-lg">
+  <AppModal :visible="ui.activeModal === 'userEdit'" @close="closeAndBack" modal-class="modal-lg modal-tall">
     <h2 style="display:flex;align-items:center;gap:10px;">
       <button
         type="button"
@@ -14,11 +14,12 @@
       <span>{{ isEdit ? 'Редактирование: ' + form.login : 'Новый пользователь' }}</span>
     </h2>
 
-    <div v-if="loading" style="text-align:center;padding:30px;">
-      <i class="fa-solid fa-spinner fa-spin"></i>
+    <div v-if="loading" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--card); z-index: 10; gap: 12px; color: #94a3b8;">
+      <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+      <span style="font-size: 1.1rem; font-weight: 500;">Загрузка данных...</span>
     </div>
 
-    <form v-else @submit.prevent="onSubmit">
+    <form v-show="!loading" @submit.prevent="onSubmit">
       <div class="form-row">
         <div class="form-group"><label>Логин *</label><input v-model="form.login" :readonly="isEdit" :style="isEdit ? { background: '#f1f5f9' } : {}" /></div>
         <div class="form-group"><label>ФИО *</label><input v-model="form.fullName" /></div>
