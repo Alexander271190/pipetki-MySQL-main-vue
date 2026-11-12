@@ -35,7 +35,7 @@
      </div>
 
     <!-- Вкладка «Одна единица» / Редактирование -->
-    <div v-else>
+    <div v-show="isEdit || tab === 'single'">
       <div v-if="loadingData" style="text-align:center;padding:30px;color:#94a3b8;">
         <i class="fa-solid fa-spinner fa-spin"></i> Загрузка…
       </div>
