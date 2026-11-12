@@ -1,8 +1,9 @@
 <template>
   <AppModal :visible="ui.activeModal === 'quickCal'" @close="close">
     <h2><i class="fa-solid fa-clipboard-list"></i> Быстрая поверка</h2>
-    <div v-if="pipette" v-html="identityHtml" style="margin-bottom:15px;padding:10px;background:#f8fafc;border-radius:8px;"></div>
-
+    <div v-if="pipette" style="margin-bottom:15px;padding:10px;background:#f8fafc;border-radius:8px;">
+      <DeviceIdentity :pipette="pipette" />
+    </div>
     <form @submit.prevent="onSubmit">
       <div class="form-row">
         <div class="form-group">
@@ -47,6 +48,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
+import DeviceIdentity from '@/components/ui/DeviceIdentity.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useStatsStore } from '@/stores/stats';
@@ -55,7 +57,6 @@ import { useAuthStore, usePermissions } from '@/stores/auth';
 import { showConfirm } from '@/composables/useConfirm';
 import { showLockWarning } from '@/composables/useLockWarning';
 import { todayStr } from '@/utils/format';
-import { getDeviceIdentityHtml } from '@/utils/deviceIdentity';
 import * as api from '@/api/pipettes';
 import type { Pipette } from '@/types';
 import { useIdleLock } from '@/composables/useIdleLock';
@@ -112,8 +113,6 @@ async function _handleIdleTimeout() {
 }
 
 const idle = useIdleLock(_handleIdleTimeout);
-
-const identityHtml = computed(() => pipette.value ? getDeviceIdentityHtml(pipette.value) : '');
 
 watch(() => ui.activeModal, (v) => {
   if (v === 'quickCal') open();
