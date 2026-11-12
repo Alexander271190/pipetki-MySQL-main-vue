@@ -9,7 +9,7 @@
     </div>
 
     <!-- Контент (скрыт, пока идет загрузка) -->
-    <div v-show="!loading && pipette" style="position: relative; height: 100%; display: flex; flex-direction: column;">
+    <div v-if="!loading && pipette" style="position: relative; height: 100%; display: flex; flex-direction: column;">
       <div class="info-grid">
         <div><label>Модель</label><span>{{ pipette.model }}{{ pipette.manufacturer ? ' (' + pipette.manufacturer + ')' : '' }}</span></div>
         <div><label>Серийный номер</label><span>{{ pipette.serial || '—' }}</span></div>
