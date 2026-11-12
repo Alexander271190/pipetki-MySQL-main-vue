@@ -1,5 +1,5 @@
 <template>
-  <AppModal :visible="ui.activeModal === 'settings'" @close="close" modal-class="modal-lg">
+  <AppModal :visible="ui.activeModal === 'settings'" @close="close" modal-class="modal-lg modal-tall">
     <h2 id="settings-header">
       <button
         v-if="currentSection"
