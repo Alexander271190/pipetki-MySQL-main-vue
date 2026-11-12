@@ -537,3 +537,10 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
   .bc-settings-grid { grid-template-columns: 1fr; }
   .bc-fields-grid { grid-template-columns: 1fr; }
 }
+
+.modal-compact,
+.confirm-modal,
+.prompt-modal {
+  min-height: auto !important;
+  min-width: 0 !important;
+}
