@@ -75,6 +75,10 @@ export function getById(id: string): Promise<Pipette> {
   return apiRequest<Pipette>(`/pipettes/${encodeURIComponent(id)}`);
 }
 
+export function getByIds(ids: string[]): Promise<{ items: Pipette[] }> {
+  return apiRequest<{ items: Pipette[] }>('/pipettes/batch', 'POST', { ids });
+}
+
 // CRUD
 export function createPipette(payload: Record<string, unknown>): Promise<Pipette> {
   return apiRequest<Pipette>('/pipettes', 'POST', payload);
