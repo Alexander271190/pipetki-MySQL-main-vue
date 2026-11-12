@@ -533,6 +533,11 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
     min-width: 500px !important; 
     display: table !important;
   }
+
+  .modal-xl {
+    height: auto !important;
+    max-height: 90vh !important;
+  }
 }
 
 @media (max-width: 480px) {
