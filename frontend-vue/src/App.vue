@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { setUnauthorizedHandler, setPasswordRequiredHandler } from '@/api/client';
 import { useRouter } from 'vue-router';
@@ -41,27 +41,30 @@ import ToastHost from '@/components/ui/ToastHost.vue';
 import ConfirmHost from '@/components/ui/ConfirmHost.vue';
 import PromptHost from '@/components/ui/PromptHost.vue';
 import RowActionsMenu from '@/components/ui/RowActionsMenu.vue';
-import PipetteFormModal from '@/components/modals/PipetteFormModal.vue';
-import HistoryModal from '@/components/modals/HistoryModal.vue';
-import QuickCalModal from '@/components/modals/QuickCalModal.vue';
-import TransferModal from '@/components/modals/TransferModal.vue';
-import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
-import BulkSendModal from '@/components/modals/BulkSendModal.vue';
-import BulkReturnModal from '@/components/modals/BulkReturnModal.vue';
-import BulkResponsibleModal from '@/components/modals/BulkResponsibleModal.vue';
-import BarcodeScannerModal from '@/components/modals/BarcodeScannerModal.vue';
-import BarcodePrintModal from '@/components/modals/BarcodePrintModal.vue';
-import ImportModal from '@/components/modals/ImportModal.vue';
-import SettingsModal from '@/components/settings/SettingsModal.vue';
-import UserEditModal from '@/components/modals/UserEditModal.vue';
-import TempPasswordModal from '@/components/modals/TempPasswordModal.vue';
-import HistoryExportModal from '@/components/modals/HistoryExportModal.vue';
-import AuditModal from '@/components/modals/AuditModal.vue';
-import EquipmentAuditModal from '@/components/modals/EquipmentAuditModal.vue';
-import HotkeysModal from '@/components/modals/HotkeysModal.vue';
-import RemindersModal from '@/components/modals/RemindersModal.vue';
-import UserViewModal from '@/components/modals/UserViewModal.vue';
 
+// Синхронно — критичные модалки (могут открыться сразу после логина / создания юзера)
+import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
+import TempPasswordModal from '@/components/modals/TempPasswordModal.vue';
+import RemindersModal from '@/components/modals/RemindersModal.vue';
+
+// Асинхронно — большие/редкие модалки (грузятся при первом открытии)
+const PipetteFormModal = defineAsyncComponent(() => import('@/components/modals/PipetteFormModal.vue'));
+const HistoryModal = defineAsyncComponent(() => import('@/components/modals/HistoryModal.vue'));
+const QuickCalModal = defineAsyncComponent(() => import('@/components/modals/QuickCalModal.vue'));
+const TransferModal = defineAsyncComponent(() => import('@/components/modals/TransferModal.vue'));
+const BulkSendModal = defineAsyncComponent(() => import('@/components/modals/BulkSendModal.vue'));
+const BulkReturnModal = defineAsyncComponent(() => import('@/components/modals/BulkReturnModal.vue'));
+const BulkResponsibleModal = defineAsyncComponent(() => import('@/components/modals/BulkResponsibleModal.vue'));
+const BarcodeScannerModal = defineAsyncComponent(() => import('@/components/modals/BarcodeScannerModal.vue'));
+const BarcodePrintModal = defineAsyncComponent(() => import('@/components/modals/BarcodePrintModal.vue'));
+const ImportModal = defineAsyncComponent(() => import('@/components/modals/ImportModal.vue'));
+const SettingsModal = defineAsyncComponent(() => import('@/components/settings/SettingsModal.vue'));
+const UserEditModal = defineAsyncComponent(() => import('@/components/modals/UserEditModal.vue'));
+const HistoryExportModal = defineAsyncComponent(() => import('@/components/modals/HistoryExportModal.vue'));
+const AuditModal = defineAsyncComponent(() => import('@/components/modals/AuditModal.vue'));
+const EquipmentAuditModal = defineAsyncComponent(() => import('@/components/modals/EquipmentAuditModal.vue'));
+const HotkeysModal = defineAsyncComponent(() => import('@/components/modals/HotkeysModal.vue'));
+const UserViewModal = defineAsyncComponent(() => import('@/components/modals/UserViewModal.vue'));
 const auth = useAuthStore();
 const router = useRouter();
 const ui = useUiStore();
