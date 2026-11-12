@@ -326,12 +326,14 @@ async function onSelectChange(fid: string, e: Event) {
     const typeVal = (e.target as HTMLSelectElement).value;
     const t = settings.equipmentTypes.find(x => x.value === typeVal);
     if ('interval' in form.value) form.value.interval = String(t?.interval && t.interval > 0 ? t.interval : 12);
-    if (!isEdit.value) {
-      try {
-        const res = await api.getNextId(typeVal);
-        form.value.id = res.nextId;
-      } catch { /* ignore */ }
-    }
+   if (!isEdit.value) {
+  try {
+    const res = await api.getNextId(typeVal);
+    form.value.id = res.nextId;
+  } catch (e) {
+    console.warn('[PipetteFormModal] getNextId (onSelectChange) failed:', e);
+  }
+}
   }
 }
 
@@ -534,7 +536,9 @@ async function openForm() {
       try {
         const res = await api.getNextId('pipette');
         nextId = res.nextId;
-      } catch { /* ignore */ }
+        } catch (e) {
+        console.warn('[PipetteFormModal] getNextId (initial) failed:', e);
+        }
 
       const defaults: Record<string, string> = {
         id: nextId,
@@ -612,11 +616,13 @@ async function applyTemplate(templateId: number) {
     }
 
     if (!isEdit.value) {
-      try {
-        const res = await api.getNextId(typeVal);
-        form.value.id = res.nextId;
-      } catch { /* ignore */ }
+     try {
+     const res = await api.getNextId(typeVal);
+     form.value.id = res.nextId;
+   } catch (e) {
+     console.warn('[PipetteFormModal] getNextId (applyTemplate) failed:', e);
     }
+   }
   }
 
   toast.success(`Применено полей: ${applied}`);
