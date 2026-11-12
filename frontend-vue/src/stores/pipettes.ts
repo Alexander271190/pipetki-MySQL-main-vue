@@ -138,14 +138,38 @@ export const usePipettesStore = defineStore('pipettes', () => {
   filterState.value = cleaned;
 }
 
- //  Всегда с сервера — модалки должны видеть актуальные данные
 async function fetchByIds(ids: string[]): Promise<Pipette[]> {
   if (!ids || ids.length === 0) return [];
 
+  // ── Приоритет 1: batch API (1 запрос вместо N) ──
+  try {
+    const api = await import('@/api/pipettes');
+    const res = await api.getByIds(ids);
+    const freshItems = Array.isArray(res.items) ? res.items : [];
+
+    freshItems.forEach(p => {
+      const idx = items.value.findIndex(x => x.id === p.id);
+      if (idx !== -1) items.value[idx] = p;
+    });
+
+    return freshItems;
+  } catch (e) {
+    // 400 — осознанная ошибка сервера (например, >500 ids) — не fallback
+    if (e instanceof Error && 'status' in e && (e as { status: number }).status === 400) {
+      throw e;
+    }
+    // 404 (роут не задеплоен) или 5xx — тихо откатываемся на старый способ
+    console.warn('[pipettes] batch API недоступен, fallback на getById:', e);
+  }
+
+  // ── Приоритет 2: fallback — N запросов ──
+  return _fetchByIdsLegacy(ids);
+}
+
+async function _fetchByIdsLegacy(ids: string[]): Promise<Pipette[]> {
   const api = await import('@/api/pipettes');
   const byId = new Map<string, Pipette>();
 
-  // Загружаем ВСЕХ с сервера (не смотрим в кеш pip.items)
   const CONCURRENCY = 5;
   for (let i = 0; i < ids.length; i += CONCURRENCY) {
     const batch = ids.slice(i, i + CONCURRENCY);
@@ -157,7 +181,6 @@ async function fetchByIds(ids: string[]): Promise<Pipette[]> {
 
   const result = ids.map(id => byId.get(id)).filter((p): p is Pipette => !!p);
 
-  //  Обновляем кеш pip.items — чтобы таблица показывала свежие данные
   result.forEach(p => {
     const idx = items.value.findIndex(x => x.id === p.id);
     if (idx !== -1) items.value[idx] = p;
