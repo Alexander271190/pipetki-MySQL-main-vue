@@ -2,14 +2,12 @@
   <AppModal :visible="ui.activeModal === 'history'" @close="close" modal-class="modal-lg">
     <h2><i class="fa-solid fa-clock-rotate-left"></i> История поверок — {{ pipette?.id }}</h2>
 
-        <!-- Красивый оверлей загрузки -->
-    <div v-if="loading" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--card); z-index: 10; gap: 12px; color: #94a3b8; min-height: 60vh;">
-      <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
-      <span style="font-size: 1.1rem; font-weight: 500;">Загрузка истории...</span>
+    <div v-if="loading" style="text-align:center;padding:30px;">
+      <i class="fa-solid fa-spinner fa-spin"></i>
     </div>
 
     <!-- Контент (скрыт, пока идет загрузка) -->
-    <div v-if="!loading && pipette" style="position: relative; height: 100%; display: flex; flex-direction: column;">
+    <div v-else-if="pipette">
       <div class="info-grid">
         <div><label>Модель</label><span>{{ pipette.model }}{{ pipette.manufacturer ? ' (' + pipette.manufacturer + ')' : '' }}</span></div>
         <div><label>Серийный номер</label><span>{{ pipette.serial || '—' }}</span></div>
