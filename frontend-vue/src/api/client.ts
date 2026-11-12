@@ -66,8 +66,10 @@ export async function apiRequest<T = unknown>(
     _lastPermsCheck = now;
     void import('@/stores/auth')
       .then(({ useAuthStore }) => useAuthStore().refreshUser())
-      .catch(() => {});
-  }
+      .catch((e) => {
+        console.warn('[client] background refreshUser failed:', e);
+      });
+    }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
