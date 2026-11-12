@@ -31,8 +31,8 @@
 
     <!-- Вкладка «Партия» -->
     <div v-if="!isEdit" v-show="tab === 'batch'">
-      <BulkCreateTab @cancel="close" @created="onBulkCreated" />
-    </div>
+       <BulkCreateTab :key="bulkTabKey" @cancel="close" @created="onBulkCreated" />
+     </div>
 
     <!-- Вкладка «Одна единица» / Редактирование -->
     <div v-else>
@@ -169,6 +169,7 @@ const stats = useStatsStore();
 const toast = useToastStore();
 const responsibles = ref<string[]>([]);
 const tab = ref<'single' | 'batch'>('single');
+const bulkTabKey = ref(0);  
 const form = ref<Record<string, string>>({});
 const loadingData = ref(false);
 const saving = ref(false);
@@ -777,6 +778,7 @@ async function onSubmit(silent = false) {
   
 function onBulkCreated(_count: number) {
   _skipUnlock = true;
+  idle.stop();
   ui.close();
 }
 
@@ -787,7 +789,8 @@ async function close() {
     try { await api.releaseLock(editId.value); } catch { /* ignore */ }
     _skipUnlock = true;
   }
-  tab.value = 'single';   
+  tab.value = 'single';
+  bulkTabKey.value++;
   ui.close();
 }
 </script>
