@@ -1,11 +1,12 @@
 <template>
-  <AppModal :visible="ui.activeModal === 'help'" @close="close" modal-class="modal-compact" >
-    <div style="max-width:500px;height:80vh;display:flex;flex-direction:column;">
+  <AppModal :visible="ui.activeModal === 'help'" @close="close" modal-class="modal-compact modal-tall">
+    <div style="max-width:500px;height:100%;display:flex;flex-direction:column;">
       <h2><i class="fa-solid fa-book-open"></i> Инструкция по работе с системой</h2>
 
       <div style="flex:1;overflow-y:auto;padding-right:5px;">
-        <div v-if="loading" style="text-align:center;padding:30px;color:#94a3b8;">
-          <i class="fa-solid fa-spinner fa-spin"></i>
+       <div v-if="loading" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--card); z-index: 10; gap: 12px; color: #94a3b8;">
+          <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+          <span style="font-size: 1.1rem; font-weight: 500;">Загрузка...</span>
         </div>
 
         <div v-else-if="sections.length === 0" style="text-align:center;padding:30px;color:#94a3b8;">
