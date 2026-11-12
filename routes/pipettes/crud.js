@@ -531,6 +531,86 @@ router.get('/next-id', authenticate, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════
+// POST /batch — батч-получение по списку ID (Task 4)
+// ВАЖНО: до router.get('/:id') — иначе в будущем Express может
+// поймать 'batch' как :id при добавлении POST /:id
+// ═══════════════════════════════════════════════════════════
+router.post('/batch', authenticate, async (req, res) => {
+  try {
+    const { ids } = req.body || {};
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids должен быть непустым массивом', code: 'data_error' });
+    }
+    if (ids.length > 500) {
+      return res.status(400).json({ error: 'Слишком много ids (максимум 500)', code: 'data_error' });
+    }
+
+    const warnDays = await getWarnDays();
+    const scope = buildDepartmentScope(req.user);
+
+    if (scope.empty) {
+      return res.json({ items: [] });
+    }
+
+    const placeholders = ids.map(() => '?').join(',');
+    const whereSql = scope.baseWhere.length
+      ? ` AND (${scope.baseWhere.join(' AND ')})`
+      : '';
+
+    const [rows] = await db.query(
+      `SELECT ${PIPETTE_COLUMNS}, (${sqlComputedStatus(warnDays)}) AS computed_status
+       FROM pipettes
+       WHERE id IN (${placeholders})${whereSql}`,
+      [...ids, ...scope.baseParams]
+    );
+
+    if (rows.length > 0) {
+      const foundIds = rows.map(r => r.id);
+      const ph = foundIds.map(() => '?').join(',');
+
+      const [counts] = await db.query(
+        `SELECT pipette_id, COUNT(*) AS cnt FROM calibration_history
+         WHERE pipette_id IN (${ph}) GROUP BY pipette_id`,
+        foundIds
+      );
+      const countById = {};
+      for (const c of counts) countById[c.pipette_id] = c.cnt;
+
+      for (const r of rows) {
+        r.active = !!r.active;
+        r.history_count = countById[r.id] || 0;
+      }
+
+      const replIds = rows.flatMap(r => [r.replaced_by, r.replacing]).filter(Boolean);
+      if (replIds.length > 0) {
+        const uniq = [...new Set(replIds)];
+        const ph2 = uniq.map(() => '?').join(',');
+        const [replRows] = await db.query(
+          `SELECT id, model, manufacturer, location, active, department
+           FROM pipettes WHERE id IN (${ph2})`,
+          uniq
+        );
+        const replById = {};
+        for (const r of replRows) replById[r.id] = r;
+        for (const r of rows) {
+          if (r.replaced_by && replById[r.replaced_by]) r.replacement = replById[r.replaced_by];
+          if (r.replacing && replById[r.replacing]) r.replacedFor = replById[r.replacing];
+        }
+      }
+
+      mergeCustomList(rows);
+    }
+
+    res.json({ items: rows });
+  } catch (e) {
+    console.error('POST /pipettes/batch:', e);
+    res.status(500).json({ error: 'Ошибка загрузки пакета' });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════
 // GET /:id — одна пипетка (read-only)
 // ═══════════════════════════════════════════════════════════
 router.get('/:id', authenticate, async (req, res) => {
