@@ -391,7 +391,7 @@ async function initSchema() {
       await conn.query('CREATE INDEX idx_audit_category ON audit_log(category)');
     } catch (e) {}
 
-    await ensureColumns(conn, 'pipettes', [
+     await ensureColumns(conn, 'pipettes', [
       { name: 'custom_data',          ddl: 'JSON DEFAULT NULL' },
       { name: 'replaced_by',          ddl: 'VARCHAR(255) DEFAULT NULL' },
       { name: 'replacing',            ddl: 'VARCHAR(255) DEFAULT NULL' },
@@ -399,8 +399,15 @@ async function initSchema() {
       { name: 'sent_note',            ddl: 'TEXT' },
       { name: 'barcode',              ddl: 'VARCHAR(255) DEFAULT NULL' },
       { name: 'barcode_source',       ddl: 'VARCHAR(50) DEFAULT NULL' },
+      // Генерируемая колонка для быстрого поиска.
+      // CONCAT_WS сам пропускает NULL — IFNULL не нужен.
+      // CAST(custom_data AS CHAR) обязателен: JSON → строка.
+      {
+        name: 'search_text',
+        ddl: "TEXT GENERATED ALWAYS AS (CONCAT_WS(' ', id, model, serial, manufacturer, department, responsible, CAST(custom_data AS CHAR))) STORED"
+      },
     ]);
-
+    
     // Догон индексов
     await ensureIndexes(conn, 'pipettes', [
       { name: 'idx_pipettes_department',     ddl: 'CREATE INDEX idx_pipettes_department ON pipettes(department)' },
@@ -409,6 +416,7 @@ async function initSchema() {
       { name: 'idx_pipettes_last_calibration', ddl: 'CREATE INDEX idx_pipettes_last_calibration ON pipettes(last_calibration)' },
       { name: 'idx_pipettes_active',          ddl: 'CREATE INDEX idx_pipettes_active ON pipettes(active)' },
       { name: 'idx_pipettes_sent_for_calibration', ddl: 'CREATE INDEX idx_pipettes_sent_for_calibration ON pipettes(sent_for_calibration)' },
+      { name: 'ft_pipettes_search_text', ddl: 'CREATE FULLTEXT INDEX ft_pipettes_search_text ON pipettes(search_text)' },
     ]);
 
     await ensureIndexes(conn, 'audit_log', [
