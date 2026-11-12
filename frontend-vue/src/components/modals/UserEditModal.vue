@@ -555,14 +555,16 @@ async function onSubmit() {
       await usersApi.updateUser(editId.value, payload);
       toast.success('Пользователь обновлён');
       usersApi.invalidateUsersCache();
-      settings.invalidateResponsibles(); 
-      
-      if (savedId) await savePageSize(savedId);
+      settings.invalidateResponsibles();
 
       if (savedId === auth.user?.id) {
-         await auth.refreshUser();
+        await auth.refreshUser();
       }
+
       closeAndBack();
+
+      // Фоново — не блокирует закрытие модалки
+      if (savedId) void savePageSize(savedId);
       window.dispatchEvent(new CustomEvent('users:reload'));
     } else {
       // ═══ CREATE ═══
@@ -572,18 +574,18 @@ async function onSubmit() {
       toast.success('Пользователь создан');
       settings.invalidateResponsibles();
 
-      if (savedId) await savePageSize(savedId);
-
-      window.dispatchEvent(new CustomEvent('users:reload'));
-
-      // Показываем модалку с паролем и НЕ закрываем — пользователь прочитает/скопирует
+      // СНАЧАЛА показываем модалку с паролем — чтобы не потерять, если что-то упадёт
       ui.open('tempPassword', {
         login: res.login,
         fullName: form.value.fullName,
         password: res.tempPassword,
       });
       saving.value = false;
-      return;                       
+
+      // Потом фоново — savePageSize + reload
+      if (savedId) void savePageSize(savedId);
+      window.dispatchEvent(new CustomEvent('users:reload'));
+      return;
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка сохранения';
