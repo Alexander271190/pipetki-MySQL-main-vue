@@ -1,8 +1,8 @@
 import { onUnmounted } from 'vue';
 
 export interface UseIdleLockOptions {
-  idleMs?: number;          // по умолчанию 30 минут
-  checkIntervalMs?: number; // по умолчанию 60 секунд
+  idleMs?: number;
+  checkIntervalMs?: number;
 }
 
 export function useIdleLock(
@@ -27,9 +27,12 @@ export function useIdleLock(
     _idleStart = Date.now();
 
     _idleCheckTimer = window.setInterval(() => {
-      if (!_idleStart) return;
+      if (!_isRunning || !_idleStart) return;
       if (Date.now() - _idleStart >= IDLE_TIMEOUT_MS) {
-        void onTimeout();
+        stop();   
+        void Promise.resolve(onTimeout()).catch(err => {
+          console.error('[useIdleLock] onTimeout error:', err);
+        });
       }
     }, CHECK_INTERVAL_MS);
 
