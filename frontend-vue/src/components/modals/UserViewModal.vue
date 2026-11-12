@@ -23,7 +23,15 @@
     </div>
 
     <!-- ВКЛАДКА: ПОЛЯ ФОРМЫ -->
-    <div v-if="tab === 'fields'">
+    <div v-if="tab === 'fields'" style="position: relative;">
+
+    <!-- Красивый оверлей загрузки -->
+      <div v-if="loading" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--card); z-index: 10; gap: 12px; color: #94a3b8;">
+        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+        <span style="font-size: 1.1rem; font-weight: 500;">Загрузка настроек...</span>
+      </div>
+
+      <div v-show="!loading">
       <!-- Скопировать вид с другого пользователя -->
       <div class="copy-view-block">
         <label class="copy-view-label">
@@ -40,12 +48,7 @@
         </div>
         <small class="copy-view-hint">Заполнит галочки ниже <strong>текущим видом</strong> выбранного пользователя.</small>
       </div>
-
-      <div v-if="loading" style="text-align:center;padding:30px;">
-        <i class="fa-solid fa-spinner fa-spin"></i>
-      </div>
-
-      <div v-else>
+          
         <div class="prefs-list">
           <label v-for="f in activeFields" :key="f.id" class="prefs-item">
             <input
@@ -111,7 +114,7 @@
         </div>
       </div>
     </div>
-
+    
     <!-- ВКЛАДКА: ДОКУМЕНТЫ -->
     <div v-if="tab === 'documents'">
       <div class="warning-block" v-if="!userHasExportPerm" style="margin:0;">
