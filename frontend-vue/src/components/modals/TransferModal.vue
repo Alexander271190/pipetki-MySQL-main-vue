@@ -46,12 +46,13 @@ import { showLockWarning } from '@/composables/useLockWarning';
 import { apiRequest } from '@/api/client';
 import * as api from '@/api/pipettes';
 import type { Pipette } from '@/types';
+import { useIdleLock } from '@/composables/useIdleLock';
 
 const ui = useUiStore();
 const settings = useSettingsStore();
 const pip = usePipettesStore();
 const toast = useToastStore();
-const auth = useAuthStore();        
+const auth = useAuthStore();
 const perm = usePermissions();
 const pipette = ref<Pipette | null>(null);
 const newDept = ref('');
@@ -64,59 +65,17 @@ let _heartbeat: number | null = null;
 let _skipUnlock = false;
 let _lockedId: string | null = null;
 
-// ⏱ Idle timeout: 30 минут бездействия → releaseLock + закрытие
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-let _idleStart = 0;
-let _idleCheckTimer: number | null = null;
-let _activityListenersAttached = false;
-
-function _onUserActivity() {
-  _idleStart = Date.now();
-}
-
-function _startIdleTracking() {
-  _idleStart = Date.now();
-  if (_idleCheckTimer) return;
-
-  _idleCheckTimer = window.setInterval(() => {
-    if (!_idleStart) return;
-    if (Date.now() - _idleStart >= IDLE_TIMEOUT_MS) {
-      _handleIdleTimeout();
-    }
-  }, 60 * 1000);
-
-  if (!_activityListenersAttached) {
-    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
-    events.forEach(ev =>
-      document.addEventListener(ev, _onUserActivity, { passive: true })
-    );
-    _activityListenersAttached = true;
-  }
-}
-
-function _stopIdleTracking() {
-  if (_idleCheckTimer) { clearInterval(_idleCheckTimer); _idleCheckTimer = null; }
-  if (_activityListenersAttached) {
-    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'input'];
-    events.forEach(ev =>
-      document.removeEventListener(ev, _onUserActivity)
-    );
-    _activityListenersAttached = false;
-  }
-  _idleStart = 0;
-}
-
 async function _handleIdleTimeout() {
-  if (!_lockedId || !_idleStart) return;
+  if (!_lockedId) return;
 
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
-  _stopIdleTracking();
+  // idle.stop() уже вызван внутри useIdleLock перед onTimeout — вручную не надо
 
   const id = _lockedId;
 
   try {
     await api.releaseLock(id);
-    _skipUnlock = true;                  
+    _skipUnlock = true;
   } catch (e) { console.warn('releaseLock при idle:', e); }
 
   _lockedId = null;
@@ -124,6 +83,8 @@ async function _handleIdleTimeout() {
 
   toast.warn('Модалка закрыта из-за 30 минут бездействия. Передача не выполнена.');
 }
+
+const idle = useIdleLock(_handleIdleTimeout);
 
 const availableDepts = computed(() => {
   return settings.departments.filter(d => d !== (pipette.value?.department || ''));
@@ -134,7 +95,7 @@ watch(() => ui.activeModal, (v) => {
 });
 
 async function open() {
-  _stopIdleTracking();
+  idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   _skipUnlock = false;
   _lockedId = null;
@@ -155,7 +116,7 @@ async function open() {
     }
     await api.setLock(id);
     _lockedId = id;
-    _startIdleTracking();
+    idle.start();
   } catch {
     toast.error('Ошибка проверки блокировки');
     ui.close();
@@ -176,7 +137,7 @@ async function open() {
       const r = await api.getLock(pipette.value.id);
       if (!r.locked || !r.mine) {
         if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
-        _stopIdleTracking();
+        idle.stop();
         _skipUnlock = true;
 
         _lockedId = null;
@@ -254,7 +215,7 @@ async function onSubmit() {
 }
 
 async function close() {
-  _stopIdleTracking();
+  idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (_lockedId && !_skipUnlock) {
     try { await api.releaseLock(_lockedId); } catch { /* ignore */ }
@@ -264,7 +225,7 @@ async function close() {
 }
 
 onUnmounted(async () => {
-  _stopIdleTracking();
+  idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   if (_lockedId && !_skipUnlock) {
     try { await api.releaseLock(_lockedId); } catch { /* ignore */ }
