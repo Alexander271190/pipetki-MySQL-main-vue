@@ -9,7 +9,9 @@
     <div style="margin-bottom:15px;">
       <div style="font-weight:600;color:#475569;margin-bottom:8px;font-size:.85rem;">Выбранное оборудование:</div>
       <div style="max-height:150px;overflow-y:auto;padding:8px;background:#f8fafc;border-radius:8px;font-size:.85rem;line-height:1.6;">
-        <div v-for="p in toSendItems" :key="p.id" v-html="identity(p)" style="padding:6px 0;border-bottom:1px dashed var(--border-soft);"></div>
+        <div v-for="p in toSendItems" :key="p.id" style="padding:6px 0;border-bottom:1px dashed var(--border-soft);">
+          <DeviceIdentity :pipette="p" />
+       </div>
       </div>
     </div>
 
@@ -19,7 +21,9 @@
 
     <div v-if="replacementBlocks.length > 0" style="margin-bottom:15px;">
       <div v-for="block in replacementBlocks" :key="block.id" class="card">
-        <div class="card-title" style="margin-bottom:8px;" v-html="identity(block.p)"></div>
+        <div class="card-title" style="margin-bottom:8px;">
+          <DeviceIdentity :pipette="block.p" />
+         </div>
         <div class="text-muted-sm" style="margin-bottom:6px;">Складские того же типа:</div>
         <div class="flex-col">
           <label v-for="opt in block.options" :key="opt.id" style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--card);border-radius:6px;cursor:pointer;font-size:.82rem;">
@@ -81,10 +85,10 @@ import { showConfirm } from '@/composables/useConfirm';
 import { todayStr, formatDate } from '@/utils/format';
 import { buildHeaderHtml } from '@/utils/header';
 import { isExternalCalibration, allowReplacement } from '@/utils/equipment';
-import { getDeviceIdentityHtml } from '@/utils/deviceIdentity';
 import * as bulkApi from '@/api/bulk';
 import type { Pipette } from '@/types';
-
+import DeviceIdentity from '@/components/ui/DeviceIdentity.vue';
+  
 const ui = useUiStore();
 const pip = usePipettesStore();
 const settings = useSettingsStore();
@@ -102,8 +106,6 @@ const error = ref('');
 
 let _lockedIds: string[] = [];
 let _generation = 0;
-
-function identity(p: Pipette) { return getDeviceIdentityHtml(p); }
 
 watch(() => ui.activeModal, (v) => {
   if (v === 'bulkSend') open();
@@ -177,7 +179,7 @@ async function open() {
 
 async function onSubmit() {
   error.value = '';
-await auth.refreshUser();
+  await auth.refreshUser();
   if (!perm.canBulkSend.value) {
     error.value = 'Нет прав на отправку';
     return;
