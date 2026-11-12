@@ -218,30 +218,22 @@ function sqlStatusOrder(warnDays) {
   `;
 }
 
-// Строит WHERE-условия по filters (объект) + search.
-// Возвращает { sql, params }. НЕ включает фильтр по status — он вычисляемый,
-// добавляется отдельно в crud.js.
 function buildFiltersWhere(filters, search) {
   const parts = [];
   const params = [];
-
-  // Поиск по 7 колонкам
+  
   if (search && String(search).trim()) {
     const s = String(search).trim();
     const q = `%${s}%`;
-    parts.push(`(
-      id LIKE ? OR model LIKE ? OR serial LIKE ? OR manufacturer LIKE ?
-      OR department LIKE ? OR responsible LIKE ?
-      OR CAST(custom_data AS CHAR) LIKE ?
-    )`);
-    params.push(q, q, q, q, q, q, q);
+    parts.push(`search_text LIKE ?`);
+    params.push(q);
   }
 
   if (filters && typeof filters === 'object' && !Array.isArray(filters)) {
     for (const [fieldId, value] of Object.entries(filters)) {
       if (value === undefined || value === null || value === '') continue;
 
-      if (fieldId === 'status') continue; // вычисляемый, отдельно
+      if (fieldId === 'status') continue; 
 
       if (fieldId === 'equipmentType') {
         parts.push('equipment_type = ?');
