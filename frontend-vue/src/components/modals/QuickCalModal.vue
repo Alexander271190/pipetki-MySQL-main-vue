@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import DeviceIdentity from '@/components/ui/DeviceIdentity.vue';
 import { useUiStore } from '@/stores/ui';
