@@ -516,10 +516,14 @@ async function saveQuickRole() {
 async function savePageSize(userId: string) {
   try {
     let existing: Record<string, unknown> = {};
-    try { existing = await apiRequest(`/settings/user-preferences/${userId}`); } catch { /* ignore */ }
+    try { existing = await apiRequest(`/settings/user-preferences/${userId}`); } catch { /* prefs ещё нет — ок, будет пустой объект */ }
     const merged = { ...existing, defaultPageSize: parseInt(form.value.pageSize, 10) || 100 };
     await apiRequest(`/settings/user-preferences/${userId}`, 'PUT', merged);
-  } catch { /* ignore */ }
+  } catch (e) {
+    // Пользователь уже сохранён, но «строк на странице» не применились — предупреждаем
+    console.warn('[UserEditModal] savePageSize failed:', e);
+    toast.warn('Пользователь сохранён, но «строк на странице» применить не удалось');
+  }
 }
 
 async function onSubmit() {
