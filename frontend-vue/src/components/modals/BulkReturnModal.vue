@@ -51,11 +51,11 @@
         <tbody>
           <tr v-for="p in items" :key="p.id">
             <td>
-              <div v-html="identity(p)"></div>
+              <DeviceIdentity :pipette="p" />
               <small v-if="p.sent_for_calibration" style="color:#0ea5e9;margin-top:4px;display:inline-block;">
                 <i class="fa-solid fa-box"></i> отпр. {{ formatDate(p.sent_for_calibration) }}
-              </small>
-            </td>
+               </small>
+             </td>
             <td>
               <input
                 v-model="certMap[p.id]"
@@ -113,6 +113,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
+import DeviceIdentity from '@/components/ui/DeviceIdentity.vue';  
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useSettingsStore } from '@/stores/settings';
@@ -122,7 +123,6 @@ import { useAuthStore, usePermissions } from '@/stores/auth';
 import { todayStr, formatDate } from '@/utils/format';
 import { buildHeaderHtml } from '@/utils/header';
 import { isExternalCalibration } from '@/utils/equipment';
-import { getDeviceIdentityHtml } from '@/utils/deviceIdentity';
 import { showConfirm } from '@/composables/useConfirm';
 import * as bulkApi from '@/api/bulk';
 import type { Pipette } from '@/types';
@@ -151,8 +151,6 @@ let _lockedIds: string[] = [];
 let _generation = 0;
 
 const withReplacement = computed(() => items.value.filter(p => p.replaced_by));
-
-function identity(p: Pipette) { return getDeviceIdentityHtml(p); }
 
 watch(() => ui.activeModal, (v) => {
   if (v === 'bulkReturn') open();
