@@ -581,7 +581,6 @@ async function onSubmit() {
         fullName: form.value.fullName,
         password: res.tempPassword,
       });
-      closeAndBack();
       saving.value = false;
       return;                       
     }
