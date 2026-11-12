@@ -1,5 +1,5 @@
 <template>
-  <AppModal :visible="ui.activeModal === 'userView'" @close="close" modal-class="modal-tall">
+  <AppModal :visible="ui.activeModal === 'userView'" @close="close" modal-class="modal-lg modal-tall">
     <h2><i class="fa-solid fa-sliders"></i> Настройки пользователя</h2>
     <p v-if="userName" style="color:#64748b;margin-bottom:16px;font-size:.9rem;">
       Настройка полей формы для: <strong>{{ userName }}</strong>
