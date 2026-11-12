@@ -24,7 +24,7 @@
   
   /* Защита от вылезания за экран */
   max-height: calc(100vh - 40px); 
-  overflow-y: scroll;
+  overflow-y: auto;
   overflow-x: hidden;
   
   box-shadow: 0 20px 60px rgba(0,0,0,.3);
@@ -52,7 +52,11 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
 }
 
 .modal-lg { max-width: 1100px; width: calc(100% - 40px); }
-.modal-xl { max-width: 1500px; width: calc(100% - 40px); }
+.modal-xl { 
+  max-width: 1500px; 
+  width: calc(100% - 40px); 
+  height: 85vh; 
+}
 .modal-compact { max-width: 460px !important; padding: 20px !important; }
 .modal-compact h2 { font-size: 1.15rem !important; margin-bottom: 14px !important; }
 
@@ -514,8 +518,13 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
   /* Убираем зону ресайза на телефонах, чтобы не мешала */
   .modal::after { display: none !important; }
 
-  .modal-lg { max-width: 95vw !important; }
-  .modal-xl { max-width: 95vw !important; }
+ 
+  .modal-lg, .modal-xl { 
+    max-width: 95vw !important; 
+    height: auto !important; 
+    max-height: 90vh !important; 
+  }
+  
   .modal-compact { max-width: 95vw !important; padding: 16px !important; }
   
   .modal h2 { font-size: 1.1rem; margin-bottom: 14px; }
