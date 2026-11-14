@@ -5,12 +5,12 @@ const db = require('../db');
 // ПОЛИТИКА ПАРОЛЯ (читает из system_settings с кэшем 60 сек)
 // ============================================================
 
-// 🆕 Кэш настроек
+// Кэш настроек
 let _cache = null;
 let _cacheTime = 0;
 const CACHE_TTL = 60_000;
 
-// 🆕 Дефолтные значения (совпадают с хардкодом — обратная совместимость)
+// Дефолтные значения (совпадают с хардкодом — обратная совместимость)
 const DEFAULTS = {
   minLength:      8,
   maxLength:      64,
@@ -83,7 +83,7 @@ async function validatePassword(password) {
   return { ok: errors.length === 0, errors };
 }
 
-// 🆕 Обратная совместимость: MIN_LENGTH как геттер для старого кода
+//  Обратная совместимость: MIN_LENGTH как геттер для старого кода
 // Если где-то было `const { MIN_LENGTH } = require(...)` — вернёт дефолт 8.
 // Но реальная проверка идёт через getPasswordPolicy().
 const MIN_LENGTH = DEFAULTS.minLength;
@@ -92,5 +92,5 @@ module.exports = {
   validatePassword,
   getPasswordPolicy,
   invalidatePasswordPolicyCache,
-  MIN_LENGTH,  // оставлен для обратной совместимости
+  MIN_LENGTH,  
 };
