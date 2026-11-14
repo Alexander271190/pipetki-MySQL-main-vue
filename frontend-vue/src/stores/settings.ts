@@ -29,6 +29,7 @@ export const useSettingsStore = defineStore('settings', () => {
     hasPermission: false,
     export: false, actSend: false, actReturn: false, history: false,
   });
+  const systemSettings = ref<Record<string, unknown>>({});
 
   const responsibles = ref<string[]>([]);
 
@@ -62,12 +63,13 @@ export const useSettingsStore = defineStore('settings', () => {
 
     if (systemRes.status === 'fulfilled') {
       const s = systemRes.value;
+      systemSettings.value = systemRes.value as Record<string, unknown>;
       warnDays.value = parseInt(s.warn_days || '') || 30;
       if (s.bulk_identity_fields) {
         try {
           const parsed = JSON.parse(s.bulk_identity_fields);
           if (Array.isArray(parsed)) bulkIdentityFields.value = parsed;
-        } catch { /* ignore */ }
+          } catch { /* ignore */ }
       }
     }
 
@@ -134,9 +136,50 @@ export const useSettingsStore = defineStore('settings', () => {
     loaded.value = true;
   }
 
+  function getTableViewSettings() {
+  const s = systemSettings.value;
+  let pageSizes: number[] = [50, 100, 200, 500];
+  try {
+    const parsed = JSON.parse(String(s.page_sizes || '[50,100,200,500]'));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      pageSizes = parsed.map(n => parseInt(String(n), 10)).filter(n => Number.isFinite(n) && n > 0);
+    }
+  } catch { /* дефолт */ }
+  return {
+    pageSizes,
+    defaultPageSize: parseInt(String(s.default_page_size || '100'), 10) || 100,
+    density: ['compact', 'normal', 'loose'].includes(String(s.table_density))
+      ? String(s.table_density) as 'compact' | 'normal' | 'loose'
+      : 'normal',
+  };
+}
+
+function getPasswordPolicy() {
+  const s = systemSettings.value;
+  return {
+    minLength:      Math.max(6, Math.min(128, parseInt(String(s.password_min_length || '8'), 10) || 8)),
+    maxLength:      Math.max(8, Math.min(128, parseInt(String(s.password_max_length || '64'), 10) || 64)),
+    requireLower:   s.password_require_lower === '1',
+    requireUpper:   s.password_require_upper === '1',
+    requireDigit:   s.password_require_digit === '1',
+    requireSpecial: s.password_require_special === '1',
+    forbidSpaces:   s.password_forbid_spaces === '1',
+  };
+}
+
+function getEquipmentSettings() {
+  const s = systemSettings.value;
+  return {
+    maxBatchSize:    parseInt(String(s.max_batch_size || '100'), 10) || 100,
+    maxBulkSize:     parseInt(String(s.max_bulk_size || '100'), 10) || 100,
+    maxModelLength:  parseInt(String(s.max_model_length || '255'), 10) || 255,
+    maxSerialLength: parseInt(String(s.max_serial_length || '255'), 10) || 255,
+  };
+}
+
   return {
     loaded, warnDays, bulkIdentityFields, equipmentTypes, departments, fields, filters, printDocs,
     exportFields, responsibles,
-    loadAll, loadResponsibles, invalidateResponsibles,
+    loadAll, loadResponsibles, invalidateResponsibles, systemSettings, getTableViewSettings, getPasswordPolicy, getEquipmentSettings,
   };
 });
