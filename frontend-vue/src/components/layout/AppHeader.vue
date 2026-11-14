@@ -179,11 +179,22 @@ function onLogout() {
 }
 
 async function onStopImpersonate() {
+  let forceLogout = false;
   try {
     const { stopImpersonate } = await import('@/api/auth');
-    await stopImpersonate();
+    const res = await stopImpersonate();
+    forceLogout = !!res?.forceLogout;
   } catch (e) {
     console.warn('Не удалось залогировать возврат:', e);
+  }
+
+  //  Если админ, под которым работали, был удалён — принудительный выход
+  if (forceLogout) {
+    ui.close();
+    auth.logout();
+    toast.error('Ваша учётная запись администратора была удалена. Войдите заново.');
+    router.push('/login');
+    return;
   }
 
   if (auth.originalUser && auth.originalToken) {
