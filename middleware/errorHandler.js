@@ -8,7 +8,7 @@ function errorHandler(err, req, res, next) {
   const status = Number(err.status) || 500;
   const message = err.message || 'Internal Server Error';
 
-  // Пишем в БД все ошибки >= 500, и только важные 4xx (403/409)
+  // 5xx пишем здесь (есть stack для дебага). 403/409 пишет errorLogger.
   const shouldLog = status >= 500;
   if (shouldLog) {
     logError({
