@@ -59,7 +59,12 @@ import PrintersSettings from './PrintersSettings.vue';
 import BarcodesSettings from './BarcodesSettings.vue';
 import HelpSettings from './HelpSettings.vue';
 import GeneralSettings from './GeneralSettings.vue';
-
+import EquipmentGeneralSettings from './EquipmentGeneralSettings.vue';
+import PasswordPolicySettings from './PasswordPolicySettings.vue';
+import NotificationSettings from './NotificationSettings.vue';
+import SecuritySettings from './SecuritySettings.vue';
+import TableViewSettings from './TableViewSettings.vue';
+  
 const ui = useUiStore();
 const auth = useAuthStore();
 const perm = usePermissions();
@@ -69,24 +74,34 @@ interface Group { group: string; items: Section[] }
 
 const ALL_SECTIONS: Group[] = [
   {
-    group: 'Оборудование и данные',
-    items: [
-      { id: 'fields',          label: 'Поля формы',        component: FieldsSettings },
-      { id: 'departments',     label: 'Отделы',            component: DepartmentsSettings },
-      { id: 'filters',         label: 'Фильтры',           component: FiltersSettings },
-      { id: 'export',          label: 'Печать документов', component: ExportSettings },
-      { id: 'equipment',       label: 'Типы оборудования', component: EquipmentTypesSettings },
-      { id: 'view-templates',  label: 'Шаблоны вида',      component: ViewTemplatesSettings },
-    ],
-  },
-  {
-    group: 'Пользователи',
-    items: [
-      { id: 'users', label: 'Пользователи', component: UsersSettings },
-      { id: 'roles', label: 'Роли',         component: RolesSettings },
-    ],
-  },
-  {
+  group: 'Оборудование и данные',
+  items: [
+    { id: 'fields',             label: 'Поля формы',             component: FieldsSettings },
+    { id: 'departments',        label: 'Отделы',                 component: DepartmentsSettings },
+    { id: 'filters',            label: 'Фильтры',                component: FiltersSettings },
+    { id: 'export',             label: 'Печать документов',      component: ExportSettings },
+    { id: 'equipment',          label: 'Типы оборудования',      component: EquipmentTypesSettings },
+    { id: 'view-templates',     label: 'Шаблоны вида',           component: ViewTemplatesSettings },
+    { id: 'equipment-general',  label: 'Общие настройки',        component: EquipmentGeneralSettings },
+    { id: 'table-view',         label: 'Таблица и отображение',  component: TableViewSettings },
+  ],
+},
+{
+  group: 'Пользователи',
+  items: [
+    { id: 'users', label: 'Пользователи', component: UsersSettings },
+    { id: 'roles', label: 'Роли',         component: RolesSettings },
+  ],
+},
+{
+  group: 'Безопасность',
+  items: [
+    { id: 'password-policy', label: 'Политика паролей',       component: PasswordPolicySettings },
+    { id: 'notifications',   label: 'Уведомления',            component: NotificationSettings },
+    { id: 'security',        label: 'Вход под пользователем', component: SecuritySettings },
+  ],
+},
+{
     group: 'Печать и штрихкоды',
     items: [
       { id: 'printers', label: 'Принтеры этикеток', component: PrintersSettings },
@@ -112,6 +127,9 @@ const visibleGroups = computed<Group[]>(() => {
   if (it.id === 'users') return perm.canManageUsers.value || auth.isAdmin;
   if (it.id === 'roles') return perm.canManageRoles.value;   
   if (it.id === 'printers') return perm.canManagePrinters.value;  
+  if (['equipment-general', 'table-view', 'password-policy', 'notifications', 'security'].includes(it.id)) {
+  return auth.isAdmin;
+}
   return true;
 }),
   })).filter(g => g.items.length > 0);
