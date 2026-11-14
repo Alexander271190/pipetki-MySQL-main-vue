@@ -148,13 +148,17 @@ function openActions(e: MouseEvent, u: FullUser) {
     items.push({ divider: true });
 
     // «Войти как» — не для builtin admin (если ты не он)
-    if (!(isBuiltinAdmin && !isMe)) {
-      items.push({
-        label: '<i class="fa-solid fa-right-to-bracket"></i> Войти как этот пользователь',
-        class: 'item-warning',
-        action: () => impersonate(u.id),
-      });
-    }
+  const impMode = settings.systemSettings?.impersonation_mode || 'all_admins';
+  const canImpersonate = impMode === 'all_admins'
+    || (impMode === 'admin' && auth.user?.login === 'admin');
+
+   if (canImpersonate && !(isBuiltinAdmin && !isMe)) {
+     items.push({
+       label: '<i class="fa-solid fa-right-to-bracket"></i> Войти как этот пользователь',
+       class: 'item-warning',
+       action: () => impersonate(u.id),
+    });
+  }
 
     // «Сбросить пароль» — скрыть для админов, если ты не admin
     if (!u.isAdmin || canTouchAdmin) {
