@@ -126,6 +126,16 @@ router.get('/verify', allowWhenPasswordMustChange, authenticate, (req, res) => {
   res.json({ user: userPublic(req.user) });
 });
 
+router.get('/password-policy', allowWhenPasswordMustChange, authenticate, async (req, res) => {
+  try {
+    const { getPasswordPolicy } = require('../middleware/passwordPolicy');
+    const policy = await getPasswordPolicy();
+    res.json(policy);
+  } catch (e) {
+    res.status(500).json({ error: 'Ошибка загрузки политики' });
+  }
+});
+
 // ============================================================
 // ВХОД ПОД ДРУГИМ ПОЛЬЗОВАТЕЛЕМ (impersonate)
 // ============================================================
