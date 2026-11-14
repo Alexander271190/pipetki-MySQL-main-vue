@@ -500,7 +500,7 @@ async function openForm() {
       let p: Pipette | null = pip.items.find(x => x.id === editId.value) || null;
       let fresh: api.GetByIdResponse | null = null;
       try {
-        fresh = await api.getById(editId.value) as api.GetByIdResponse;
+        fresh = await api.getById(editId.value);
         if (fresh) p = fresh;
       } catch { /* ignore */ }
       if (!p) {
@@ -724,7 +724,7 @@ async function onSubmit(silent = false) {
   saving.value = true;
   try {
     if (isEdit.value && editId.value) {
-      const res = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
+      const res = await api.updatePipette(editId.value, payload);
       if (!silent) {
         if (res.idChanged && res.newId) {
           toast.success(`Сохранено. Новый ID: ${res.newId}`);
@@ -755,7 +755,7 @@ async function onSubmit(silent = false) {
       try {
         await api.deleteDraft(editId.value);
         if (isEdit.value) {
-          const res2 = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
+          const res2 = await api.updatePipette(editId.value, payload);
           if (!silent) {
             if (res2.idChanged && res2.newId) {
               toast.success(`Сохранено. Новый ID: ${res2.newId}`);
@@ -778,7 +778,7 @@ async function onSubmit(silent = false) {
      
       delete payload.updatedAt;
       try {
-        const res2 = await api.updatePipette(editId.value, payload) as { idChanged?: boolean; newId?: string };
+        const res2 = await api.updatePipette(editId.value, payload);
         if (!silent) {
           toast.success(res2.idChanged && res2.newId ? `Сохранено. Новый ID: ${res2.newId}` : 'Оборудование обновлено');
         }
