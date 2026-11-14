@@ -350,33 +350,47 @@ function invalidateWarnDaysCache() {
   _warnDaysCacheTime = 0;
 }
 
-// 🆕 Лимиты оборудования
+//  Лимиты оборудования
 let _equipCache = null;
 let _equipCacheTime = 0;
 const EQUIP_CACHE_TTL = 60_000;
+
+//  Дефолтные лимиты — используются если БД недоступна
+const EQUIPMENT_DEFAULTS = {
+  maxBatchSize:    100,
+  maxBulkSize:     100,
+  maxModelLength:  255,
+  maxSerialLength: 255,
+};
 
 async function getEquipmentSettings(executor) {
   const now = Date.now();
   if (_equipCache && now - _equipCacheTime < EQUIP_CACHE_TTL) return _equipCache;
 
-  const keys = ['max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length'];
-  const ph = keys.map(() => '?').join(',');
-  const ex = executor || db;
-  const [rows] = await ex.query(
-    `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN (${ph})`,
-    keys
-  );
-  const s = {};
-  for (const r of rows) s[r.setting_key] = r.setting_value;
+  try {
+    const keys = ['max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length'];
+    const ph = keys.map(() => '?').join(',');
+    const ex = executor || db;
+    const [rows] = await ex.query(
+      `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN (${ph})`,
+      keys
+    );
+    const s = {};
+    for (const r of rows) s[r.setting_key] = r.setting_value;
 
-  _equipCache = {
-    maxBatchSize:    Math.max(1, Math.min(1000, parseInt(s.max_batch_size, 10) || 100)),
-    maxBulkSize:     Math.max(1, Math.min(1000, parseInt(s.max_bulk_size, 10) || 100)),
-    maxModelLength:  Math.max(10, Math.min(1000, parseInt(s.max_model_length, 10) || 255)),
-    maxSerialLength: Math.max(10, Math.min(1000, parseInt(s.max_serial_length, 10) || 255)),
-  };
-  _equipCacheTime = now;
-  return _equipCache;
+    _equipCache = {
+      maxBatchSize:    Math.max(1, Math.min(1000, parseInt(s.max_batch_size, 10) || EQUIPMENT_DEFAULTS.maxBatchSize)),
+      maxBulkSize:     Math.max(1, Math.min(1000, parseInt(s.max_bulk_size, 10) || EQUIPMENT_DEFAULTS.maxBulkSize)),
+      maxModelLength:  Math.max(10, Math.min(1000, parseInt(s.max_model_length, 10) || EQUIPMENT_DEFAULTS.maxModelLength)),
+      maxSerialLength: Math.max(10, Math.min(1000, parseInt(s.max_serial_length, 10) || EQUIPMENT_DEFAULTS.maxSerialLength)),
+    };
+    _equipCacheTime = now;
+    return _equipCache;
+  } catch (e) {
+    //  Не роняем bulk-операции при ошибке БД — используем дефолты
+    console.error('[getEquipmentSettings] DB error, using defaults:', e.message);
+    return { ...EQUIPMENT_DEFAULTS };
+  }
 }
 
 function invalidateEquipmentSettingsCache() {
