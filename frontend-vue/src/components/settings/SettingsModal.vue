@@ -146,19 +146,24 @@ const currentSectionLabel = computed(() => {
 
 watch(
   () => [ui.activeModal, ui.modalData],
-  async ([modal, data]) => {
-    if (modal !== 'settings') return;
+  ([modal, data]) => {
+    if (modal !== 'settings') {
+      //  При закрытии модалки — сброс раздела (иначе при следующем открытии останется старый)
+      currentSection.value = null;
+      sectionComponent.value = null;
+      return;
+    }
     const target = typeof data === 'string' ? data : null;
     if (target) {
       openSection(target);
-      ui.modalData = null;
+      //  НЕ очищаем ui.modalData здесь — это триггерит второй fire и сбрасывает раздел
     } else {
       currentSection.value = null;
       sectionComponent.value = null;
     }
   }
 );
-
+  
 function openSection(id: string) {
   currentSection.value = id;
   for (const g of ALL_SECTIONS) {
