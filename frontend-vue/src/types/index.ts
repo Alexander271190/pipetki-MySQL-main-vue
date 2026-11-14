@@ -66,6 +66,7 @@ export interface Pipette {
   custom_data?: Record<string, unknown> | null;   
   [key: string]: unknown;                         
 }
+
 export interface ToastMessage {
   id: number;
   text: string;
