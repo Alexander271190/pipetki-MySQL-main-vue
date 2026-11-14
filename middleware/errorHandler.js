@@ -9,7 +9,7 @@ function errorHandler(err, req, res, next) {
   const message = err.message || 'Internal Server Error';
 
   // Пишем в БД все ошибки >= 500, и только важные 4xx (403/409)
-  const shouldLog = status >= 500 || status === 403 || status === 409;
+  const shouldLog = status >= 500;
   if (shouldLog) {
     logError({
       level: status >= 500 ? 'error' : 'warn',
