@@ -203,6 +203,72 @@ async function seedInitialData() {
     [JSON.stringify(defaultTypes)]
   );
 
+  // ═══════════════════════════════════════════════════════════
+//  Расширенные настройки системы
+// Дефолты = текущее поведение. INSERT IGNORE — идемпотентно.
+// ═══════════════════════════════════════════════════════════
+
+// --- Оборудование ---
+const equipmentDefaults = {
+  max_batch_size:     '100',
+  max_bulk_size:      '100',
+  max_model_length:   '255',
+  max_serial_length:  '255',
+};
+for (const [k, v] of Object.entries(equipmentDefaults)) {
+  await pool.query(
+    `INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)`,
+    [k, v]
+  );
+}
+
+// --- Пароли ---
+const passwordDefaults = {
+  password_min_length:      '8',
+  password_max_length:      '64',
+  password_require_lower:   '1',
+  password_require_upper:   '1',
+  password_require_digit:   '1',
+  password_require_special: '1',
+  password_forbid_spaces:   '1',
+};
+for (const [k, v] of Object.entries(passwordDefaults)) {
+  await pool.query(
+    `INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)`,
+    [k, v]
+  );
+}
+
+// --- Уведомления ---
+const notificationDefaults = {
+  reminders_enabled:   '1',
+  reminders_for_roles: '["user","senior_lab","admin"]',
+};
+for (const [k, v] of Object.entries(notificationDefaults)) {
+  await pool.query(
+    `INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)`,
+    [k, v]
+  );
+}
+
+// --- Impersonation ---
+await pool.query(
+  `INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('impersonation_mode', 'all_admins')`
+);
+
+// --- Таблица ---
+const tableViewDefaults = {
+  page_sizes:         '[50,100,200,500]',
+  default_page_size:  '100',
+  table_density:      'normal',
+};
+for (const [k, v] of Object.entries(tableViewDefaults)) {
+  await pool.query(
+    `INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)`,
+    [k, v]
+  );
+}
+
   // --- Поля формы ---
   const [fc] = await pool.query('SELECT COUNT(*) AS c FROM field_config');
   if (fc[0].c === 0) {
