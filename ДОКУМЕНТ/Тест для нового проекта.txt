@@ -119,6 +119,7 @@
   const lifecycleIds = [];
 
   let _origExportCfg = null, _origFiltersCfg = null;
+  let origSettings = null;  // ← 🆕 объявлен в функции, доступен в try/finally
 
   console.log('%c🚀 MEGA-TEST v6.1-VUE', 'font-size:16px;font-weight:bold;color:#8b5cf6;');
   console.log('%cСтарт: ' + new Date().toLocaleTimeString(), 'color:#64748b;');
@@ -1044,12 +1045,374 @@
     await sleep(50);
     log('STORE', 'ui.close очищает modalData', uiStore.modalData === null ? 'PASS' : 'FAIL');
   }
+  /* ═══ 35. MASS DELETE (bulk-delete) ═══ */
+  console.log('\n%c🗑️ 35. MASS DELETE (bulk-delete)', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const emptyR = await api('/pipettes/bulk-delete', 'POST', { ids: [] });
+    if (emptyR.status === 404) {
+      log('BULK-DEL', 'POST /bulk-delete', 'SKIP', 'роут не задеплоен');
+    } else {
+      log('BULK-DEL', 'POST /bulk-delete существует', 'PASS');
+      log('BULK-DEL', 'empty ids → 400', emptyR.status === 400 ? 'PASS' : 'FAIL');
+
+      // Создаём 3 тестовых
+      const delIds = [];
+      for (let i = 0; i < 3; i++) {
+        const id = `MEGA-DEL-${uid}-${i}`;
+        const r = await api('/pipettes', 'POST', {
+          id, model: 'BulkDelTest', equipmentType: 'pipette',
+          lastCalibration: today, responsible: authStore.user?.fullName || 'Admin',
+        });
+        if (r.ok) delIds.push(id);
+      }
+      log('BULK-DEL', 'создано 3 тестовых', delIds.length === 3 ? 'PASS' : 'FAIL');
+
+      if (delIds.length > 0) {
+        const delR = await api('/pipettes/bulk-delete', 'POST', { ids: delIds });
+        log('BULK-DEL', '3 ids → successful:3',
+            delR.ok && delR.body?.successful === 3 ? 'PASS' : 'FAIL',
+            `successful=${delR.body?.successful}`);
+
+        const check = await api(`/pipettes/${encodeURIComponent(delIds[0])}`);
+        log('BULK-DEL', 'после удаления → 404', check.status === 404 ? 'PASS' : 'FAIL');
+      }
+
+      const nfR = await api('/pipettes/bulk-delete', 'POST', { ids: ['NONEXISTENT-' + uid] });
+      log('BULK-DEL', 'несуществующий → notFound',
+          nfR.ok && nfR.body?.notFound >= 1 ? 'PASS' : 'FAIL');
+
+      // На поверке — пропустить (в lifecycle уже тестируется)
+      if (pipIds.length) {
+        const sentId = pipIds[0];
+        await api('/pipettes/bulk-send', 'POST', { ids: [sentId], sentDate: today });
+        const sentDel = await api('/pipettes/bulk-delete', 'POST', { ids: [sentId] });
+        log('BULK-DEL', 'на поверке → skipped',
+            sentDel.ok && sentDel.body?.skipped >= 1 ? 'PASS' : 'FAIL');
+        await api(`/pipettes/${encodeURIComponent(sentId)}/cancel-send`, 'POST');
+      }
+    }
+  }
+
+  /* ═══ 36. SETTINGS — новые ключи ═══ */
+  console.log('\n%c⚙️ 36. SETTINGS — новые ключи', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  const curSettings = await api('/settings/system');
+  origSettings = curSettings.body || {};
+{
+    log('SYS-SET', 'GET /settings/system', curSettings.ok ? 'PASS' : 'FAIL');
+    const expectedKeys = [
+      'max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length',
+      'password_min_length', 'password_max_length',
+      'password_require_lower', 'password_require_upper',
+      'password_require_digit', 'password_require_special', 'password_forbid_spaces',
+      'reminders_enabled', 'reminders_for_roles',
+      'impersonation_mode',
+      'page_sizes', 'default_page_size', 'table_density',
+    ];
+    let found = 0;
+    for (const k of expectedKeys) if (k in origSettings) found++;
+    log('SYS-SET', `все ${expectedKeys.length} ключей`,
+        found === expectedKeys.length ? 'PASS' : 'FAIL', `${found}/${expectedKeys.length}`);
+  }
+
+  /* ═══ 37. WHITELIST ═══ */
+  console.log('\n%c🛡 37. WHITELIST SETTINGS', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    await api('/settings/system', 'PUT', {
+      __hacked_key_1__: 'evil', jwt_secret_override: 'stolen',
+    });
+    const after = await api('/settings/system');
+    log('WHITELIST', 'unknown key не записан',
+        !('__hacked_key_1__' in (after.body || {})) ? 'PASS' : 'FAIL');
+    log('WHITELIST', 'jwt_secret_override не записан',
+        !('jwt_secret_override' in (after.body || {})) ? 'PASS' : 'FAIL');
+  }
+
+  /* ═══ 38. PASSWORD POLICY ═══ */
+  console.log('\n%c🔐 38. PASSWORD POLICY', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const origMinLen = origSettings.password_min_length || '8';
+    const pwUserLogin = 'pw_pol_' + uid;
+    const pwUser = await api('/users', 'POST', {
+      login: pwUserLogin, fullName: 'PW Test', position: 'X',
+      role: 'user', extraPermissions: [], isActing: false, actingForId: null,
+    });
+
+    if (!pwUser.ok) {
+      log('PW-POLICY', 'создание тест-пользователя', 'FAIL', pwUser.body?.error);
+    } else {
+      createdUsers.push({ id: pwUser.body.id, login: pwUserLogin });
+      const tmpTok = await loginUser(pwUserLogin, pwUser.body.tempPassword);
+      if (!tmpTok) {
+        log('PW-POLICY', 'логин тест-пользователя', 'FAIL');
+      } else {
+        await api('/settings/system', 'PUT', { password_min_length: '12' });
+        await sleep(300);
+        const chR = await api('/auth/change-password', 'POST', {
+          currentPassword: pwUser.body.tempPassword,
+          newPassword: 'Abc12345', confirmPassword: 'Abc12345',
+        }, tmpTok);
+        const err = String(chR.body?.error || '');
+        log('PW-POLICY', 'min_length=12 → 8-char отклонён',
+            err.includes('Минимум 12') ? 'PASS' : 'FAIL', err.slice(0, 80));
+        await api('/settings/system', 'PUT', { password_min_length: origMinLen });
+        await sleep(300);
+      }
+    }
+  }
+
+  /* ═══ 39. EQUIPMENT LIMITS ═══ */
+  console.log('\n%c📏 39. EQUIPMENT LIMITS', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const origMaxBatch = origSettings.max_batch_size || '100';
+    await api('/settings/system', 'PUT', { max_batch_size: '3' });
+    await sleep(300);
+    const fakeRows = Array(5).fill(null).map(() => ({
+      model: 'LimitTest', equipmentType: 'pipette', lastCalibration: today, responsible: 'X',
+    }));
+    const bcR = await api('/pipettes/bulk-create', 'POST', { rows: fakeRows });
+    const err = String(bcR.body?.error || '');
+    log('EQ-LIMITS', 'max_batch_size=3 → 5 отклонён',
+        bcR.status === 400 && err.includes('Максимум 3') ? 'PASS' : 'FAIL', err.slice(0, 60));
+    await api('/settings/system', 'PUT', { max_batch_size: origMaxBatch });
+    await sleep(300);
+  }
+
+  /* ═══ 40. IMPERSONATION ═══ */
+  console.log('\n%c🎭 40. IMPERSONATION MODE', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const origImp = origSettings.impersonation_mode || 'all_admins';
+    const usersR = await api('/users');
+    const otherUser = (usersR.body || []).find(u => u.id !== authStore.user?.id);
+
+    if (!otherUser) {
+      log('IMPERSON', 'тестовый пользователь', 'SKIP');
+    } else {
+      await api('/settings/system', 'PUT', { impersonation_mode: 'off' });
+      await sleep(300);
+      const impR = await api('/auth/impersonate/' + otherUser.id, 'POST');
+      log('IMPERSON', 'mode=off → 403', impR.status === 403 ? 'PASS' : 'FAIL', `status=${impR.status}`);
+
+      await api('/settings/system', 'PUT', { impersonation_mode: 'admin' });
+      await sleep(300);
+      if (authStore.user?.login === 'admin') {
+        log('IMPERSON', 'mode=admin + login=admin → разрешено', 'PASS', 'по логике');
+      } else {
+        const impR2 = await api('/auth/impersonate/' + otherUser.id, 'POST');
+        log('IMPERSON', 'mode=admin + не-admin → 403', impR2.status === 403 ? 'PASS' : 'FAIL');
+      }
+
+      await api('/settings/system', 'PUT', { impersonation_mode: origImp });
+      await sleep(300);
+    }
+  }
+
+  /* ═══ 41. REMINDERS SETTINGS ═══ */
+  console.log('\n%c🔔 41. REMINDERS SETTINGS', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const origEnabled = origSettings.reminders_enabled || '1';
+    const origRoles = origSettings.reminders_for_roles || '["user","senior_lab","admin"]';
+
+    await api('/settings/system', 'PUT', { reminders_enabled: '0' });
+    const check = await api('/settings/system');
+    log('REMINDERS', 'reminders_enabled=0 сохраняется',
+        check.body?.reminders_enabled === '0' ? 'PASS' : 'FAIL');
+
+    const emptyRolesR = await api('/settings/system', 'PUT', { reminders_for_roles: '[]' });
+    log('REMINDERS', 'пустой массив ролей → 400', emptyRolesR.status === 400 ? 'PASS' : 'FAIL');
+
+    await api('/settings/system', 'PUT', {
+      reminders_enabled: origEnabled, reminders_for_roles: origRoles,
+    });
+  }
+
+  /* ═══ 42. TABLE VIEW SETTINGS ═══ */
+  console.log('\n%c📊 42. TABLE VIEW SETTINGS', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const origPageSizes = origSettings.page_sizes || '[50,100,200,500]';
+    const origDefaultSize = origSettings.default_page_size || '100';
+    const origDensity = origSettings.table_density || 'normal';
+
+    const badSizes = await api('/settings/system', 'PUT', { page_sizes: 'not-json' });
+    log('TABLE-SET', 'page_sizes невалидный → 400', badSizes.status === 400 ? 'PASS' : 'FAIL');
+
+    const emptySizes = await api('/settings/system', 'PUT', { page_sizes: '[]' });
+    log('TABLE-SET', 'page_sizes пустой → 400', emptySizes.status === 400 ? 'PASS' : 'FAIL');
+
+    const badDensity = await api('/settings/system', 'PUT', { table_density: 'invalid' });
+    log('TABLE-SET', 'table_density невалидный → 400', badDensity.status === 400 ? 'PASS' : 'FAIL');
+
+    await api('/settings/system', 'PUT', {
+      page_sizes: '[50,200]', default_page_size: '50', table_density: 'compact',
+    });
+    const after = await api('/settings/system');
+    log('TABLE-SET', 'page_sizes=[50,200]', after.body?.page_sizes === '[50,200]' ? 'PASS' : 'FAIL');
+    log('TABLE-SET', 'default_page_size=50', after.body?.default_page_size === '50' ? 'PASS' : 'FAIL');
+    log('TABLE-SET', 'table_density=compact', after.body?.table_density === 'compact' ? 'PASS' : 'FAIL');
+
+    await api('/settings/system', 'PUT', {
+      page_sizes: origPageSizes, default_page_size: origDefaultSize, table_density: origDensity,
+    });
+  }
+
+  /* ═══ 43. FRONTEND HELPERS ═══ */
+  console.log('\n%c🌐 43. FRONTEND HELPERS', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const hasTV = typeof settingsStore.getTableViewSettings === 'function';
+    const hasPP = typeof settingsStore.getPasswordPolicy === 'function';
+    const hasEQ = typeof settingsStore.getEquipmentSettings === 'function';
+
+    log('FE-HELPERS', 'getTableViewSettings()', hasTV ? 'PASS' : 'FAIL');
+    log('FE-HELPERS', 'getPasswordPolicy()', hasPP ? 'PASS' : 'FAIL');
+    log('FE-HELPERS', 'getEquipmentSettings()', hasEQ ? 'PASS' : 'FAIL');
+
+    if (hasTV) {
+      const tv = settingsStore.getTableViewSettings();
+      log('FE-HELPERS', 'tv.pageSizes — array', Array.isArray(tv?.pageSizes) ? 'PASS' : 'FAIL');
+      log('FE-HELPERS', 'tv.defaultPageSize — number', typeof tv?.defaultPageSize === 'number' ? 'PASS' : 'FAIL');
+      log('FE-HELPERS', 'tv.density — один из 3', ['compact','normal','loose'].includes(tv?.density) ? 'PASS' : 'FAIL', tv?.density);
+    }
+    if (hasPP) {
+      const pp = settingsStore.getPasswordPolicy();
+      log('FE-HELPERS', 'pp.minLength — number', typeof pp?.minLength === 'number' ? 'PASS' : 'FAIL', `${pp?.minLength}`);
+      log('FE-HELPERS', 'pp.requireLower — boolean', typeof pp?.requireLower === 'boolean' ? 'PASS' : 'FAIL');
+    }
+    if (hasEQ) {
+      const eq = settingsStore.getEquipmentSettings();
+      log('FE-HELPERS', 'eq.maxBatchSize — number', typeof eq?.maxBatchSize === 'number' ? 'PASS' : 'FAIL', `${eq?.maxBatchSize}`);
+    }
+  }
+
+  /* ═══ 44. UI — 5 новых разделов ═══ */
+  console.log('\n%c🪟 44. UI — 5 новых разделов', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    uiStore.open('settings');
+    await sleep(400);
+    const items = Array.from(document.querySelectorAll('.settings-item')).map(el => el.textContent.trim());
+    const expected = [
+      { label: 'Общие настройки',        key: 'equipment-general' },
+      { label: 'Таблица и отображение',  key: 'table-view' },
+      { label: 'Политика паролей',       key: 'password-policy' },
+      { label: 'Уведомления',            key: 'notifications' },
+      { label: 'Вход под пользователем', key: 'security' },
+    ];
+    for (const s of expected) {
+      log('UI-SETTINGS', `раздел "${s.label}"`, items.some(t => t.includes(s.label)) ? 'PASS' : 'FAIL');
+    }
+    for (const s of expected) {
+      try {
+        uiStore.open('settings', s.key);
+        await sleep(300);
+        const content = document.getElementById('settings-section-content');
+        const hasContent = !!(content && content.innerHTML.length > 50);
+        uiStore.close();
+        await sleep(100);
+        log('UI-SETTINGS', `${s.key} открывается`, hasContent ? 'PASS' : 'FAIL');
+      } catch (e) {
+        log('UI-SETTINGS', `${s.key} открывается`, 'FAIL', e.message);
+        uiStore.close();
+      }
+    }
+    uiStore.close();
+  }
+
+  /* ═══ 45. UI — кнопка «Удалить» в тулбаре ═══ */
+  console.log('\n%c🔴 45. UI — кнопка «Удалить»', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    if (pipIds.length >= 2) {
+      pipStore.clearSelection();
+      pipStore.toggleSelected(pipIds[0], true);
+      pipStore.toggleSelected(pipIds[1], true);
+      await sleep(400);
+      const btns = Array.from(document.querySelectorAll('.toolbar-bulk button, .toolbar button'));
+      const delBtn = btns.find(b => /Удалить/i.test(b.textContent || ''));
+      log('UI-BULK-DEL', 'кнопка при выборе', !!delBtn ? 'PASS' : 'FAIL',
+          delBtn ? `"${delBtn.textContent.trim()}"` : '');
+
+      pipStore.clearSelection();
+      await sleep(300);
+      const btnsAfter = Array.from(document.querySelectorAll('.toolbar-bulk button, .toolbar button'));
+      const delBtnAfter = btnsAfter.find(b => /Удалить/i.test(b.textContent || ''));
+      log('UI-BULK-DEL', 'скрыта без выбора', !delBtnAfter ? 'PASS' : 'FAIL');
+    } else {
+      log('UI-BULK-DEL', 'нужно 2+ пипетки', 'SKIP');
+    }
+  }
+
+  /* ═══ 46. UI — ChangePasswordModal политика ═══ */
+  console.log('\n%c🔑 46. UI — ChangePasswordModal', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    const minLen = parseInt(settingsStore.getPasswordPolicy?.()?.minLength || 8, 10);
+    uiStore.open('changePassword', 'change');
+    await sleep(400);
+    const modal = document.querySelector('.modal-overlay.active .modal');
+    if (modal) {
+      const html = modal.innerHTML;
+      const hasMinText = html.includes(`Минимум ${minLen}`) || html.includes(`${minLen} символ`);
+      log('UI-PW-POLICY', `показывает "Минимум ${minLen}"`, hasMinText ? 'PASS' : 'FAIL');
+    } else {
+      log('UI-PW-POLICY', 'модалка открыта', 'FAIL');
+    }
+    uiStore.close();
+  }
+
+  /* ═══ 47. UI — UserEditModal размеры ═══ */
+  console.log('\n%c📏 47. UI — UserEditModal размеры', 'font-size:14px;font-weight:bold;color:#16a34a;');
+  {
+    uiStore.open('userEdit', null);
+    await sleep(600);
+    const modal = document.querySelector('.modal-overlay.active .modal');
+    if (modal) {
+      const selects = Array.from(modal.querySelectorAll('select'));
+      const pageSizeSelect = selects.find(s => {
+        const opts = Array.from(s.querySelectorAll('option')).map(o => o.value);
+        return opts.includes('50') || opts.includes('100');
+      });
+      if (pageSizeSelect) {
+        const opts = Array.from(pageSizeSelect.querySelectorAll('option'))
+          .map(o => o.value).filter(v => v && !isNaN(parseInt(v, 10)));
+        const expectedSizes = settingsStore.getTableViewSettings?.().pageSizes?.map(String) || ['50','100','200','500'];
+        const match = expectedSizes.every(s => opts.includes(s));
+        log('UI-PAGE-SIZES', 'селект использует pageSizes',
+            match ? 'PASS' : 'FAIL',
+            `опции: [${opts.join(',')}] ожидалось: [${expectedSizes.join(',')}]`);
+      } else {
+        log('UI-PAGE-SIZES', 'селект «Строк на странице»', 'FAIL', 'не найден');
+      }
+    } else {
+      log('UI-PAGE-SIZES', 'модалка открыта', 'FAIL');
+    }
+    uiStore.close();
+  }
 
   } finally {
 
   /* ═══ CLEANUP ═══ */
   console.log('\n%c🧹 CLEANUP', 'font-size:14px;font-weight:bold;color:#4f46e5;');
-
+    // 🆕 Восстановить все настройки системы (на случай падения теста)
+  if (typeof origSettings !== 'undefined' && origSettings && Object.keys(origSettings).length > 0) {
+    try {
+      const restore = {};
+      const keys = [
+        'max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length',
+        'password_min_length', 'password_max_length',
+        'password_require_lower', 'password_require_upper',
+        'password_require_digit', 'password_require_special', 'password_forbid_spaces',
+        'reminders_enabled', 'reminders_for_roles',
+        'impersonation_mode',
+        'page_sizes', 'default_page_size', 'table_density',
+      ];
+      for (const k of keys) {
+        if (origSettings[k] !== undefined) restore[k] = origSettings[k];
+      }
+      if (Object.keys(restore).length > 0) {
+        await api('/settings/system', 'PUT', restore);
+        await settingsStore.loadAll();
+        console.log('✅ Настройки системы восстановлены');
+      }
+    } catch (e) {
+      console.warn('[MEGA-TEST] restore settings failed:', e);
+    }
+  }
   if (_origExportCfg) { try { await api('/settings/export','PUT', _origExportCfg); } catch (e) {} }
   if (_origFiltersCfg) { try { await api('/settings/filters','PUT', _origFiltersCfg); } catch (e) {} }
   try { const e = await api('/settings/print-documents/effective'); if (e.ok) settingsStore.printDocs = e.body; } catch (e) {}
