@@ -7,11 +7,10 @@ const { authenticate, requireAnyPermission } = require('../../middleware/auth');
 const {
   validateISODate, todayLocalStr,
   STANDARD_FIELDS, FORBIDDEN_CUSTOM_KEYS,
-  computeBarcodeValue, canAccessDepartment,
+  computeBarcodeValue, canAccessDepartment, getEquipmentSettings,
 } = require('./_helpers');
 const { withTransaction } = require('../../utils/db-helper');
 const { logAction } = require('../../utils/audit');
-const { getEquipmentSettings } = require('./_helpers');
 
 // ═══════════════════════════════════════════════════════════
 // POST /bulk-create — пакетное создание
@@ -530,6 +529,121 @@ router.post('/bulk-lock', authenticate, requireAnyPermission(['add_pipette', 'ed
   } catch (e) {
     console.error('POST /bulk-lock error:', e);
     res.status(500).json({ error: 'Ошибка блокировки' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// POST /bulk-delete — массовое удаление
+// ═══════════════════════════════════════════════════════════
+router.post('/bulk-delete', authenticate, requireAnyPermission(['delete_pipette', 'manage_pipettes']), async (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Тело запроса должно быть JSON-объектом' });
+  }
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Не выбрано ни одного оборудования' });
+  }
+
+  const eqSettings = await getEquipmentSettings();
+  if (ids.length > eqSettings.maxBulkSize) {
+    return res.status(400).json({ error: `Слишком много (максимум ${eqSettings.maxBulkSize})` });
+  }
+
+  const uniqueIds = [...new Set(ids.map(String).filter(Boolean))];
+  const successful = [];
+  const skipped = [];
+  const notFound = [];
+
+  try {
+    await withTransaction(async (conn) => {
+      const ph = uniqueIds.map(() => '?').join(',');
+      const [rows] = await conn.query(
+        `SELECT id, model, department, sent_for_calibration, replaced_by, replacing
+         FROM pipettes WHERE id IN (${ph}) FOR UPDATE`,
+        uniqueIds
+      );
+      const foundMap = new Map(rows.map(r => [r.id, r]));
+      const toDelete = [];
+
+      for (const id of uniqueIds) {
+        const p = foundMap.get(id);
+        if (!p) { notFound.push(id); continue; }
+        if (!canAccessDepartment(req.user, p.department)) {
+          skipped.push({ id, reason: 'нет доступа к отделу' });
+          continue;
+        }
+        const [lock] = await conn.query(
+          'SELECT user_id, user_full_name FROM edit_locks WHERE pipette_id = ?', [id]
+        );
+        if (lock.length && lock[0].user_id !== req.user.id) {
+          skipped.push({ id, reason: `заблокирован: ${lock[0].user_full_name}` });
+          continue;
+        }
+        if (p.sent_for_calibration) {
+          skipped.push({ id, reason: `на поверке с ${String(p.sent_for_calibration).slice(0, 10)}` });
+          continue;
+        }
+        if (p.replacing) {
+          skipped.push({ id, reason: `заменяет ${p.replacing}` });
+          continue;
+        }
+        if (p.replaced_by) {
+          skipped.push({ id, reason: `закреплена замена ${p.replaced_by}` });
+          continue;
+        }
+        toDelete.push(id);
+      }
+
+      if (toDelete.length > 0) {
+        const phDel = toDelete.map(() => '?').join(',');
+        const [refs] = await conn.query(
+          `SELECT id, replaced_by, replacing FROM pipettes
+           WHERE id NOT IN (${phDel})
+             AND (replaced_by IN (${phDel}) OR replacing IN (${phDel}))`,
+          [...toDelete, ...toDelete, ...toDelete]
+        );
+        const refIds = new Set();
+        for (const r of refs) {
+          if (r.replaced_by && toDelete.includes(r.replaced_by)) refIds.add(r.replaced_by);
+          if (r.replacing && toDelete.includes(r.replacing)) refIds.add(r.replacing);
+        }
+        for (const id of refIds) {
+          const idx = toDelete.indexOf(id);
+          if (idx !== -1) {
+            toDelete.splice(idx, 1);
+            skipped.push({ id, reason: 'на этот прибор ссылается другой' });
+          }
+        }
+      }
+
+      if (toDelete.length > 0) {
+        const phDel = toDelete.map(() => '?').join(',');
+        await conn.query(`DELETE FROM pipettes WHERE id IN (${phDel})`, toDelete);
+        await conn.query(`UPDATE pipettes SET replaced_by = NULL WHERE replaced_by IN (${phDel})`, toDelete);
+        await conn.query(`UPDATE pipettes SET replacing = NULL WHERE replacing IN (${phDel})`, toDelete);
+        successful.push(...toDelete);
+      }
+    });
+
+    if (successful.length > 0) {
+      const preview = successful.length > 2
+        ? `${successful[0]}, ${successful[successful.length - 1]} и ещё ${successful.length - 2}`
+        : successful.join(', ');
+      await logAction(req, 'Массовое удаление', `${successful.length} шт.: ${preview}`);
+    }
+
+    res.json({
+      message: `Удалено: ${successful.length}`,
+      successful: successful.length,
+      successfulIds: successful,
+      skipped: skipped.length,
+      skippedDetails: skipped,
+      notFound: notFound.length,
+      notFoundIds: notFound,
+    });
+  } catch (e) {
+    console.error('bulk-delete error:', e);
+    res.status(500).json({ error: 'Ошибка: ' + e.message });
   }
 });
 
