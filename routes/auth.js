@@ -76,22 +76,25 @@ router.post('/login', async (req, res) => {
       }
     }
 
+   let effectiveRole = u.role;
+
     // Подтягиваем данные основного, если это и.о.
     if (u.is_acting && u.acting_for_id) {
       const [actingRows] = await db.query(
-        'SELECT full_name, department FROM users WHERE id = ? LIMIT 1',
+        'SELECT full_name, department, role FROM users WHERE id = ? LIMIT 1',
         [u.acting_for_id]
       );
       if (actingRows.length) {
         u.acting_full_name  = actingRows[0].full_name  || null;
         u.acting_department = actingRows[0].department || null;
+        effectiveRole = actingRows[0].role || u.role;
       }
     }
 
     // Инициализация прав на основе роли
     let roleCacheError = false;
     try {
-      u._roleDef = await roleCache.getRoleDef(u.role);
+      u._roleDef = await roleCache.getRoleDef(effectiveRole);
     } catch (err) {
       roleCacheError = true;
       console.warn('[WARN] roleCache недоступен при логине:', err.message);
@@ -150,33 +153,48 @@ if (mode === 'admin') {
     const [targets] = await db.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`, [req.params.userId]);
     if (!targets.length) return res.status(404).json({ error: 'Пользователь не найден' });
 
-    const target = targets[0];
+       const target = targets[0];
     if (target.id === req.user.id) {
       return res.status(400).json({ error: 'Вы уже вошли под этой учётной записью' });
     }
 
-    // Инициализация прав для target
+    //  1. Сначала подтягиваем данные и.о. (включая роль)
+    let targetEffectiveRole = target.role;
+    if (target.is_acting && target.acting_for_id) {
+      const [actingRows] = await db.query(
+        'SELECT full_name, department, role FROM users WHERE id = ? LIMIT 1', 
+        [target.acting_for_id]
+      );
+      if (actingRows.length) {
+        target.acting_full_name  = actingRows[0].full_name  || null;
+        target.acting_department = actingRows[0].department || null;
+        targetEffectiveRole = actingRows[0].role || target.role; 
+      }
+    }
+
+    //  2. Инициализация прав для target (на основе эффективной роли)
     let roleCacheError = false;
     try {
-      target._roleDef = await roleCache.getRoleDef(target.role);
+      target._roleDef = await roleCache.getRoleDef(targetEffectiveRole); 
     } catch (err) {
       roleCacheError = true;
       console.warn('[WARN] roleCache недоступен при impersonate:', err.message);
       target._roleDef = null;
     }
     if (!target._roleDef && !roleCacheError) {
-      console.warn(`[WARN] Роль не найдена при impersonate: role=${target.role}, user=${target.id}`);
+      console.warn(`[WARN] Роль не найдена при impersonate: role=${targetEffectiveRole}, user=${target.id}`);
     }
     target._isAdmin = !!(target._roleDef && target._roleDef.isAdmin);
     target._perms = target._isAdmin
       ? ['*']
       : [...(target._roleDef?.permissions || []), ...db.safeParse(target.extra_permissions, [])];
 
+    // 3. Подписываем токен
     const token = jwt.sign(
       {
         id: target.id,
         login: target.login,
-        role: target.role,
+        role: target.role, 
         impersonatedBy: req.user.id,
         impersonatedByName: req.user.full_name
       },
@@ -186,19 +204,8 @@ if (mode === 'admin') {
 
     await logAction(req, 'Вход под пользователем', target.full_name);
 
-    if (target.is_acting && target.acting_for_id) {
-      const [actingRows] = await db.query(
-        'SELECT full_name, department FROM users WHERE id = ? LIMIT 1',
-        [target.acting_for_id]
-      );
-      if (actingRows.length) {
-        target.acting_full_name  = actingRows[0].full_name  || null;
-        target.acting_department = actingRows[0].department || null;
-      }
-    }
-
     res.json({ token, user: userPublic(target) });
-
+   
   } catch (e) {
     console.error('Impersonate error:', e);
     res.status(500).json({ error: 'Ошибка входа под пользователем' });
