@@ -65,6 +65,20 @@ export interface ReplacementOption {
   last_calibration?: string;
 }
 
+export interface BulkDeleteResponse {
+  message: string;
+  successful: number;
+  successfulIds: string[];
+  skipped: number;
+  skippedDetails: { id: string; reason: string }[];
+  notFound: number;
+  notFoundIds: string[];
+}
+
+export function bulkDelete(ids: string[]): Promise<BulkDeleteResponse> {
+  return apiRequest<BulkDeleteResponse>('/pipettes/bulk-delete', 'POST', { ids });
+}
+
 export function availableForReplacementBatch(items: { id: string; type: string; department: string }[]): Promise<Record<string, ReplacementOption[]>> {
   return apiRequest<Record<string, ReplacementOption[]>>('/pipettes/available-for-replacement-batch', 'POST', { items });
 }
