@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { ref, onMounted, onUnmounted, defineAsyncComponent, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { setUnauthorizedHandler, setPasswordRequiredHandler } from '@/api/client';
 import { useRouter } from 'vue-router';
@@ -105,6 +105,25 @@ function onVisibilityChange() {
 function onWindowFocus() {
   if (auth.isAuthenticated) auth.refreshUser();
 }
+
+// Применять плотность при загрузке настроек (если пользователь не переключал)
+watch(
+  () => settings.systemSettings,
+  (s) => {
+    if (!s || Object.keys(s).length === 0) return;
+    const userChoice = localStorage.getItem('pipette_compact_mode');
+    if (userChoice !== null) return;
+    try {
+      const tv = settings.getTableViewSettings();
+      document.body.classList.remove('compact-mode', 'loose-mode');
+      if (tv.density === 'compact') document.body.classList.add('compact-mode');
+      else if (tv.density === 'loose') document.body.classList.add('loose-mode');
+    } catch (e) {
+      console.warn('[App] density apply failed:', e);
+    }
+  },
+  { immediate: true, deep: true }
+);
 
 onMounted(() => {
   auth.initFromStorage();
