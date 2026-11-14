@@ -66,10 +66,7 @@
         </div>
         <div class="form-group"><label>Строк на странице</label>
           <select v-model="form.pageSize">
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-            <option value="500">500</option>
+            <option v-for="size in pageSizeOptions" :key="size" :value="String(size)">{{ size }}</option>
           </select>
         </div>
       </div>
@@ -329,6 +326,17 @@ const availableRoles = computed(() =>
   roles.value.filter(r => !r.isAdmin || auth.isAdmin)
 );
 
+const pageSizeOptions = computed(() => {
+  const tv = settings.getTableViewSettings();
+  const sizes = [...tv.pageSizes];
+  const current = parseInt(String(form.value.pageSize), 10);
+  if (Number.isFinite(current) && !sizes.includes(current)) {
+    sizes.push(current);
+    sizes.sort((a, b) => a - b);
+  }
+  return sizes;
+});
+
 const isRoleAdmin = computed(() => {
   const r = roles.value.find(x => x.value === form.value.role);
   return !!r?.isAdmin;
@@ -346,6 +354,8 @@ const permissionGroups = computed(() => {
 async function loadAll() {
   loading.value = true;
   try {
+    const tv = settings.getTableViewSettings();
+    form.value.pageSize = String(tv.defaultPageSize);
     roles.value = await rolesApi.getCachedRoles();
     try { presets.value = await usersApi.getCachedPresets(); } catch { /* ignore */ }
 
