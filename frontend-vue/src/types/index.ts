@@ -41,31 +41,31 @@ export interface Pipette {
   computed_status?: Status;
   sent_for_calibration?: string | null;
   sent_note?: string | null;
- replacing?: string | null;
- replaced_by?: string | null;
- replacement?: {
-   id: string;
-   model: string;
-   manufacturer?: string;
-   location?: string;
-   active?: boolean;
-   department?: string;
- } | null;
- replacedFor?: {
-   id: string;
-   model: string;
-   manufacturer?: string;
-   location?: string;
- } | null;
-   active?: boolean;
-   last_result?: ResultType;
-   notes?: string;
-   cert?: string;
-   history_count?: number;
-   updated_at?: string;
-   [key: string]: unknown;
- }
-
+  replacing?: string | null;
+  replaced_by?: string | null;
+  replacement?: {
+    id: string;
+    model: string;
+    manufacturer?: string;
+    location?: string;
+    active?: boolean;
+    department?: string;
+  } | null;
+  replacedFor?: {
+    id: string;
+    model: string;
+    manufacturer?: string;
+    location?: string;
+  } | null;
+  active?: boolean;
+  last_result?: ResultType;
+  notes?: string;
+  cert?: string;
+  history_count?: number;
+  updated_at?: string;
+  custom_data?: Record<string, unknown> | null;   
+  [key: string]: unknown;                         
+}
 export interface ToastMessage {
   id: number;
   text: string;
