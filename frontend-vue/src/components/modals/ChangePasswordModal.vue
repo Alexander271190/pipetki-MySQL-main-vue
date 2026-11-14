@@ -55,30 +55,52 @@ import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import * as authApi from '@/api/auth';
 import { useSettingsStore } from '@/stores/settings';
+import { getPasswordPolicy } from '@/api/auth';
   
 const settings = useSettingsStore();
 const ui = useUiStore();
 const auth = useAuthStore();
 const toast = useToastStore();
-
+const localPolicy = ref<any>(null);
 const currentPwd = ref('');
 const newPwd = ref('');
 const confirmPwd = ref('');
 const error = ref('');
 const loading = ref(false);
-const passwordPolicy = computed(() => settings.getPasswordPolicy());
+const passwordPolicy = computed(() => {
+  if (localPolicy.value) {
+    return {
+      minLength: localPolicy.value.minLength || 8,
+      maxLength: localPolicy.value.maxLength || 64,
+      requireLower: localPolicy.value.requireLower === true,
+      requireUpper: localPolicy.value.requireUpper === true,
+      requireDigit: localPolicy.value.requireDigit === true,
+      requireSpecial: localPolicy.value.requireSpecial === true,
+      forbidSpaces: localPolicy.value.forbidSpaces === true,
+    };
+  }
+  return settings.getPasswordPolicy();
+});
 const isSetup = computed(() => ui.modalData === 'setup');
 const forced = computed(() => {
   if (auth.isImpersonating) return false;
   return !!(auth.user?.mustSetPassword || auth.user?.mustChangePassword);
 });
 
-watch(() => ui.activeModal, (v) => {
+watch(() => ui.activeModal, async (v) => {
   if (v === 'changePassword') {
     currentPwd.value = '';
     newPwd.value = '';
     confirmPwd.value = '';
     error.value = '';
+    localPolicy.value = null;
+
+    //  Загружаем политику напрямую (работает даже при 403 на другие ручки)
+    try {
+      localPolicy.value = await getPasswordPolicy();
+    } catch { 
+      /* fallback на settings.getPasswordPolicy() сработает в computed */
+    }
   }
 });
 
