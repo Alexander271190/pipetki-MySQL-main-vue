@@ -81,6 +81,9 @@ const prefs = usePrefsStore();
 const settings = useSettingsStore();
 const modals = useModals();
 
+// Нормализация старых id колонок (equipmentType → type)
+const TABLE_ID_MAP: Record<string, string> = { equipmentType: 'type' };
+
 // Все доступные колонки (системные + кастомные)
 const allColumns = computed<TableColumn[]>(() => {
   const result: TableColumn[] = [];
@@ -113,24 +116,23 @@ const allColumns = computed<TableColumn[]>(() => {
 // Видимые колонки в порядке columnOrder (или по умолчанию)
 const columns = computed<string[]>(() => {
   const visible = new Set(prefs.visibleFields.length > 0 ? prefs.visibleFields : DEFAULT_TABLE_COLUMNS);
-  const TABLE_ID_MAP: Record<string, string> = { equipmentType: 'type' };
-
   const cols: string[] = [];
   const added = new Set<string>();
 
   if (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) {
-    for (const id of prefs.columnOrder) {
-      if (added.has(id)) continue;
-      let isVisible = visible.has(id);
-      if (!isVisible) {
-        const f = settings.fields.find(x => x.id === id || (TABLE_ID_MAP[x.id] || x.id) === id);
-        if (f && visible.has(f.id)) isVisible = true;
-      }
-      if (!isVisible) continue;
-      const def = allColumns.value.find((c: TableColumn) => c.id === id);
-      if (def) { cols.push(id); added.add(id); }
+  for (const rawId of prefs.columnOrder) {
+    const id = TABLE_ID_MAP[rawId] || rawId;
+    if (added.has(id)) continue;
+    let isVisible = visible.has(id);
+    if (!isVisible) {
+      const f = settings.fields.find(x => x.id === rawId || (TABLE_ID_MAP[x.id] || x.id) === rawId);
+      if (f && visible.has(f.id)) isVisible = true;
     }
+    if (!isVisible) continue;
+    const def = allColumns.value.find((c: TableColumn) => c.id === id);
+    if (def) { cols.push(id); added.add(id); }
   }
+}
 
   for (const f of settings.fields) {
     if (!f.enabled) continue;
@@ -301,8 +303,9 @@ function onDrop(e: DragEvent, targetColId: string) {
   
   const src = _colDragState.srcColId;
   const base = Array.isArray(prefs.columnOrder) ? prefs.columnOrder : [];
-  const currentOrder = base.length ? [...base] : columns.value.slice();
-
+  const currentOrder = base.length
+  ? base.map(id => TABLE_ID_MAP[id] || id)
+  : columns.value.slice();
   const srcIdx = currentOrder.indexOf(src);
   const dstIdx = currentOrder.indexOf(targetColId);
 
