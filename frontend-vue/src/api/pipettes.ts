@@ -71,8 +71,8 @@ export function getNextId(type: string): Promise<{ nextId: string }> {
   return apiRequest<{ nextId: string }>(`/pipettes/next-id?type=${encodeURIComponent(type)}`);
 }
 
-export function getById(id: string): Promise<Pipette> {
-  return apiRequest<Pipette>(`/pipettes/${encodeURIComponent(id)}`);
+export function getById(id: string): Promise<GetByIdResponse> {
+  return apiRequest<GetByIdResponse>(`/pipettes/${encodeURIComponent(id)}`);
 }
 
 export function getByIds(ids: string[]): Promise<{ items: Pipette[] }> {
@@ -80,11 +80,21 @@ export function getByIds(ids: string[]): Promise<{ items: Pipette[] }> {
 }
 
 // CRUD
-export function createPipette(payload: Record<string, unknown>): Promise<Pipette> {
-  return apiRequest<Pipette>('/pipettes', 'POST', payload);
+export interface CreatePipetteResponse {
+  message: string;
+  id: string;
 }
-export function updatePipette(id: string, payload: Record<string, unknown>): Promise<Pipette> {
-  return apiRequest<Pipette>(`/pipettes/${encodeURIComponent(id)}`, 'PUT', payload);
+export interface UpdatePipetteResponse {
+  message: string;
+  idChanged?: boolean;
+  newId?: string;
+  oldId?: string;
+}
+export function createPipette(payload: Record<string, unknown>): Promise<CreatePipetteResponse> {
+  return apiRequest<CreatePipetteResponse>('/pipettes', 'POST', payload);
+}
+export function updatePipette(id: string, payload: Record<string, unknown>): Promise<UpdatePipetteResponse> {
+  return apiRequest<UpdatePipetteResponse>(`/pipettes/${encodeURIComponent(id)}`, 'PUT', payload);
 }
 export function deletePipette(id: string) {
   return apiRequest(`/pipettes/${encodeURIComponent(id)}`, 'DELETE');
