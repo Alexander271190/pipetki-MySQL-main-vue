@@ -416,7 +416,6 @@ async function initSchema() {
       { name: 'idx_pipettes_last_calibration', ddl: 'CREATE INDEX idx_pipettes_last_calibration ON pipettes(last_calibration)' },
       { name: 'idx_pipettes_active',          ddl: 'CREATE INDEX idx_pipettes_active ON pipettes(active)' },
       { name: 'idx_pipettes_sent_for_calibration', ddl: 'CREATE INDEX idx_pipettes_sent_for_calibration ON pipettes(sent_for_calibration)' },
-      { name: 'ft_pipettes_search_text', ddl: 'CREATE FULLTEXT INDEX ft_pipettes_search_text ON pipettes(search_text)' },
     ]);
 
     await ensureIndexes(conn, 'audit_log', [
