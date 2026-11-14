@@ -160,7 +160,7 @@ import type { FieldConfig } from '@/api/settings';
 import type { Pipette } from '@/types';
 import type { DraftData } from '@/api/pipettes';
 import { useIdleLock } from '@/composables/useIdleLock';
-
+import { usePrefsStore } from '@/stores/prefs';
 
 const ui = useUiStore();
 const auth = useAuthStore();
@@ -221,11 +221,8 @@ async function _handleIdleTimeout() {
 }
 
 const idle = useIdleLock(_handleIdleTimeout);
-
 const isEdit = computed(() => !!editId.value);
-import { usePrefsStore } from '@/stores/prefs';
 const prefs = usePrefsStore();
-
 const visibleFields = computed<FieldConfig[]>(() => {
   const enabled = settings.fields
     .filter(f => f.enabled)
