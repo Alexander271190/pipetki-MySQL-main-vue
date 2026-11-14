@@ -703,6 +703,17 @@ async function onSubmit(silent = false) {
       : (auth.user?.fullName || '');
   }
   
+   //  UX-валидация длины модели и серийного номера по настройкам
+  const eqSettings = settings.getEquipmentSettings();
+  if (payload.model && String(payload.model).length > eqSettings.maxModelLength) {
+    error.value = `Модель слишком длинная (максимум ${eqSettings.maxModelLength} символов)`;
+    return;
+  }
+  if (payload.serial && String(payload.serial).length > eqSettings.maxSerialLength) {
+    error.value = `Серийный номер слишком длинный (максимум ${eqSettings.maxSerialLength} символов)`;
+    return;
+  }
+
   const missing: string[] = [];
   for (const f of visibleFields.value) {
     if (!f.required) continue;
