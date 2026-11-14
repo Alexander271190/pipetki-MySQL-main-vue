@@ -29,6 +29,7 @@
   <HotkeysModal />
   <RemindersModal />
   <UserViewModal />
+  <BulkDeleteModal />
 </template>
 
 <script setup lang="ts">
@@ -69,7 +70,8 @@ const auth = useAuthStore();
 const router = useRouter();
 const ui = useUiStore();
 const sessionKey = ref(0);
-
+const BulkDeleteModal = defineAsyncComponent(() => import('@/components/modals/BulkDeleteModal.vue'));
+  
 let _lastUserId: string | null = null;
 
 function checkMustChangePassword() {
