@@ -11,6 +11,7 @@ const {
   maybeRegenerateId, applyIdChange, canAccessDepartment,
   findPipetteOrFail, buildDepartmentScope,
   sqlComputedStatus, sqlStatusOrder, buildFiltersWhere, sqlOrderBy, getWarnDays,
+  getEquipmentSettings,
   PIPETTE_COLUMNS, AUDIT_COLUMNS,
 } = require('./_helpers');
 const { withTransaction } = require('../../utils/db-helper');
@@ -705,14 +706,14 @@ router.post('/', authenticate, requireAnyPermission(['add_pipette', 'manage_pipe
   const stripNulls = (s) => String(s || '').replace(/\u0000/g, '');
   const trimmedModel = stripNulls(model).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
   if (!trimmedModel) return res.status(400).json({ error: 'Заполните поле «Модель»' });
-  if (trimmedModel.length > 255) return res.status(400).json({ error: 'Модель слишком длинная (максимум 255 символов)' });
+    const eqSettings = await getEquipmentSettings();
+  if (trimmedModel.length > eqSettings.maxModelLength) return res.status(400).json({ error: `Модель слишком длинная (максимум ${eqSettings.maxModelLength} символов)` });
 
   const trimmedSerial = stripNulls(serial).trim();
-  if (trimmedSerial.length > 255) return res.status(400).json({ error: 'Серийный номер слишком длинный (максимум 255 символов)' });
+  if (trimmedSerial.length > eqSettings.maxSerialLength) return res.status(400).json({ error: `Серийный номер слишком длинный (максимум ${eqSettings.maxSerialLength} символов)` });
 
   const trimmedManufacturer = stripNulls(manufacturer).trim();
   if (trimmedManufacturer.length > 255) return res.status(400).json({ error: 'Производитель слишком длинный (максимум 255 символов)' });
-
   const trimmedResponsible = stripNulls(responsible).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
   if (!trimmedResponsible) return res.status(400).json({ error: 'Заполните поле «Ответственный»' });
 
@@ -894,10 +895,11 @@ router.put('/:id', authenticate, requireAnyPermission(['edit_pipette', 'manage_p
     }
   }
 
+  const eqSettings = await getEquipmentSettings();
   if (updates.serial !== undefined) {
     updates.serial = stripNullsUpd(updates.serial).trim();
-    if (updates.serial.length > 255) {
-      return res.status(400).json({ error: 'Серийный номер слишком длинный (максимум 255 символов)' });
+    if (updates.serial.length > eqSettings.maxSerialLength) {
+      return res.status(400).json({ error: `Серийный номер слишком длинный (максимум ${eqSettings.maxSerialLength} символов)` });
     }
   }
   if (updates.manufacturer !== undefined) {
@@ -909,7 +911,7 @@ router.put('/:id', authenticate, requireAnyPermission(['edit_pipette', 'manage_p
   if (updates.model !== undefined) {
     const m = stripNullsUpd(updates.model).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
     if (!m) return res.status(400).json({ error: 'Заполните поле «Модель»' });
-    if (m.length > 255) return res.status(400).json({ error: 'Модель слишком длинная (максимум 255 символов)' });
+    if (m.length > eqSettings.maxModelLength) return res.status(400).json({ error: `Модель слишком длинная (максимум ${eqSettings.maxModelLength} символов)` });
     updates.model = m;
   }
 
