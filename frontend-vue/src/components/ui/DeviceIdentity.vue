@@ -36,10 +36,19 @@ const main = computed(() => {
 
 const sub = computed(() => {
   const arr: string[] = [];
-  if (fields.value.includes('serial') && p.value.serial) arr.push(`S/N: ${p.value.serial}`);
-  if (fields.value.includes('inventorynumber') && p.value.inventorynumber) arr.push(`Инв: ${String(p.value.inventorynumber)}`);
-  if (fields.value.includes('department') && p.value.department) arr.push(p.value.department);
-  if (fields.value.includes('responsible') && p.value.responsible) arr.push(p.value.responsible);
+  // Динамический обход всех выбранных полей (включая кастомные 2223)
+  for (const f of fields.value) {
+    if (f === 'id' || f === 'model') continue;
+    
+    const val = (p.value as Record<string, unknown>)[f];
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      const prefixMap: Record<string, string> = {
+        serial: 'S/N: ',
+        inventorynumber: 'Инв: ',
+      };
+      arr.push((prefixMap[f] || '') + String(val));
+    }
+  }
   return arr;
 });
 </script>
