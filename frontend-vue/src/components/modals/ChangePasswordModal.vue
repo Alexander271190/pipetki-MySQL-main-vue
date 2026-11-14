@@ -146,6 +146,7 @@ async function onSubmit() {
     toast.success(isSetup.value ? 'Пароль установлен' : 'Пароль успешно изменён');
     ui.close();
     await auth.refreshUser();
+    window.dispatchEvent(new CustomEvent('force:reload'));
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Ошибка смены пароля';
   } finally {
