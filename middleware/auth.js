@@ -46,25 +46,29 @@ const authenticate = async (req, res, next) => {
       });
     }
 
+     //  Инициализируем эффективную роль
+    let effectiveRole = user.role;
+
     // Подтягиваем данные для и.о.
     if (user.is_acting && user.acting_for_id) {
       const [actingRows] = await db.query(
-        'SELECT id, full_name, department FROM users WHERE id = ? LIMIT 1',
+        'SELECT id, full_name, department, role FROM users WHERE id = ? LIMIT 1',
         [user.acting_for_id]
       );
       if (actingRows.length) {
         user.acting_full_name  = actingRows[0].full_name  || null;
         user.acting_department = actingRows[0].department || null;
+        effectiveRole = actingRows[0].role || user.role;
       } else {
         user.acting_full_name  = null;
         user.acting_department = null;
       }
     }
 
-    // Получаем права из роли
+    // Получаем права из эффективной роли
     let roleCacheError = false;
     try {
-      user._roleDef = await roleCache.getRoleDef(user.role);
+      user._roleDef = await roleCache.getRoleDef(effectiveRole); 
     } catch (e) {
       roleCacheError = true;
       console.warn('[WARN] roleCache недоступен:', e.message);
