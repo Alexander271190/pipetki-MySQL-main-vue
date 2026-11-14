@@ -420,13 +420,81 @@ router.get('/system', authenticate, async (req, res) => {
 router.put('/system', authenticate, requireAdmin, async (req, res) => {
   const settings = req.body;
   try {
+    //  Whitelist — объявлен ДО цикла, чтобы не пересоздавать на каждой итерации
+    const ALLOWED_SETTINGS = new Set([
+      'warn_days', 'barcode_type', 'barcode_label_size', 'barcode_fallback_to_pdf',
+      'barcode_default_copies', 'barcode_agent_port', 'barcode_max_length', 'barcode_font',
+      'equipment_types',
+      'max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length',
+      'password_min_length', 'password_max_length',
+      'password_require_lower', 'password_require_upper',
+      'password_require_digit', 'password_require_special', 'password_forbid_spaces',
+      'reminders_enabled', 'reminders_for_roles',
+      'impersonation_mode',
+      'page_sizes', 'default_page_size', 'table_density',
+    ]);
+
     for (const [k, v] of Object.entries(settings)) {
+      // Whitelist
+      if (!ALLOWED_SETTINGS.has(k)) {
+        console.warn(`[settings] Неизвестный ключ: ${k} — пропускаю`);
+        continue;
+      }
+
+      //  Валидация
+      if (k === 'page_sizes') {
+        let arr;
+        try { arr = JSON.parse(v); } catch {
+          return res.status(400).json({ error: 'page_sizes: ожидается JSON-массив' });
+        }
+        const clean = Array.isArray(arr)
+          ? arr.map(n => parseInt(n, 10)).filter(n => Number.isFinite(n) && n >= 10 && n <= 5000)
+          : [];
+        if (clean.length === 0) {
+          return res.status(400).json({ error: 'page_sizes: размеры от 10 до 5000' });
+        }
+        settings[k] = JSON.stringify(clean);
+      }
+
+      if (k === 'default_page_size') {
+        const n = parseInt(v, 10);
+        if (!Number.isFinite(n) || n < 10 || n > 5000) {
+          return res.status(400).json({ error: 'default_page_size: от 10 до 5000' });
+        }
+        settings[k] = String(n);
+      }
+
+      if (k === 'table_density') {
+        if (!['compact', 'normal', 'loose'].includes(String(v))) {
+          return res.status(400).json({ error: 'table_density: compact | normal | loose' });
+        }
+      }
+
+      if (k === 'impersonation_mode') {
+        if (!['off', 'admin', 'all_admins'].includes(String(v))) {
+          return res.status(400).json({ error: 'impersonation_mode: off | admin | all_admins' });
+        }
+      }
+
+      if (k === 'reminders_for_roles') {
+        try {
+          const arr = JSON.parse(v);
+          if (!Array.isArray(arr) || arr.length === 0) {
+            return res.status(400).json({ error: 'reminders_for_roles: выберите хотя бы одну роль' });
+          }
+        } catch {
+          return res.status(400).json({ error: 'reminders_for_roles: ожидается JSON-массив' });
+        }
+      }
+
       await db.query(
         `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP`,
         [k, String(v)]
       );
     }
+
+    // Сброс существующих кэшей
     if ('equipment_types' in settings) {
       equipmentTypes.invalidateCache();
     }
@@ -434,6 +502,15 @@ router.put('/system', authenticate, requireAdmin, async (req, res) => {
       try { pipettesHelpers.invalidateWarnDaysCache(); } catch (e) {}
     }
     try { barcodesRouter.invalidateSettings(); } catch (e) {}
+
+    //  Сброс кэшей наших новых настроек (ДО ответа клиенту!)
+    if (Object.keys(settings).some(k => k.startsWith('password_'))) {
+      try { require('../middleware/passwordPolicy').invalidatePasswordPolicyCache(); } catch (e) {}
+    }
+    if (Object.keys(settings).some(k => k.startsWith('max_'))) {
+      try { require('./pipettes/_helpers').invalidateEquipmentSettingsCache(); } catch (e) {}
+    }
+
     res.json({ message: 'Настройки обновлены' });
   } catch (e) {
     console.error(e);
