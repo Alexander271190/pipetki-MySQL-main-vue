@@ -24,17 +24,29 @@
         <span>({{ selectedToReturn.length }})</span>
      </button>
      <button
-        v-if="perm.canBulkChangeResponsible.value && selectedVisible.length > 0"
-        class="btn btn-secondary btn-sm"
-        @click="modals.openBulkResponsible()"
-      >
-        <i class="fa-solid fa-user-pen"></i> Ответственный
-        <span v-if="selectedVisible.length > 0">({{ selectedVisible.length }})</span>
-      </button>
-      <button class="btn btn-secondary btn-sm" @click="pip.clearSelection()">
-        <i class="fa-solid fa-xmark"></i> Снять
-      </button>
-    </div>
+  v-if="perm.canBulkChangeResponsible.value && selectedVisible.length > 0"
+  class="btn btn-secondary btn-sm"
+  @click="modals.openBulkResponsible()"
+>
+  <i class="fa-solid fa-user-pen"></i> Ответственный
+  <span v-if="selectedVisible.length > 0">({{ selectedVisible.length }})</span>
+ </button>
+
+<!-- Кнопка массового удаления -->
+ <button
+  v-if="perm.canDeletePipette.value && selectedVisible.length > 0"
+  class="btn btn-danger btn-sm"
+  @click="modals.openBulkDelete()"
+  title="Удалить выбранные"
+>
+  <i class="fa-solid fa-trash"></i> Удалить
+  <span>({{ selectedVisible.length }})</span>
+ </button>
+
+ <button class="btn btn-secondary btn-sm" @click="pip.clearSelection()">
+  <i class="fa-solid fa-xmark"></i> Снять
+ </button>
+</div>
 
     <!-- Поиск -->
     <input
@@ -191,7 +203,7 @@ const hasCustomLayout = computed(
   () =>
     (Array.isArray(prefs.columnOrder) && prefs.columnOrder.length > 0) ||
     (!!prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0)
-);
+); 
 
 const selectedToSend = computed(() => {
   return [...pip.selected].filter(id => {
