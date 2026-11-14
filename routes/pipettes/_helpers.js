@@ -350,6 +350,40 @@ function invalidateWarnDaysCache() {
   _warnDaysCacheTime = 0;
 }
 
+// 🆕 Лимиты оборудования
+let _equipCache = null;
+let _equipCacheTime = 0;
+const EQUIP_CACHE_TTL = 60_000;
+
+async function getEquipmentSettings(executor) {
+  const now = Date.now();
+  if (_equipCache && now - _equipCacheTime < EQUIP_CACHE_TTL) return _equipCache;
+
+  const keys = ['max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length'];
+  const ph = keys.map(() => '?').join(',');
+  const ex = executor || db;
+  const [rows] = await ex.query(
+    `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN (${ph})`,
+    keys
+  );
+  const s = {};
+  for (const r of rows) s[r.setting_key] = r.setting_value;
+
+  _equipCache = {
+    maxBatchSize:    Math.max(1, Math.min(1000, parseInt(s.max_batch_size, 10) || 100)),
+    maxBulkSize:     Math.max(1, Math.min(1000, parseInt(s.max_bulk_size, 10) || 100)),
+    maxModelLength:  Math.max(10, Math.min(1000, parseInt(s.max_model_length, 10) || 255)),
+    maxSerialLength: Math.max(10, Math.min(1000, parseInt(s.max_serial_length, 10) || 255)),
+  };
+  _equipCacheTime = now;
+  return _equipCache;
+}
+
+function invalidateEquipmentSettingsCache() {
+  _equipCache = null;
+  _equipCacheTime = 0;
+}
+
 module.exports = {
   validateISODate,
   normalizeInterval,
@@ -376,4 +410,6 @@ module.exports = {
   USER_COLUMNS,
   AUDIT_COLUMNS,
   PRINTER_COLUMNS,
+  getEquipmentSettings,
+  invalidateEquipmentSettingsCache,
 };
