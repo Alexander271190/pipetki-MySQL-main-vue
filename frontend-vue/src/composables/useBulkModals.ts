@@ -46,8 +46,16 @@ export function useBulkModals() {
     ui.open('barcodePrint');
   }
 
+  async function openBulkDelete() {
+    if (!await requirePasswordChange()) return;
+    if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
+    const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
+    if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
+    ui.open('bulkDelete', ids);
+  }
+
   return {
     openBulkSend, openBulkReturn, openBulkResponsible,
-    openBarcodeScanner, openBarcodePrint,
+    openBarcodeScanner, openBarcodePrint, openBulkDelete,
   };
 }
