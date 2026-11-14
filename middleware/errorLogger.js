@@ -9,7 +9,7 @@ function errorLogger(req, res, next) {
       const status = res.statusCode;
 
     
-      const shouldLog = status >= 500 || status === 409 || status === 403;
+      const shouldLog = status === 409 || status === 403;
 
       if (shouldLog) {
         let msg = (body && body.error) ? body.error : ('HTTP ' + status);
