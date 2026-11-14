@@ -11,6 +11,7 @@ const {
 } = require('./_helpers');
 const { withTransaction } = require('../../utils/db-helper');
 const { logAction } = require('../../utils/audit');
+const { getEquipmentSettings } = require('./_helpers');
 
 // ═══════════════════════════════════════════════════════════
 // POST /bulk-create — пакетное создание
@@ -23,8 +24,9 @@ router.post('/bulk-create', authenticate, requireAnyPermission(['add_pipette', '
   if (!Array.isArray(rows) || rows.length === 0) {
     return res.status(400).json({ error: 'Передайте массив rows' });
   }
-  if (rows.length > 100) {
-    return res.status(400).json({ error: 'Максимум 100 строк за раз' });
+ const eqSettings = await getEquipmentSettings();
+ if (rows.length > eqSettings.maxBatchSize) {
+    return res.status(400).json({ error: `Максимум ${eqSettings.maxBatchSize} строк за раз` });
   }
 
   const typesCache = await equipmentTypes.getEquipmentTypes();
@@ -178,7 +180,8 @@ router.post('/bulk-send', authenticate, requireAnyPermission(['bulk_send', 'mana
 
   if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Не выбрано ни одной единицы оборудования' });
   if (!sentDate) return res.status(400).json({ error: 'Заполните поле «Дата отправки»' });
-  if (ids.length > 100) return res.status(400).json({ error: 'Слишком много единиц за раз (максимум 100)' });
+    const eqSettings = await getEquipmentSettings();
+  if (ids.length > eqSettings.maxBulkSize) return res.status(400).json({ error: `Слишком много единиц за раз (максимум ${eqSettings.maxBulkSize})` });
 
   const usedReplacements = new Set();
   for (const [origId, replId] of Object.entries(replacements)) {
@@ -306,7 +309,8 @@ router.post('/bulk-return', authenticate, requireAnyPermission(['bulk_return', '
   if (!date) return res.status(400).json({ error: 'Заполните поле «Дата поверки»' });
   const returnDateCheck = validateISODate(date);
   if (!returnDateCheck.ok) return res.status(400).json({ error: returnDateCheck.error });
-  if (items.length > 100) return res.status(400).json({ error: 'Слишком много единиц за раз (максимум 100)' });
+    const eqSettings = await getEquipmentSettings();
+  if (items.length > eqSettings.maxBulkSize) return res.status(400).json({ error: `Слишком много единиц за раз (максимум ${eqSettings.maxBulkSize})` });
 
   const successful = [];
   const skipped = [];
@@ -411,7 +415,8 @@ router.post('/bulk-change-responsible', authenticate, requireAnyPermission(['bul
 
   if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'Не выбрано ни одной единицы оборудования' });
   if (!newResponsible || !String(newResponsible).trim()) return res.status(400).json({ error: 'Укажите нового ответственного' });
-  if (ids.length > 500) return res.status(400).json({ error: 'Слишком много единиц за раз (максимум 500)' });
+    const eqSettings = await getEquipmentSettings();
+  if (ids.length > eqSettings.maxBulkSize) return res.status(400).json({ error: `Слишком много единиц за раз (максимум ${eqSettings.maxBulkSize})` });
 
   const resp = String(newResponsible).trim();
   const successful = [];
