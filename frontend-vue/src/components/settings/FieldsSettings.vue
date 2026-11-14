@@ -100,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useToastStore } from '@/stores/toast';
 import { useSettingsStore } from '@/stores/settings';
 import { useUiStore } from '@/stores/ui';
@@ -123,14 +123,24 @@ const showIdentity = ref(false);
 const savingIdentity = ref(false);
 const identityFields = ref<string[]>(['id', 'model', 'serial', 'inventorynumber', 'department']);
 
-const identityOptions = [
-  { id: 'id', label: 'ID' },
-  { id: 'model', label: 'Модель' },
-  { id: 'serial', label: 'Серийный номер' },
-  { id: 'inventorynumber', label: 'Инвентарный номер' },
-  { id: 'department', label: 'Отдел' },
-  { id: 'responsible', label: 'Ответственный' },
-];
+const identityOptions = computed(() => {
+  const standard = [
+    { id: 'id', label: 'ID' },
+    { id: 'model', label: 'Модель' },
+    { id: 'serial', label: 'Серийный номер' },
+    { id: 'inventorynumber', label: 'Инвентарный номер' },
+    { id: 'department', label: 'Отдел' },
+    { id: 'responsible', label: 'Ответственный' },
+  ];
+  const standardIds = new Set(standard.map(s => s.id));
+  
+  // Добавляем только включённые кастомные поля
+  const custom = settings.fields
+    .filter(f => f.enabled && !standardIds.has(f.id))
+    .map(f => ({ id: f.id, label: f.label }));
+
+  return [...standard, ...custom];
+});
 
 function toggleIdentity(id: string, checked: boolean) {
   const set = new Set(identityFields.value);
