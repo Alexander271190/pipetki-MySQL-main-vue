@@ -22,13 +22,15 @@
         <input v-model="confirmPwd" type="password" autocomplete="new-password" placeholder="Повторите пароль" />
       </div>
 
-      <div style="background:#f1f5f9;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#475569;line-height:1.6;">
+   <div style="background:#f1f5f9;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#475569;line-height:1.6;">
         <strong>Требования к паролю:</strong>
         <ul style="margin:6px 0 0 20px;padding:0;">
-          <li>Минимум 8 символов</li>
-          <li>Хотя бы одна строчная и одна заглавная буква</li>
-          <li>Хотя бы одна цифра</li>
-          <li>Хотя бы один спецсимвол (! @ # $ % ^ &amp; * и т.п.)</li>
+          <li>Минимум {{ passwordPolicy.minLength }} символов</li>
+          <li v-if="passwordPolicy.requireLower">Хотя бы одна строчная буква</li>
+          <li v-if="passwordPolicy.requireUpper">Хотя бы одна заглавная буква</li>
+          <li v-if="passwordPolicy.requireDigit">Хотя бы одна цифра</li>
+          <li v-if="passwordPolicy.requireSpecial">Хотя бы один спецсимвол</li>
+          <li v-if="passwordPolicy.forbidSpaces">Без пробелов</li>
         </ul>
       </div>
 
@@ -52,7 +54,9 @@ import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
 import { useToastStore } from '@/stores/toast';
 import * as authApi from '@/api/auth';
-
+import { useSettingsStore } from '@/stores/settings';
+  
+const settings = useSettingsStore();
 const ui = useUiStore();
 const auth = useAuthStore();
 const toast = useToastStore();
@@ -62,7 +66,7 @@ const newPwd = ref('');
 const confirmPwd = ref('');
 const error = ref('');
 const loading = ref(false);
-
+const passwordPolicy = computed(() => settings.getPasswordPolicy());
 const isSetup = computed(() => ui.modalData === 'setup');
 const forced = computed(() => {
   if (auth.isImpersonating) return false;
@@ -95,7 +99,38 @@ async function onSubmit() {
       : `Заполните: ${missing.map(m => `«${m}»`).join(', ')}`;
     return;
   }
-  if (newPwd.value !== confirmPwd.value) { error.value = 'Пароли не совпадают'; return; }
+ if (newPwd.value !== confirmPwd.value) { error.value = 'Пароли не совпадают'; return; }
+
+  //  Проверка по политике из настроек
+  const policy = passwordPolicy.value;
+  if (newPwd.value.length < policy.minLength) {
+    error.value = `Минимум ${policy.minLength} символов`;
+    return;
+  }
+  if (newPwd.value.length > policy.maxLength) {
+    error.value = `Максимум ${policy.maxLength} символов`;
+    return;
+  }
+  if (policy.requireLower && !/[a-z]/.test(newPwd.value)) {
+    error.value = 'Нужна хотя бы одна строчная буква';
+    return;
+  }
+  if (policy.requireUpper && !/[A-Z]/.test(newPwd.value)) {
+    error.value = 'Нужна хотя бы одна заглавная буква';
+    return;
+  }
+  if (policy.requireDigit && !/[0-9]/.test(newPwd.value)) {
+    error.value = 'Нужна хотя бы одна цифра';
+    return;
+  }
+  if (policy.requireSpecial && !/[^A-Za-z0-9]/.test(newPwd.value)) {
+    error.value = 'Нужен хотя бы один спецсимвол';
+    return;
+  }
+  if (policy.forbidSpaces && /\s/.test(newPwd.value)) {
+    error.value = 'Пробелы недопустимы';
+    return;
+  }
 
   loading.value = true;
   try {
