@@ -21,6 +21,6 @@ export function impersonate(userId: string): Promise<LoginResponse> {
   return apiRequest<LoginResponse>(`/auth/impersonate/${userId}`, 'POST', {});
 }
 
-export function stopImpersonate() {
-  return apiRequest('/auth/stop-impersonate', 'POST', {});
+export function stopImpersonate(): Promise<{ message?: string; forceLogout?: boolean }> {
+  return apiRequest<{ message?: string; forceLogout?: boolean }>('/auth/stop-impersonate', 'POST', {});
 }
