@@ -255,7 +255,7 @@ router.post('/change-password', allowWhenPasswordMustChange, authenticate, async
     return res.status(400).json({ error: 'Текущий пароль неверен' });
   }
 
-  const v = validatePassword(newPassword);
+  const v = await validatePassword(newPassword);
   if (!v.ok) {
     return res.status(400).json({
       error: 'Пароль не соответствует требованиям:\n• ' + v.errors.join('\n• ')
@@ -314,7 +314,7 @@ router.post('/setup-password', allowWhenPasswordMustChange, authenticate, async 
     return res.status(400).json({ error: 'Пароли не совпадают' });
   }
 
-  const v = validatePassword(newPassword);
+  const v = await validatePassword(newPassword);
   if (!v.ok) {
     return res.status(400).json({
       error: 'Пароль не соответствует требованиям:\n• ' + v.errors.join('\n• ')
