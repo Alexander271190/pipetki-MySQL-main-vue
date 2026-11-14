@@ -47,7 +47,8 @@ import RowActionsMenu from '@/components/ui/RowActionsMenu.vue';
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
 import TempPasswordModal from '@/components/modals/TempPasswordModal.vue';
 import RemindersModal from '@/components/modals/RemindersModal.vue';
-
+import { useSettingsStore } from '@/stores/settings';
+  
 // Асинхронно — большие/редкие модалки (грузятся при первом открытии)
 const PipetteFormModal = defineAsyncComponent(() => import('@/components/modals/PipetteFormModal.vue'));
 const HistoryModal = defineAsyncComponent(() => import('@/components/modals/HistoryModal.vue'));
@@ -67,6 +68,7 @@ const EquipmentAuditModal = defineAsyncComponent(() => import('@/components/moda
 const HotkeysModal = defineAsyncComponent(() => import('@/components/modals/HotkeysModal.vue'));
 const UserViewModal = defineAsyncComponent(() => import('@/components/modals/UserViewModal.vue'));
 const auth = useAuthStore();
+const settings = useSettingsStore();  
 const router = useRouter();
 const ui = useUiStore();
 const sessionKey = ref(0);
@@ -109,6 +111,18 @@ onMounted(() => {
   _lastUserId = auth.user?.id ?? null; 
   checkMustChangePassword();        
   void auth.refreshUser();          
+
+  //  Применить дефолтную плотность (если пользователь не переключал)
+  try {
+    const tv = settings.getTableViewSettings();
+    const userChoice = localStorage.getItem('pipette_compact_mode');
+    if (userChoice === null) {
+      if (tv.density === 'compact') document.body.classList.add('compact-mode');
+      else if (tv.density === 'loose') document.body.classList.add('loose-mode');
+    }
+  } catch (e) {
+    console.warn('[App] density apply failed:', e);
+  }  
 
   setUnauthorizedHandler(() => {
     ui.close();                     
