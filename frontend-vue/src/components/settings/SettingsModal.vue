@@ -144,17 +144,20 @@ const currentSectionLabel = computed(() => {
   return '';
 });
 
-watch(() => ui.activeModal, async (v) => {
-  if (v !== 'settings') return;
-  const target = typeof ui.modalData === 'string' ? ui.modalData : null;
-  if (target) {
-    openSection(target);
-    ui.modalData = null;
-  } else {
-    currentSection.value = null;
-    sectionComponent.value = null;
+watch(
+  () => [ui.activeModal, ui.modalData],
+  async ([modal, data]) => {
+    if (modal !== 'settings') return;
+    const target = typeof data === 'string' ? data : null;
+    if (target) {
+      openSection(target);
+      ui.modalData = null;
+    } else {
+      currentSection.value = null;
+      sectionComponent.value = null;
+    }
   }
-});
+);
 
 function openSection(id: string) {
   currentSection.value = id;
