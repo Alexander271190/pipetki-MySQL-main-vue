@@ -4,9 +4,35 @@ export interface SystemSettingsRaw {
   warn_days?: string;
   bulk_identity_fields?: string;
   barcode_label_size?: string;
+ 
+  //  Оборудование
+  max_batch_size?: string;
+  max_bulk_size?: string;
+  max_model_length?: string;
+  max_serial_length?: string;
+
+  // Пароли
+  password_min_length?: string;
+  password_max_length?: string;
+  password_require_lower?: string;
+  password_require_upper?: string;
+  password_require_digit?: string;
+  password_require_special?: string;
+  password_forbid_spaces?: string;
+
+  //  Уведомления
+  reminders_enabled?: string;
+  reminders_for_roles?: string;
+
+  //  Impersonation
+  impersonation_mode?: 'off' | 'admin' | 'all_admins';
+
+  //  Таблица
+  page_sizes?: string;
+  default_page_size?: string;
+  table_density?: 'compact' | 'normal' | 'loose';
   [key: string]: unknown;
 }
-
 export interface FieldConfig {
   id: string;
   label: string;
