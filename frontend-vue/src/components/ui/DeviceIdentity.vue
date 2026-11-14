@@ -39,7 +39,12 @@ const main = computed(() => {
 const sub = computed(() => {
   const arr: string[] = [];
 
-  //  Маппинг camelCase (из настроек) → snake_case (из БД)
+  //  Множество ЯВНО выключенных полей (по ID из field_config: camelCase)
+  const disabledIds = new Set(
+    settings.fields.filter(f => !f.enabled).map(f => f.id)
+  );
+
+  //  Маппинг camelCase → snake_case для получения значения из БД
   const FIELD_ALIASES: Record<string, string> = {
     equipmentType: 'equipment_type',
     lastCalibration: 'last_calibration',
@@ -47,12 +52,15 @@ const sub = computed(() => {
   };
 
   for (const f of fields.value) {
+    // id и model уже выведены в главной строке (main)
     if (f === 'id' || f === 'model') continue;
 
-    let val: unknown = null;
-    const key = FIELD_ALIASES[f] || f;
+    //  Скрываем ТОЛЬКО если поле явно выключено в настройках (по camelCase f)
+    if (disabledIds.has(f)) continue;
 
-    //  Умное форматирование для системных полей
+    const key = FIELD_ALIASES[f] || f; // для доступа к данным в Pipette
+    let val: unknown = null;
+
     if (f === 'equipmentType') {
       const type = settings.equipmentTypes.find(t => t.value === p.value.equipment_type);
       val = type ? type.label : p.value.equipment_type;
@@ -73,9 +81,8 @@ const sub = computed(() => {
     else {
       // Системные и кастомные поля — из корня
       val = (p.value as Record<string, unknown>)[key];
-
-      //  Страховка: если в корне нет — ищем в custom_data
       if (val === undefined || val === null) {
+        // Страховка: если в корне нет — ищем в custom_data
         const custom = (p.value.custom_data as Record<string, unknown> | undefined) || {};
         val = custom[f];
       }
