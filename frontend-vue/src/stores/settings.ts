@@ -137,45 +137,49 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function getTableViewSettings() {
-  const s = systemSettings.value;
-  let pageSizes: number[] = [50, 100, 200, 500];
-  try {
-    const parsed = JSON.parse(String(s.page_sizes || '[50,100,200,500]'));
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      pageSizes = parsed.map(n => parseInt(String(n), 10)).filter(n => Number.isFinite(n) && n > 0);
-    }
-  } catch { /* дефолт */ }
-  return {
-    pageSizes,
-    defaultPageSize: parseInt(String(s.default_page_size || '100'), 10) || 100,
-    density: ['compact', 'normal', 'loose'].includes(String(s.table_density))
-      ? String(s.table_density) as 'compact' | 'normal' | 'loose'
-      : 'normal',
-  };
-}
+    const s = systemSettings.value;
+    let pageSizes: number[] = [50, 100, 200, 500];
+    try {
+      const parsed = JSON.parse(String(s.page_sizes || '[50,100,200,500]'));
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        pageSizes = parsed.map(n => parseInt(String(n), 10)).filter(n => Number.isFinite(n) && n > 0);
+      }
+    } catch { /* дефолт */ }
+    return {
+      pageSizes,
+      defaultPageSize: parseInt(String(s.default_page_size || '100'), 10) || 100,
+      density: ['compact', 'normal', 'loose'].includes(String(s.table_density))
+        ? String(s.table_density) as 'compact' | 'normal' | 'loose'
+        : 'normal',
+    };
+  }
 
-function getPasswordPolicy() {
-  const s = systemSettings.value;
-  return {
-    minLength:      Math.max(6, Math.min(128, parseInt(String(s.password_min_length || '8'), 10) || 8)),
-    maxLength:      Math.max(8, Math.min(128, parseInt(String(s.password_max_length || '64'), 10) || 64)),
-    requireLower:   s.password_require_lower === '1',
-    requireUpper:   s.password_require_upper === '1',
-    requireDigit:   s.password_require_digit === '1',
-    requireSpecial: s.password_require_special === '1',
-    forbidSpaces:   s.password_forbid_spaces === '1',
-  };
-}
+  function getPasswordPolicy() {
+    const s = systemSettings.value || {};
+    
+    // Хелпер: приводим '1', 1, 'true', true к boolean
+    const parseBool = (val: unknown) => val === '1' || val === 1 || val === true || val === 'true';
 
-function getEquipmentSettings() {
-  const s = systemSettings.value;
-  return {
-    maxBatchSize:    parseInt(String(s.max_batch_size || '100'), 10) || 100,
-    maxBulkSize:     parseInt(String(s.max_bulk_size || '100'), 10) || 100,
-    maxModelLength:  parseInt(String(s.max_model_length || '255'), 10) || 255,
-    maxSerialLength: parseInt(String(s.max_serial_length || '255'), 10) || 255,
-  };
-}
+    return {
+      minLength:      Math.max(6, Math.min(128, parseInt(String(s.password_min_length || '8'), 10) || 8)),
+      maxLength:      Math.max(8, Math.min(128, parseInt(String(s.password_max_length || '64'), 10) || 64)),
+      requireLower:   parseBool(s.password_require_lower),
+      requireUpper:   parseBool(s.password_require_upper),
+      requireDigit:   parseBool(s.password_require_digit),
+      requireSpecial: parseBool(s.password_require_special),
+      forbidSpaces:   parseBool(s.password_forbid_spaces),
+    };
+  }
+
+  function getEquipmentSettings() {
+    const s = systemSettings.value;
+    return {
+      maxBatchSize:    parseInt(String(s.max_batch_size || '100'), 10) || 100,
+      maxBulkSize:     parseInt(String(s.max_bulk_size || '100'), 10) || 100,
+      maxModelLength:  parseInt(String(s.max_model_length || '255'), 10) || 255,
+      maxSerialLength: parseInt(String(s.max_serial_length || '255'), 10) || 255,
+    };
+  }
 
   return {
     loaded, warnDays, bulkIdentityFields, equipmentTypes, departments, fields, filters, printDocs,
