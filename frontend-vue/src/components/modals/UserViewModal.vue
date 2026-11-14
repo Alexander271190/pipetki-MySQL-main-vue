@@ -1,6 +1,18 @@
 <template>
   <AppModal :visible="ui.activeModal === 'userView'" @close="close" modal-class="modal-lg modal-tall">
-    <h2><i class="fa-solid fa-sliders"></i> Настройки пользователя</h2>
+    <h2 style="display:flex;align-items:center;gap:10px;">
+    <button
+      type="button"
+      class="settings-back-btn"
+      @click="closeAndBack"
+      title="Назад к списку пользователей"
+      style="flex-shrink:0;"
+    >
+       <i class="fa-solid fa-arrow-left"></i>
+     </button>
+       <i class="fa-solid fa-sliders"></i>
+       <span>Настройки пользователя</span>
+    </h2>
     <p v-if="userName" style="color:#64748b;margin-bottom:16px;font-size:.9rem;">
       Настройка полей формы для: <strong>{{ userName }}</strong>
     </p>
@@ -185,6 +197,7 @@ import * as viewTplApi from '@/api/viewTemplates';
 import type { FullUser } from '@/api/users';
 import type { ViewTemplate } from '@/api/viewTemplates';
 import { showConfirm } from '@/composables/useConfirm';
+import { SYSTEM_FIELD_IDS_IN_CONFIG } from '@/constants';  
 import { getUserPrefs, getUserPrefsEffective, saveUserPrefs, resetUserPrefs, applyFieldsToAll } from '@/api/settings';
   
 const ui = useUiStore();
@@ -230,49 +243,52 @@ const userHasExportPerm = computed(() => {
   return u.isAdmin === true || (u.extraPermissions || []).includes('export_data');
 });
 
-const docConfigs = [
-  {
-    key: 'export', title: 'Печать реестра',
-    fields: [
-      { id: 'id', label: 'ID' }, { id: 'serial', label: 'Серийный' },
-      { id: 'manufacturer', label: 'Производитель' }, { id: 'model', label: 'Модель' },
-      { id: 'equipmentType', label: 'Тип' }, { id: 'volume', label: 'Объём' },
-      { id: 'department', label: 'Отдел' }, { id: 'lastCalibration', label: 'Дата поверки' },
-      { id: 'nextCalibration', label: 'Следующая' }, { id: 'interval', label: 'МПИ' },
-      { id: 'daysLeft', label: 'Дней' }, { id: 'responsible', label: 'Ответственный' },
-      { id: 'location', label: 'Место' }, { id: 'status', label: 'Статус' },
-      { id: 'cert', label: 'Свидетельство' }, { id: 'notes', label: 'Примечание' },
-    ],
-  },
-  {
-    key: 'actSend', title: 'Акт отправки',
-    fields: [
-      { id: 'id', label: 'ID' }, { id: 'model', label: 'Модель' },
-      { id: 'manufacturer', label: 'Производитель' }, { id: 'serial', label: 'Серийный' },
-      { id: 'volume', label: 'Объём' }, { id: 'department', label: 'Отдел' },
-      { id: 'responsible', label: 'Ответственный' }, { id: 'location', label: 'Место' },
-      { id: 'cert', label: 'Свидетельство' }, { id: 'notes', label: 'Примечание' },
-    ],
-  },
-  {
-    key: 'actReturn', title: 'Акт возврата',
-    fields: [
-      { id: 'id', label: 'ID' }, { id: 'model', label: 'Модель' },
-      { id: 'manufacturer', label: 'Производитель' }, { id: 'serial', label: 'Серийный' },
-      { id: 'volume', label: 'Объём' }, { id: 'department', label: 'Отдел' },
-      { id: 'responsible', label: 'Ответственный' }, { id: 'cert', label: 'Свидетельство' },
-      { id: 'result', label: 'Результат' }, { id: 'notes', label: 'Примечание' },
-    ],
-  },
-  {
-    key: 'history', title: 'История поверок',
-    fields: [
-      { id: 'date', label: 'Дата' }, { id: 'cert', label: 'Свидетельство' },
-      { id: 'result', label: 'Результат' }, { id: 'org', label: 'Организация' },
-      { id: 'note', label: 'Примечание' },
-    ],
-  },
-];
+const docConfigs = computed(() => {
+  // Собираем кастомные поля, которых нет в системных
+  const customFields = settings.fields
+    .filter(f => f.enabled && !SYSTEM_FIELD_IDS_IN_CONFIG.has(f.id))
+    .map(f => ({ id: f.id, label: f.label }));
+
+  const baseExport = [
+    { id: 'id', label: 'ID' }, { id: 'serial', label: 'Серийный' },
+    { id: 'manufacturer', label: 'Производитель' }, { id: 'model', label: 'Модель' },
+    { id: 'equipmentType', label: 'Тип' }, { id: 'volume', label: 'Объём' },
+    { id: 'department', label: 'Отдел' }, { id: 'lastCalibration', label: 'Дата поверки' },
+    { id: 'nextCalibration', label: 'Следующая' }, { id: 'interval', label: 'МПИ' },
+    { id: 'daysLeft', label: 'Дней' }, { id: 'responsible', label: 'Ответственный' },
+    { id: 'location', label: 'Место' }, { id: 'status', label: 'Статус' },
+    { id: 'cert', label: 'Свидетельство' }, { id: 'notes', label: 'Примечание' },
+  ];
+
+  const baseActSend = [
+    { id: 'id', label: 'ID' }, { id: 'model', label: 'Модель' },
+    { id: 'manufacturer', label: 'Производитель' }, { id: 'serial', label: 'Серийный' },
+    { id: 'volume', label: 'Объём' }, { id: 'department', label: 'Отдел' },
+    { id: 'responsible', label: 'Ответственный' }, { id: 'location', label: 'Место' },
+    { id: 'cert', label: 'Свидетельство' }, { id: 'notes', label: 'Примечание' },
+  ];
+
+  const baseActReturn = [
+    { id: 'id', label: 'ID' }, { id: 'model', label: 'Модель' },
+    { id: 'manufacturer', label: 'Производитель' }, { id: 'serial', label: 'Серийный' },
+    { id: 'volume', label: 'Объём' }, { id: 'department', label: 'Отдел' },
+    { id: 'responsible', label: 'Ответственный' }, { id: 'cert', label: 'Свидетельство' },
+    { id: 'result', label: 'Результат' }, { id: 'notes', label: 'Примечание' },
+  ];
+
+  const baseHistory = [
+    { id: 'date', label: 'Дата' }, { id: 'cert', label: 'Свидетельство' },
+    { id: 'result', label: 'Результат' }, { id: 'org', label: 'Организация' },
+    { id: 'note', label: 'Примечание' },
+  ];
+
+  return [
+    { key: 'export', title: 'Печать реестра', fields: [...baseExport, ...customFields] },
+    { key: 'actSend', title: 'Акт отправки', fields: [...baseActSend, ...customFields] },
+    { key: 'actReturn', title: 'Акт возврата', fields: [...baseActReturn, ...customFields] },
+    { key: 'history', title: 'История поверок', fields: [...baseHistory, ...customFields] }, // history вряд ли нужны кастомные, но пусть будут
+  ];
+});
 
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'userView') return;
@@ -470,4 +486,9 @@ async function resetUserView() {
 }
 
 function close() { ui.close(); }
+
+function closeAndBack() {
+  ui.close();
+  ui.open('settings', 'users');
+}  
 </script>
