@@ -128,9 +128,24 @@ router.get('/verify', allowWhenPasswordMustChange, authenticate, (req, res) => {
 // ============================================================
 router.post('/impersonate/:userId', authenticate, async (req, res) => {
   try {
-    if (!req.user._isAdmin) {
-      return res.status(403).json({ error: 'Только администратор может входить под другими' });
-    }
+const [impRows] = await db.query(
+  `SELECT setting_value FROM system_settings WHERE setting_key = 'impersonation_mode'`
+);
+const mode = impRows[0]?.setting_value || 'all_admins';
+
+if (mode === 'off') {
+  return res.status(403).json({ error: 'Вход под пользователем отключён' });
+}
+
+if (mode === 'admin') {
+  if (req.user.login !== 'admin') {
+    return res.status(403).json({ error: 'Только встроенный админ может входить под другими' });
+  }
+} else if (mode === 'all_admins') {
+  if (!req.user._isAdmin) {
+    return res.status(403).json({ error: 'Только администратор может входить под другими' });
+  }
+}
 
     const [targets] = await db.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`, [req.params.userId]);
     if (!targets.length) return res.status(404).json({ error: 'Пользователь не найден' });
