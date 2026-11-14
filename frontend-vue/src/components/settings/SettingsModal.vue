@@ -5,7 +5,7 @@
         v-if="currentSection"
         type="button"
         class="settings-back-btn"
-        @click="currentSection = null"
+        @click="goBackToList"
         title="Назад к списку"
       >
         <i class="fa-solid fa-arrow-left"></i>
@@ -32,7 +32,7 @@
     <!-- Содержимое раздела -->
     <div v-else id="settings-section">
       <div id="settings-section-content">
-        <component :is="sectionComponent" @close="close" @back="currentSection = null" />
+        <component :is="sectionComponent" @close="close" @back="goBackToList" />
       </div>
     </div>
 
@@ -43,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, shallowRef, watch } from 'vue';
+import { computed } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { useAuthStore, usePermissions } from '@/stores/auth';
@@ -64,7 +64,7 @@ import PasswordPolicySettings from './PasswordPolicySettings.vue';
 import NotificationSettings from './NotificationSettings.vue';
 import SecuritySettings from './SecuritySettings.vue';
 import TableViewSettings from './TableViewSettings.vue';
-  
+
 const ui = useUiStore();
 const auth = useAuthStore();
 const perm = usePermissions();
@@ -74,34 +74,34 @@ interface Group { group: string; items: Section[] }
 
 const ALL_SECTIONS: Group[] = [
   {
-  group: 'Оборудование и данные',
-  items: [
-    { id: 'fields',             label: 'Поля формы',             component: FieldsSettings },
-    { id: 'departments',        label: 'Отделы',                 component: DepartmentsSettings },
-    { id: 'filters',            label: 'Фильтры',                component: FiltersSettings },
-    { id: 'export',             label: 'Печать документов',      component: ExportSettings },
-    { id: 'equipment',          label: 'Типы оборудования',      component: EquipmentTypesSettings },
-    { id: 'view-templates',     label: 'Шаблоны вида',           component: ViewTemplatesSettings },
-    { id: 'equipment-general',  label: 'Общие настройки',        component: EquipmentGeneralSettings },
-    { id: 'table-view',         label: 'Таблица и отображение',  component: TableViewSettings },
-  ],
-},
-{
-  group: 'Пользователи',
-  items: [
-    { id: 'users', label: 'Пользователи', component: UsersSettings },
-    { id: 'roles', label: 'Роли',         component: RolesSettings },
-  ],
-},
-{
-  group: 'Безопасность',
-  items: [
-    { id: 'password-policy', label: 'Политика паролей',       component: PasswordPolicySettings },
-    { id: 'notifications',   label: 'Уведомления',            component: NotificationSettings },
-    { id: 'security',        label: 'Вход под пользователем', component: SecuritySettings },
-  ],
-},
-{
+    group: 'Оборудование и данные',
+    items: [
+      { id: 'fields',             label: 'Поля формы',             component: FieldsSettings },
+      { id: 'departments',        label: 'Отделы',                 component: DepartmentsSettings },
+      { id: 'filters',            label: 'Фильтры',                component: FiltersSettings },
+      { id: 'export',             label: 'Печать документов',      component: ExportSettings },
+      { id: 'equipment',          label: 'Типы оборудования',      component: EquipmentTypesSettings },
+      { id: 'view-templates',     label: 'Шаблоны вида',           component: ViewTemplatesSettings },
+      { id: 'equipment-general',  label: 'Общие настройки',        component: EquipmentGeneralSettings },
+      { id: 'table-view',         label: 'Таблица и отображение',  component: TableViewSettings },
+    ],
+  },
+  {
+    group: 'Пользователи',
+    items: [
+      { id: 'users', label: 'Пользователи', component: UsersSettings },
+      { id: 'roles', label: 'Роли',         component: RolesSettings },
+    ],
+  },
+  {
+    group: 'Безопасность',
+    items: [
+      { id: 'password-policy', label: 'Политика паролей',       component: PasswordPolicySettings },
+      { id: 'notifications',   label: 'Уведомления',            component: NotificationSettings },
+      { id: 'security',        label: 'Вход под пользователем', component: SecuritySettings },
+    ],
+  },
+  {
     group: 'Печать и штрихкоды',
     items: [
       { id: 'printers', label: 'Принтеры этикеток', component: PrintersSettings },
@@ -117,21 +117,45 @@ const ALL_SECTIONS: Group[] = [
   },
 ];
 
-const currentSection = ref<string | null>(null);
-const sectionComponent = shallowRef<unknown>(null);
+// ═══════════════════════════════════════════════════════════
+// 🆕 COMPUTED из store — никакого локального state, никакого watch
+// ═══════════════════════════════════════════════════════════
+
+const currentSection = computed<string | null>(() => {
+  if (ui.activeModal !== 'settings') return null;
+  return typeof ui.modalData === 'string' ? ui.modalData : null;
+});
+
+const sectionComponent = computed<unknown>(() => {
+  const id = currentSection.value;
+  if (!id) return null;
+  for (const g of ALL_SECTIONS) {
+    const found = g.items.find(i => i.id === id);
+    if (found) {
+      if (found.component) return found.component;
+      return {
+        template: `<div style="text-align:center;padding:40px;color:#94a3b8;">
+          <div style="font-size:2.5rem;margin-bottom:12px;">🚧</div>
+          <div>Раздел «${found.label}» — в следующем блоке</div>
+        </div>`,
+      };
+    }
+  }
+  return null;
+});
 
 const visibleGroups = computed<Group[]>(() => {
   return ALL_SECTIONS.map(g => ({
     group: g.group,
-  items: g.items.filter(it => {
-  if (it.id === 'users') return perm.canManageUsers.value || auth.isAdmin;
-  if (it.id === 'roles') return perm.canManageRoles.value;   
-  if (it.id === 'printers') return perm.canManagePrinters.value;  
-  if (['equipment-general', 'table-view', 'password-policy', 'notifications', 'security'].includes(it.id)) {
-  return auth.isAdmin;
-}
-  return true;
-}),
+    items: g.items.filter(it => {
+      if (it.id === 'users') return perm.canManageUsers.value || auth.isAdmin;
+      if (it.id === 'roles') return perm.canManageRoles.value;
+      if (it.id === 'printers') return perm.canManagePrinters.value;
+      if (['equipment-general', 'table-view', 'password-policy', 'notifications', 'security'].includes(it.id)) {
+        return auth.isAdmin;
+      }
+      return true;
+    }),
   })).filter(g => g.items.length > 0);
 });
 
@@ -144,44 +168,16 @@ const currentSectionLabel = computed(() => {
   return '';
 });
 
-watch(
-  () => [ui.activeModal, ui.modalData],
-  ([modal, data]) => {
-    if (modal !== 'settings') {
-      //  При закрытии модалки — сброс раздела (иначе при следующем открытии останется старый)
-      currentSection.value = null;
-      sectionComponent.value = null;
-      return;
-    }
-    const target = typeof data === 'string' ? data : null;
-    if (target) {
-      openSection(target);
-      //  НЕ очищаем ui.modalData здесь — это триггерит второй fire и сбрасывает раздел
-    } else {
-      currentSection.value = null;
-      sectionComponent.value = null;
-    }
-  }
-);
-  
+// ═══════════════════════════════════════════════════════════
+// Actions — только мутации store, никаких локальных ref
+// ═══════════════════════════════════════════════════════════
+
 function openSection(id: string) {
-  currentSection.value = id;
-  for (const g of ALL_SECTIONS) {
-    const found = g.items.find(i => i.id === id);
-    if (found) {
-      if (found.component) {
-        sectionComponent.value = found.component;
-      } else {
-        sectionComponent.value = {
-          template: `<div style="text-align:center;padding:40px;color:#94a3b8;">
-            <div style="font-size:2.5rem;margin-bottom:12px;">🚧</div>
-            <div>Раздел «${found.label}» — в следующем блоке</div>
-          </div>`,
-        };
-      }
-      return;
-    }
-  }
+  ui.open('settings', id);
+}
+
+function goBackToList() {
+  ui.open('settings', null);
 }
 
 function close() { ui.close(); }
