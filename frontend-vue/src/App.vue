@@ -131,6 +131,11 @@ function onAuthChanged() {
 
   checkMustChangePassword();
 }
+  
+function onForceReload() {
+  sessionKey.value++;
+}
+  
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && auth.isAuthenticated) {
     auth.refreshUser();
@@ -186,15 +191,17 @@ onMounted(() => {
   setPasswordRequiredHandler((mode) => ui.open('changePassword', mode));
 
   window.addEventListener('auth:changed', onAuthChanged);
+  window.addEventListener('force:reload', onForceReload);
   document.addEventListener('visibilitychange', onVisibilityChange);
   window.addEventListener('focus', onWindowFocus);
   document.addEventListener('pointerdown', onModalResizePointerDown);
 });
-
+  
 onUnmounted(() => {
   window.removeEventListener('auth:changed', onAuthChanged);
   document.removeEventListener('visibilitychange', onVisibilityChange);
   window.removeEventListener('focus', onWindowFocus);
+  window.removeEventListener('force:reload', onForceReload);
   document.removeEventListener('pointerdown', onModalResizePointerDown);
 });
 
