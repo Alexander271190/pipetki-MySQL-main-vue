@@ -24,3 +24,19 @@ export function impersonate(userId: string): Promise<LoginResponse> {
 export function stopImpersonate(): Promise<{ message?: string; forceLogout?: boolean }> {
   return apiRequest<{ message?: string; forceLogout?: boolean }>('/auth/stop-impersonate', 'POST', {});
 }
+
+export interface PasswordPolicyResponse {
+  minLength: number;
+  maxLength: number;
+  requireLower: boolean;
+  requireUpper: boolean;
+  requireDigit: boolean;
+  requireSpecial: boolean;
+  forbidSpaces: boolean;
+}
+
+export function getPasswordPolicy(): Promise<PasswordPolicyResponse> {
+  return apiRequest<PasswordPolicyResponse>('/auth/password-policy');
+}
+
+
