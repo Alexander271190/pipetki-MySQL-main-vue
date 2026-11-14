@@ -421,25 +421,59 @@ router.put('/system', authenticate, requireAdmin, async (req, res) => {
   const settings = req.body;
   try {
     //  Whitelist — объявлен ДО цикла, чтобы не пересоздавать на каждой итерации
-    const ALLOWED_SETTINGS = new Set([
-      'warn_days', 'barcode_type', 'barcode_label_size', 'barcode_fallback_to_pdf',
-      'barcode_default_copies', 'barcode_agent_port', 'barcode_max_length', 'barcode_font',
-      'equipment_types',
-      'max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length',
-      'password_min_length', 'password_max_length',
-      'password_require_lower', 'password_require_upper',
-      'password_require_digit', 'password_require_special', 'password_forbid_spaces',
-      'reminders_enabled', 'reminders_for_roles',
-      'impersonation_mode',
-      'page_sizes', 'default_page_size', 'table_density',
-    ]);
+   const ALLOWED_SETTINGS = new Set([
 
+  'warn_days',
+  'barcode_type',
+  'barcode_label_size',
+  'barcode_fallback_to_pdf',
+  'barcode_default_copies',
+  'barcode_agent_port',
+  'barcode_max_length',
+  'barcode_font',
+  'barcode_label_fields',     
+  'barcode_mode',             
+  'barcode_zebra_language',    
+  'bulk_identity_fields',      
+  'equipment_types',
+  'max_batch_size', 'max_bulk_size', 'max_model_length', 'max_serial_length',
+  'password_min_length', 'password_max_length',
+  'password_require_lower', 'password_require_upper',
+  'password_require_digit', 'password_require_special', 'password_forbid_spaces',
+  'reminders_enabled', 'reminders_for_roles',
+  'impersonation_mode',
+  'page_sizes', 'default_page_size', 'table_density',
+]);
     for (const [k, v] of Object.entries(settings)) {
       // Whitelist
       if (!ALLOWED_SETTINGS.has(k)) {
         console.warn(`[settings] Неизвестный ключ: ${k} — пропускаю`);
         continue;
       }
+
+ //  Валидация для bulk_identity_fields
+if (k === 'bulk_identity_fields') {
+  try {
+    const arr = JSON.parse(v);
+    if (!Array.isArray(arr) || arr.length === 0) {
+      return res.status(400).json({ error: 'bulk_identity_fields: выберите хотя бы одно поле' });
+    }
+  } catch {
+    return res.status(400).json({ error: 'bulk_identity_fields: ожидается JSON-массив' });
+  }
+}
+
+//  Валидация для barcode_label_fields
+if (k === 'barcode_label_fields') {
+  try {
+    const arr = JSON.parse(v);
+    if (!Array.isArray(arr) || arr.length === 0) {
+      return res.status(400).json({ error: 'barcode_label_fields: выберите хотя бы одно поле' });
+    }
+  } catch {
+    return res.status(400).json({ error: 'barcode_label_fields: ожидается JSON-массив' });
+  }
+}
 
       //  Валидация
       if (k === 'page_sizes') {
