@@ -36,7 +36,7 @@ const main = computed(() => {
 
 const sub = computed(() => {
   const arr: string[] = [];
-  // Динамический обход всех выбранных полей (включая кастомные 2223)
+ 
   for (const f of fields.value) {
     if (f === 'id' || f === 'model') continue;
     
