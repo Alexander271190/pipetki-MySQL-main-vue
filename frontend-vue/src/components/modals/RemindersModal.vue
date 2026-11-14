@@ -78,6 +78,17 @@ function onRemindersCheck() {
 
 function check() {
   if (!auth.user) return;
+
+  // Проверка настроек уведомлений
+  const s = settings.systemSettings;
+  if (s?.reminders_enabled === '0') return;
+  let allowedRoles = ['user', 'senior_lab', 'admin'];
+  try {
+    const parsed = JSON.parse(String(s?.reminders_for_roles || '[]'));
+    if (Array.isArray(parsed) && parsed.length > 0) allowedRoles = parsed;
+  } catch { /* ignore */ }
+  if (auth.user && !allowedRoles.includes(auth.user.role)) return;
+
   if (sessionDismissed.value) return;    
   if (visible.value) return;        
   const key = STORAGE_PREFIX + auth.user.id;
