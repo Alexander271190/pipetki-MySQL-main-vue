@@ -8,6 +8,9 @@
       <button class="btn btn-primary btn-sm" @click="openUpload(null)">
         <i class="fa-solid fa-plus"></i> Добавить раздел
       </button>
+      <button class="btn btn-info btn-sm" @click="applyDefaults">
+        <i class="fa-solid fa-lock"></i> Применить права из коробки
+      </button>
       <button class="btn btn-warning btn-sm" @click="resetFactory">
         <i class="fa-solid fa-rotate-left"></i> Сбросить к заводской
       </button>
@@ -24,6 +27,7 @@
         <tr>
           <th>Название раздела</th>
           <th style="width:200px;">Файл</th>
+          <th style="width:180px;">Права доступа</th>
           <th style="width:80px;">Показ</th>
           <th style="width:80px;">Действия</th>
         </tr>
@@ -42,9 +46,20 @@
          <i class="fa-solid fa-file"></i> {{ fileName(s.filePath) }}
         </span>
       </td>
-          <td style="text-align:center;">{{ s.enabled ? '✅' : '❌' }}</td>
-          <td style="text-align:center;">
-            <button class="row-actions-btn" @click.stop="openActions($event, s)">
+      <td>
+        <span v-if="!s.requiredPermissions || s.requiredPermissions.length === 0"
+           style="font-size:.78rem;color:#16a34a;font-weight:600;">
+        👁 Все
+        </span>
+        <span v-else
+           style="font-size:.78rem;color:#4f46e5;"
+         :title="s.requiredPermissions.join(', ')">
+       🔒 {{ s.requiredPermissions.length }} прав
+        </span>
+        </td>
+        <td style="text-align:center;">{{ s.enabled ? '✅' : '❌' }}</td>
+        <td style="text-align:center;">
+        <button class="row-actions-btn" @click.stop="openActions($event, s)">
               <i class="fa-solid fa-ellipsis-vertical"></i>
             </button>
           </td>
@@ -62,8 +77,12 @@
       <div class="form-group">
         <label>Документ (PDF/DOCX) {{ editingSlug ? '' : '*' }}</label>
         <input ref="fileInput" type="file" accept=".pdf,.docx,.doc" />
-        <small v-if="editingSlug" style="color:#64748b;display:block;margin-top:4px;">Оставьте пустым, чтобы сохранить текущий</small>
-      </div>
+        <small v-if="editingSlug" style="color:#0ea5e9;display:block;margin-top:6px;padding:6px 10px;background:#f0f9ff;border-radius:6px;">
+          <i class="fa-solid fa-info-circle"></i>
+          Текущий файл: <strong>{{ currentFilePath }}</strong><br>
+          Оставьте поле пустым, чтобы сохранить его без замены.
+        </small>
+     </div>
       <div class="form-group">
         <label>Права доступа (кто увидит раздел)</label>
         <div class="hup-multiselect-wrap">
@@ -105,7 +124,7 @@ import { showConfirm } from '@/composables/useConfirm';
 import * as api from '@/api/help';
 import type { HelpSection } from '@/api/help';
 import { ALL_PERMISSIONS } from '@/constants/permissions';
-
+import { apiRequest } from '@/api/client';
 
 defineEmits<{ (e: 'close'): void }>();
 
@@ -116,6 +135,11 @@ const sections = ref<HelpSection[]>([]);
 const loading = ref(false);
 const showUpload = ref(false);
 const editingSlug = ref<string | null>(null);
+const currentFilePath = computed(() => {
+  if (!editingSlug.value) return '—';
+  const sec = sections.value.find(s => s.slug === editingSlug.value);
+  return sec?.filePath ? fileName(sec.filePath) : '— нет файла —';
+});  
 const uploadTitle = ref('');
 const uploadError = ref('');
 const uploading = ref(false);
@@ -178,7 +202,7 @@ function openUpload(slug: string | null) {
 }
 function openActions(e: MouseEvent, s: HelpSection) {
   ui.openRowActions(e.currentTarget as HTMLElement, [
-    { label: '<i class="fa-solid fa-pen"></i> Заменить файл', action: () => openUpload(s.slug) },
+    { label: '<i class="fa-solid fa-sliders"></i> Настроить (файл / права)', action: () => openUpload(s.slug) },
     { label: '<i class="fa-solid fa-trash"></i> Удалить', class: 'item-danger', action: () => onDelete(s.slug) },
   ]);
 }
@@ -222,6 +246,27 @@ async function onDelete(slug: string) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   }
 }
+
+async function applyDefaults() {
+  const ok = await showConfirm(
+    'Применить дефолтные права ко всем стандартным разделам?\n\n' +
+    'Например: «Добавление партии» → «Добавление оборудования», ' +
+    '«Экспорт данных» → «Экспорт», «Печать этикеток» → «Печать этикеток» и т.д.\n\n' +
+    'Ваши ручные настройки будут перезаписаны.',
+    { icon: '🔒', title: 'Применить права', okText: 'Применить', okClass: 'btn-warning' }
+  );
+  if (!ok) return;
+
+  try {
+    const res = await apiRequest<{ message: string; updated: number }>(
+      '/help/apply-defaults', 'POST', {}
+    );
+    toast.success(res.message || `Обновлено: ${res.updated}`);
+    load();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  }
+}  
 
 async function resetFactory() {
   const ok = await showConfirm('Сбросить справку к заводской?', {
