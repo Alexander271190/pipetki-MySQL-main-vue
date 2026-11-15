@@ -182,14 +182,29 @@ router.post('/bulk-send', authenticate, requireAnyPermission(['bulk_send', 'mana
     const eqSettings = await getEquipmentSettings();
   if (ids.length > eqSettings.maxBulkSize) return res.status(400).json({ error: `Слишком много единиц за раз (максимум ${eqSettings.maxBulkSize})` });
 
+     //  Защита: замена не может быть из списка отправляемых
+  const idsSet = new Set(ids);
+  for (const replId of Object.values(replacements)) {
+    if (replId && idsSet.has(replId)) {
+      return res.status(400).json({ error: 'Замена не может быть из списка отправляемых' });
+    }
+  }
+
+  // Валидация замен: не сама себя, не одну единицу на несколько
   const usedReplacements = new Set();
   for (const [origId, replId] of Object.entries(replacements)) {
     if (!replId) continue;
-    if (replId === origId) return res.status(400).json({ error: `Оборудование ${origId} не может заменить само себя` });
-    if (usedReplacements.has(replId)) return res.status(400).json({ error: `Одна единица (${replId}) не может заменить несколько. Выберите разные замены.` });
+    if (replId === origId) {
+      return res.status(400).json({ error: `Оборудование ${origId} не может заменить само себя` });
+    }
+    if (usedReplacements.has(replId)) {
+      return res.status(400).json({
+        error: `Одна единица (${replId}) не может заменить несколько. Выберите разные замены.`,
+      });
+    }
     usedReplacements.add(replId);
   }
-
+  
   const successful = [];
   const skipped = [];
   const notFound = [];
