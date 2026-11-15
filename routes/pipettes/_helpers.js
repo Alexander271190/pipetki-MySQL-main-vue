@@ -317,7 +317,33 @@ function sqlOrderBy(sort, dir, warnDays) {
     case 'nextCalibration': return `DATE_ADD(DATE(last_calibration), INTERVAL \`interval\` MONTH) ${d}`;
     case 'responsible':     return `responsible ${d}`;
     case 'status':          return `(${sqlStatusOrder(warnDays)}) ${d}`;
-    default:                return `id ${d}`;
+    
+    // Стандартные поля, которые раньше молча падали в default → сортировка по id
+    case 'serial':          return `serial ${d}`;
+    case 'manufacturer':    return `manufacturer ${d}`;
+    case 'cert':            return `cert ${d}`;
+    case 'interval':        return `\`interval\` ${d}`;
+    case 'location':        return `location ${d}`;
+    case 'notes':           return `notes ${d}`;
+    case 'barcode':         return `barcode ${d}`;
+    case 'barcodeSource':   return `barcode_source ${d}`;
+    case 'lastResult':      return `last_result ${d}`;
+    case 'active':          return `active ${d}`; 
+    default:
+     
+      // Кастомное поле (безопасные символы) и не из системных
+      if (
+        /^[a-zA-Z0-9_]+$/.test(sort) &&
+        ![
+          'id', 'model', 'equipment_type', 'volume', 'department',
+          'last_calibration', 'nextCalibration', 'responsible', 'status',
+          'serial', 'manufacturer', 'cert', 'interval', 'location', 'notes',
+          'barcode', 'barcode_source', 'last_result', 'active',
+        ].includes(sort)
+      ) {
+        return `JSON_UNQUOTE(JSON_EXTRACT(custom_data, '$.${sort}')) ${d}`;
+      }
+      return `id ${d}`;
   }
 }
 
