@@ -156,6 +156,10 @@ router.put('/fields', authenticate, requireAdmin, async (req, res) => {
   const fields = req.body;
   if (!Array.isArray(fields)) return res.status(400).json({ error: 'Ожидается массив' });
 
+  //  Переменные для аудита (собираем внутри транзакции, пишем после)
+  let auditFields = [];
+  let auditCount = 0;
+
   try {
     await withTransaction(async (conn) => {
       // 🛡️ Защита от удаления полей, у которых уже есть данные
@@ -223,6 +227,9 @@ router.put('/fields', authenticate, requireAdmin, async (req, res) => {
 
         if (recordsToClean.length > 0) {
           console.log(`🗑️ Каскадная очистка: ${recordsToClean.length} записей (поля: ${[...usedFields].join(', ')})`);
+          //  Запоминаем для аудита, но НЕ пишем в БД здесь
+          auditFields = [...usedFields];
+          auditCount = affectedRecords; 
         }
       }
 
@@ -236,6 +243,19 @@ router.put('/fields', authenticate, requireAdmin, async (req, res) => {
         );
       }
     });
+
+    // Аудит — после успешного коммита, в try/catch, чтобы сбой лога не сломал ответ
+    if (auditCount > 0) {
+      try {
+        await logAction(
+          req,
+          'Каскадное удаление данных полей',
+          `Удалены поля: ${auditFields.join(', ')}. Затронуто записей: ${auditCount}`
+        );
+      } catch (e) {
+        console.error('audit logAction failed:', e?.message || e);
+      }
+    }
 
     res.json({ message: 'Поля обновлены' });
   } catch (e) {
