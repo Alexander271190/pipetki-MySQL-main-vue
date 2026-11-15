@@ -5,6 +5,7 @@ const multer = require('multer');
 const db = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
+const { HELP_PERMISSIONS } = require('../utils/help-permissions');
 
 const router = express.Router();
 
@@ -225,25 +226,6 @@ router.post('/reset', authenticate, requireAdmin, async (req, res) => {
 //  POST /help/apply-defaults — проставить дефолтные права у стандартных разделов
 router.post('/apply-defaults', authenticate, requireAdmin, async (req, res) => {
   try {
-    const HELP_PERMISSIONS = {
-      'add-batch':        ['add_pipette'],
-      'add-single':       ['add_pipette'],
-      'bulk-responsible': ['bulk_change_responsible'],
-      'delete':           ['delete_pipette'],
-      'edit':             ['edit_pipette'],
-      'export':           ['export_data'],
-      'print':            ['print_labels'],
-      'scan':             ['scan_barcode'],
-      'transfer':         ['transfer_pipette'],
-      'quickcal':         ['quick_calibration'],
-      'history':          ['view_history'],
-      'send':             ['bulk_send'],
-      'return':           ['bulk_return'],
-      'roles':            ['manage_users'],
-      'help-admin':       ['manage_settings'],
-      'print-docs':       ['export_data'],
-    };
-
     let updated = 0;
     for (const [slug, perms] of Object.entries(HELP_PERMISSIONS)) {
       const [result] = await db.query(
