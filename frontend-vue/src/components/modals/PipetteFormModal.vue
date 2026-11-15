@@ -211,6 +211,8 @@ async function _handleIdleTimeout() {
     console.warn('releaseLock при idle timeout:', e);
   }
 
+  tab.value = 'single';
+  bulkTabKey.value++;
   ui.close();
 
   const msg = draftSaved
@@ -796,6 +798,10 @@ async function onSubmit(silent = false) {
 function onBulkCreated(_count: number) {
   _skipUnlock = true;
   idle.stop();
+  //  Очищаем состояние вкладки партии после успешного создания
+  tab.value = 'single';
+  bulkTabKey.value++;
+  
   ui.close();
 }
 
