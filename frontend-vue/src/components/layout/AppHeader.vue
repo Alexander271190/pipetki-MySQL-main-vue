@@ -126,8 +126,9 @@ const positionLine = computed(() => {
   if (!u) return '';
   let pos = u.position || '';
   if (u.isAdmin) pos += ' (админ)';
-  else if (u.role === 'senior_lab') pos += ' (ст. лаборант)';
-  if (u.isActing) {
+  else if (u.roleName === 'Ст. лаборант' || u.role === 'senior_lab' || (u.rolePermissions || []).includes('bulk_send')) {
+    pos += ' (ст. лаборант)';
+  }
     pos += u.actingForName ? ` · и.о. за ${u.actingForName}` : ' · и.о.';
   }
   if (u.department) pos += ' · ' + u.department;
