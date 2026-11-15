@@ -125,16 +125,24 @@ const positionLine = computed(() => {
   const u = auth.user;
   if (!u) return '';
   let pos = u.position || '';
-  if (u.isAdmin) pos += ' (админ)';
-  else if (u.roleName === 'Ст. лаборант' || u.role === 'senior_lab' || (u.rolePermissions || []).includes('bulk_send')) {
+  if (u.isAdmin) {
+    pos += ' (админ)';
+  } else if (
+    u.roleName === 'Ст. лаборант' ||
+    u.role === 'senior_lab' ||
+    (u.permissions || []).includes('bulk_send')
+  ) {
     pos += ' (ст. лаборант)';
   }
+
+  if (u.isActing) {
     pos += u.actingForName ? ` · и.о. за ${u.actingForName}` : ' · и.о.';
   }
+
   if (u.department) pos += ' · ' + u.department;
   return pos;
 });
-
+  
 const outsideCounters = computed(() => {
   const c = stats.counters;
   const sumIn = (c.ok || 0) + (c.warn || 0) + (c.danger || 0);
