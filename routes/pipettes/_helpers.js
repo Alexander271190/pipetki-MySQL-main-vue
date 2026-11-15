@@ -224,7 +224,8 @@ function buildFiltersWhere(filters, search) {
   
   if (search && String(search).trim()) {
     const s = String(search).trim();
-    const q = `%${s}%`;
+    const escaped = s.replace(/[\\%_]/g, '\\$&'); 
+    const q = `%${escaped}%`;
     parts.push(`search_text LIKE ?`);
     params.push(q);
   }
