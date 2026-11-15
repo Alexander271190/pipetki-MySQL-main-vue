@@ -58,6 +58,26 @@ const HELP_TITLES = {
   'print-docs':       'Печать документов',
 };
 
+//  Дефолтные права для стандартных разделов справки
+const HELP_PERMISSIONS = {
+  'add-batch':        ['add_pipette'],
+  'add-single':       ['add_pipette'],
+  'bulk-responsible': ['bulk_change_responsible'],
+  'delete':           ['delete_pipette'],
+  'edit':             ['edit_pipette'],
+  'export':           ['export_data'],
+  'print':            ['print_labels'],
+  'scan':             ['scan_barcode'],
+  'transfer':         ['transfer_pipette'],
+  'quickcal':         ['quick_calibration'],
+  'history':          ['view_history'],
+  'send':             ['bulk_send'],
+  'return':           ['bulk_return'],
+  'roles':            ['manage_users'],
+  'help-admin':       ['manage_settings'],
+  'print-docs':       ['export_data'],
+};
+
 // ============================================================
 // СПРАВКА — сканирование frontend/help-defaults/
 // ============================================================
@@ -92,10 +112,11 @@ async function seedHelpDocs(conn) {
     );
 
     if (existing.length === 0) {
+      const defaultPerms = JSON.stringify(HELP_PERMISSIONS[slug] || []);
       await executor.query(
         `INSERT INTO help_docs (slug, title, file_path, required_permissions, sort_order, enabled)
-         VALUES (?, ?, ?, '[]', ?, 1)`,
-        [slug, fallbackTitle, dbPath, sortIdx]
+         VALUES (?, ?, ?, ?, ?, 1)`,
+        [slug, fallbackTitle, dbPath, defaultPerms, sortIdx]
       );
       added++;
     } else if (!existing[0].file_path) {
