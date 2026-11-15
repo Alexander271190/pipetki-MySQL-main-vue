@@ -226,6 +226,7 @@ async function onSubmit() {
 }
 
 function close() {
+  _generation++; 
   if (_lockedIds.length > 0) {
     bulkApi.bulkUnlock(_lockedIds).catch(() => {});
     _lockedIds = [];
