@@ -91,7 +91,17 @@ const availableDepts = computed(() => {
 });
 
 watch(() => ui.activeModal, (v) => {
-  if (v === 'transfer') open();
+  if (v === 'transfer') {
+    open();
+  } else {
+    if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+    idle.stop();
+    if (_lockedId && !_skipUnlock) {
+      api.releaseLock(_lockedId).catch(() => {});
+    }
+    _lockedId = null;
+    pipette.value = null;
+  }
 });
 
 async function open() {
