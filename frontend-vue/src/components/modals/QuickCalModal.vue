@@ -115,7 +115,18 @@ async function _handleIdleTimeout() {
 const idle = useIdleLock(_handleIdleTimeout);
 
 watch(() => ui.activeModal, (v) => {
-  if (v === 'quickCal') open();
+  if (v === 'quickCal') {
+    open();
+  } else {
+    //  Модалку закрыли извне (Escape / оверлей / uiStore.close) — гасим фон
+    if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
+    idle.stop();
+    if (_lockedId && !_skipUnlock) {
+      api.releaseLock(_lockedId).catch(() => {});
+    }
+    _lockedId = null;
+    pipette.value = null;
+  }
 });
 
 async function open() {
