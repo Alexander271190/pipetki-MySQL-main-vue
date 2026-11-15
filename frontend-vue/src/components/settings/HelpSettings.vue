@@ -97,6 +97,9 @@
                 <input type="checkbox" :value="p.key" v-model="selectedPerms" />
                 <span v-html="p.label"></span>
               </label>
+             </div>
+             <div style="position:sticky;bottom:-6px;background:var(--card);padding:10px 4px 4px;border-top:1px solid var(--border);margin-top:8px;text-align:right;z-index:101;">
+               <button type="button" class="btn btn-primary btn-sm" @click="permsMenuOpen = false">Готово</button>
             </div>
           </div>
         </div>
@@ -116,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useToastStore } from '@/stores/toast';
 import { useUiStore } from '@/stores/ui';
@@ -125,7 +128,7 @@ import * as api from '@/api/help';
 import type { HelpSection } from '@/api/help';
 import { ALL_PERMISSIONS } from '@/constants/permissions';
 import { apiRequest } from '@/api/client';
-
+  
 defineEmits<{ (e: 'close'): void }>();
 
 const toast = useToastStore();
@@ -188,7 +191,16 @@ async function load() {
   finally { loading.value = false; }
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+  document.addEventListener('click', onClickOutside);
+});
+onUnmounted(() => document.removeEventListener('click', onClickOutside));
+
+function onClickOutside(e: MouseEvent) {
+  if (!permsMenuOpen.value) return;
+  if (!(e.target as HTMLElement).closest('.hup-multiselect-wrap')) permsMenuOpen.value = false;
+}
 
 function openUpload(slug: string | null) {
   editingSlug.value = slug;
