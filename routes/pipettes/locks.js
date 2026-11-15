@@ -18,7 +18,19 @@ router.get('/:id/lock', authenticate, async (req, res) => {
 
     if (!rows.length) return res.json({ locked: false });
     const lock = rows[0];
-    if (lock.user_id === req.user.id) return res.json({ locked: true, mine: true });
+    if (lock.user_id === req.user.id) {
+      //  Продлеваем блокировку
+      try {
+        await db.query(
+          'UPDATE edit_locks SET locked_at = CURRENT_TIMESTAMP WHERE pipette_id = ? AND user_id = ?',
+          [req.params.id, req.user.id]
+        );
+      } catch (e) {
+        // Если БД затупила — не роняем фронт, лок всё равно наш
+        console.error('lock heartbeat failed:', e?.message || e);
+      }
+      return res.json({ locked: true, mine: true });
+    }
 
     const position = lock.actual_position || '';
 
