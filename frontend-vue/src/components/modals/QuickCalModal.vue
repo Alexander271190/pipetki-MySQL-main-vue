@@ -75,7 +75,8 @@ const error = ref('');
 let _heartbeat: number | null = null;
 let _skipUnlock = false;
 let _lockedId: string | null = null;
-
+let _cancelled = false;
+  
 async function _handleIdleTimeout() {
   if (!_lockedId) return;
 
@@ -118,6 +119,7 @@ watch(() => ui.activeModal, (v) => {
   if (v === 'quickCal') {
     open();
   } else {
+    _cancelled = true;
     //  Модалку закрыли извне (Escape / оверлей / uiStore.close) — гасим фон
     if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
     idle.stop();
@@ -130,6 +132,7 @@ watch(() => ui.activeModal, (v) => {
 });
 
 async function open() {
+  _cancelled = false;
   idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   _skipUnlock = false;
@@ -163,6 +166,13 @@ async function open() {
   }
 
   form.value = { date: todayStr(), cert: '', result: 'pass', org: '', note: '' };
+
+  //  Если модалку закрыли, пока шли await'ы — прерываемся
+  if (_cancelled || ui.activeModal !== 'quickCal') {
+    if (_lockedId) { api.releaseLock(_lockedId).catch(() => {}); _lockedId = null; }
+    pipette.value = null;
+    return;
+  }
 
   // ── Heartbeat с модалкой OK ─────────────────
   _heartbeat = window.setInterval(async () => {
