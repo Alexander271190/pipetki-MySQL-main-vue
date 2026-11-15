@@ -312,12 +312,17 @@ router.post('/change-password', allowWhenPasswordMustChange, authenticate, async
 
   await logAction(req, 'Смена пароля', 'Пользователь сменил свой пароль');
 
-  const freshToken = jwt.sign(
-    { id: req.user.id, login: req.user.login, role: req.user.role },
+    const freshToken = jwt.sign(
+    {
+      id: req.user.id,
+      login: req.user.login,
+      role: req.user.role,
+      impersonatedBy: req.impersonatedBy || undefined,
+      impersonatedByName: req.impersonatedByName || undefined,
+    },
     JWT_SECRET,
     { expiresIn: '24h' }
   );
-
   res.json({ message: 'Пароль изменён', token: freshToken });
 });
 
@@ -367,8 +372,14 @@ router.post('/setup-password', allowWhenPasswordMustChange, authenticate, async 
 
   await logAction(req, 'Установка пароля администратора', 'Первый вход');
 
-  const freshToken = jwt.sign(
-    { id: req.user.id, login: req.user.login, role: req.user.role },
+    const freshToken = jwt.sign(
+    {
+      id: req.user.id,
+      login: req.user.login,
+      role: req.user.role,
+      impersonatedBy: req.impersonatedBy || undefined,
+      impersonatedByName: req.impersonatedByName || undefined,
+    },
     JWT_SECRET,
     { expiresIn: '24h' }
   );
