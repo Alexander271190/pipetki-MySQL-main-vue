@@ -90,7 +90,7 @@
             <span>Выбрано: {{ selectedPerms.length }} прав</span>
             <i class="fa-solid fa-caret-down"></i>
           </div>
-          <div v-if="permsMenuOpen" class="hup-multiselect-menu">
+          <div v-if="permsMenuOpen" class="hup-multiselect-menu show">
             <div v-for="group in permGroups" :key="group.name">
               <div style="font-size:.7rem;font-weight:700;color:#94a3b8;margin:8px 0 4px 4px;text-transform:uppercase;">{{ group.name }}</div>
               <label v-for="p in group.items" :key="p.key" style="display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;">
