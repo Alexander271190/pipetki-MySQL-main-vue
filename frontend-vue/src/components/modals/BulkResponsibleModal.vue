@@ -101,6 +101,7 @@ async function open() {
 
   // 2. Список имён (кеш settings + текущие значения)
   await settings.loadResponsibles();
+  if (gen !== _generation) return;
   const names = new Set<string>(settings.responsibles);
   pip.items.forEach(p => p.responsible && names.add(p.responsible));
   namesList.value = [...names].sort((a, b) => a.localeCompare(b, 'ru'));
