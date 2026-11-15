@@ -222,4 +222,43 @@ router.post('/reset', authenticate, requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Ошибка сброса' }); }
 });
 
+//  POST /help/apply-defaults — проставить дефолтные права у стандартных разделов
+router.post('/apply-defaults', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const HELP_PERMISSIONS = {
+      'add-batch':        ['add_pipette'],
+      'add-single':       ['add_pipette'],
+      'bulk-responsible': ['bulk_change_responsible'],
+      'delete':           ['delete_pipette'],
+      'edit':             ['edit_pipette'],
+      'export':           ['export_data'],
+      'print':            ['print_labels'],
+      'scan':             ['scan_barcode'],
+      'transfer':         ['transfer_pipette'],
+      'quickcal':         ['quick_calibration'],
+      'history':          ['view_history'],
+      'send':             ['bulk_send'],
+      'return':           ['bulk_return'],
+      'roles':            ['manage_users'],
+      'help-admin':       ['manage_settings'],
+      'print-docs':       ['export_data'],
+    };
+
+    let updated = 0;
+    for (const [slug, perms] of Object.entries(HELP_PERMISSIONS)) {
+      const [result] = await db.query(
+        'UPDATE help_docs SET required_permissions = ? WHERE slug = ?',
+        [JSON.stringify(perms), slug]
+      );
+      if (result.affectedRows > 0) updated++;
+    }
+
+    invalidateHelpCache();
+    await logAction(req, 'Применение дефолтных прав справки', `Обновлено разделов: ${updated}`);
+    res.json({ message: `Обновлено разделов: ${updated}`, updated });
+  } catch (e) {
+    console.error('POST /help/apply-defaults:', e);
+    res.status(500).json({ error: 'Ошибка применения' });
+  }
+});
 module.exports = router;
