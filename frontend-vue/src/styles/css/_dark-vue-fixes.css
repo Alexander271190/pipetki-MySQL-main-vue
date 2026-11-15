@@ -209,25 +209,32 @@ html[data-theme="dark"] .modal textarea[style*="background:rgb(241, 245, 249)"] 
   color: #94a3b8 !important;
 }
 
-/*  Фикс белого фона в модалке удаления и других списках */
+/* Фикс белого/зеленого фона в модалке удаления (hex + rgb) */
 html[data-theme="dark"] .modal [style*="background:#f0fdf4"],
-html[data-theme="dark"] .modal [style*="background: #f0fdf4"] {
+html[data-theme="dark"] .modal [style*="background: #f0fdf4"],
+html[data-theme="dark"] .modal [style*="background: rgb(240, 253, 244)"],
+html[data-theme="dark"] .modal [style*="background:rgb(240, 253, 244)"] {
   background: rgba(22, 163, 74, 0.15) !important;
   color: #86efac !important;
-  border: 1px solid rgba(22, 163, 74, 0.3) !important;
 }
 html[data-theme="dark"] .modal [style*="background:#f0fdf4"] strong,
-html[data-theme="dark"] .modal [style*="background: #f0fdf4"] strong {
+html[data-theme="dark"] .modal [style*="background: #f0fdf4"] strong,
+html[data-theme="dark"] .modal [style*="background: rgb(240, 253, 244)"] strong,
+html[data-theme="dark"] .modal [style*="background:rgb(240, 253, 244)"] strong {
   color: #86efac !important;
 }
 
-/* Фикс красного блока (для удаляемых) */
+/*  Фикс красного блока (hex + rgb) */
 html[data-theme="dark"] .modal [style*="background:#fee2e2"],
-html[data-theme="dark"] .modal [style*="background: #fee2e2"] {
+html[data-theme="dark"] .modal [style*="background: #fee2e2"],
+html[data-theme="dark"] .modal [style*="background: rgb(254, 226, 226)"],
+html[data-theme="dark"] .modal [style*="background:rgb(254, 226, 226)"] {
   background: rgba(220, 38, 38, 0.15) !important;
   color: #fca5a5 !important;
 }
 html[data-theme="dark"] .modal [style*="background:#fee2e2"] strong,
-html[data-theme="dark"] .modal [style*="background: #fee2e2"] strong {
+html[data-theme="dark"] .modal [style*="background: #fee2e2"] strong,
+html[data-theme="dark"] .modal [style*="background: rgb(254, 226, 226)"] strong,
+html[data-theme="dark"] .modal [style*="background:rgb(254, 226, 226)"] strong {
   color: #fca5a5 !important;
 }
