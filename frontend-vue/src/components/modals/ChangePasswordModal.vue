@@ -233,7 +233,14 @@ async function onSubmit() {
       ? await authApi.setupPassword(newPwd.value, confirmPwd.value)
       : await authApi.changePassword(currentPwd.value, newPwd.value, confirmPwd.value);
 
-    if (res?.token) auth.applySession({ user: auth.user!, token: res.token });
+    if (res?.token) {
+      auth.applySession({
+        user: auth.user!,
+        token: res.token,
+        originalUser: auth.originalUser || undefined,
+        originalToken: auth.originalToken || undefined,
+      });
+    }
     if (auth.user) {
       auth.user.mustSetPassword = false;
       auth.user.mustChangePassword = false;
