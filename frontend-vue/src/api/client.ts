@@ -45,12 +45,17 @@ export function setPasswordRequiredHandler(fn: (mode: 'setup' | 'change') => voi
  * Единая обработка 401 — используется и в apiRequest, и в download.ts.
  * Без перезагрузки: очистка сессии + toast + onUnauthorized (auth.logout + router.push).
  */
+let _lastUnauthorizedToast = 0;
 export function triggerUnauthorized() {
   sessionStorage.removeItem(SESSION_KEY);
   authToken = null;
-  void import('@/stores/toast')
-    .then(({ useToastStore }) => useToastStore().error('Сессия истекла, войдите заново'))
-    .catch(() => {});
+  const now = Date.now();
+  if (now - _lastUnauthorizedToast > 5000) {
+    _lastUnauthorizedToast = now;
+    void import('@/stores/toast')
+      .then(({ useToastStore }) => useToastStore().error('Сессия истекла, войдите заново'))
+      .catch(() => {});
+  }
   if (onUnauthorized) onUnauthorized();
 }
 
