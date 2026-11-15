@@ -64,7 +64,8 @@ const error = ref('');
 let _heartbeat: number | null = null;
 let _skipUnlock = false;
 let _lockedId: string | null = null;
-
+let _cancelled = false;
+  
 async function _handleIdleTimeout() {
   if (!_lockedId) return;
 
@@ -94,6 +95,7 @@ watch(() => ui.activeModal, (v) => {
   if (v === 'transfer') {
     open();
   } else {
+    _cancelled = true;
     if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
     idle.stop();
     if (_lockedId && !_skipUnlock) {
@@ -105,6 +107,7 @@ watch(() => ui.activeModal, (v) => {
 });
 
 async function open() {
+  _cancelled = false;
   idle.stop();
   if (_heartbeat) { clearInterval(_heartbeat); _heartbeat = null; }
   _skipUnlock = false;
@@ -137,6 +140,13 @@ async function open() {
   if (!pipette.value) {
     toast.error('Прибор не найден');
     await close();
+    return;
+  }
+
+  //  Если модалку закрыли, пока шли await'ы — прерываемся
+  if (_cancelled || ui.activeModal !== 'transfer') {
+    if (_lockedId) { api.releaseLock(_lockedId).catch(() => {}); _lockedId = null; }
+    pipette.value = null;
     return;
   }
 
