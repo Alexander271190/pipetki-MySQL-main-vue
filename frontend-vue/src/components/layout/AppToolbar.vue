@@ -23,25 +23,25 @@
         <i class="fa-solid fa-box-open"></i> Вернуть
         <span>({{ selectedToReturn.length }})</span>
      </button>
-     <button
-  v-if="perm.canBulkChangeResponsible.value && selectedVisible.length > 0"
+<button
+  v-if="perm.canBulkChangeResponsible.value && pip.hasSelection"
   class="btn btn-secondary btn-sm"
   @click="modals.openBulkResponsible()"
 >
   <i class="fa-solid fa-user-pen"></i> Ответственный
-  <span v-if="selectedVisible.length > 0">({{ selectedVisible.length }})</span>
- </button>
+  <span>({{ pip.selected.size }})</span>
+</button>
 
 <!-- Кнопка массового удаления -->
- <button
-  v-if="perm.canDeletePipette.value && selectedVisible.length > 0"
+<button
+  v-if="perm.canDeletePipette.value && pip.hasSelection"
   class="btn btn-danger btn-sm"
   @click="modals.openBulkDelete()"
   title="Удалить выбранные"
 >
   <i class="fa-solid fa-trash"></i> Удалить
-  <span>({{ selectedVisible.length }})</span>
- </button>
+  <span>({{ pip.selected.size }})</span>
+</button>
 
  <button class="btn btn-secondary btn-sm" @click="pip.clearSelection()">
   <i class="fa-solid fa-xmark"></i> Снять
@@ -177,9 +177,7 @@ import { usePrefsStore } from '@/stores/prefs';
 import { showConfirm } from '@/composables/useConfirm';
 import { isMobileDevice } from '@/utils/device';
 import { useSettingsStore } from '@/stores/settings';
-import { isExternalCalibration } from '@/utils/equipment';
 
-const settings = useSettingsStore();
 const modals = useModals();
 const perm = usePermissions();
 const ui = useUiStore();
@@ -188,7 +186,7 @@ const pip = usePipettesStore();
 const toast = useToastStore();
 const prefs = usePrefsStore();
 const menuOpen = ref(false);
-// === 2.3 === панель фильтра через ui-store
+
 const showFilter = computed({
   get: () => ui.filterPanelOpen,
   set: (v) => v ? ui.openFilterPanel() : ui.closeFilterPanel(),
@@ -209,9 +207,6 @@ const hasCustomLayout = computed(
 const selectedToSend = computed(() => [...pip.selected]);
 const selectedToReturn = computed(() => [...pip.selected]);
 
-const selectedVisible = computed(() => {
-  return [...pip.selected].filter(id => pip.items.some(p => p.id === id));
-});
   
 async function onResetLayout() {
   menuOpen.value = false;
