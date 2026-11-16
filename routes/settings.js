@@ -257,6 +257,8 @@ router.put('/fields', authenticate, requireAnyPermission(['manage_settings']), a
       }
     }
 
+    try { pipettesHelpers.invalidateRequiredFieldsCache(); } catch (e) {}
+
     res.json({ message: 'Поля обновлены' });
   } catch (e) {
     if (e.status === 409) {
