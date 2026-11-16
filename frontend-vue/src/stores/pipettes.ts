@@ -99,7 +99,6 @@ export const usePipettesStore = defineStore('pipettes', () => {
     const next = page.value + delta;
     if (next < 1 || next > totalPages.value) return;
     page.value = next;
-    clearSelection();
     await loadPaged();
   }
 
