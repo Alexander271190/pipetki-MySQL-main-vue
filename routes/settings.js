@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { authenticate, requireAdmin } = require('../middleware/auth');
+const { authenticate, requireAdmin, requireAnyPermission } = require('../middleware/auth');
 const equipmentTypes = require('../utils/equipment-types');
 const { logAction } = require('../utils/audit');
 const { withTransaction } = require('../utils/db-helper');
@@ -21,7 +21,7 @@ router.get('/departments', authenticate, async (req, res) => {
   }
 });
 
-router.put('/departments', authenticate, requireAdmin, async (req, res) => {
+router.put('/departments', authenticate, requireAnyPermission(['manage_settings']), async (req, res) => {
   const departments = req.body;
 
   if (!Array.isArray(departments)) {
@@ -152,7 +152,7 @@ router.get('/fields', authenticate, async (req, res) => {
   }
 });
 
-router.put('/fields', authenticate, requireAdmin, async (req, res) => {
+router.put('/fields', authenticate, requireAnyPermission(['manage_settings']), async (req, res) => {
   const fields = req.body;
   if (!Array.isArray(fields)) return res.status(400).json({ error: 'Ожидается массив' });
 
@@ -304,7 +304,7 @@ router.get('/export', authenticate, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
 });
 
-router.put('/export', authenticate, requireAdmin, async (req, res) => {
+router.put('/export', authenticate, requireAnyPermission(['manage_settings']), async (req, res) => {
   try {
     const b = req.body;
     if (Array.isArray(b)) {
@@ -437,9 +437,17 @@ router.get('/system', authenticate, async (req, res) => {
   }
 });
 
-router.put('/system', authenticate, requireAdmin, async (req, res) => {
+router.put('/system', authenticate, requireAnyPermission(['manage_settings']), async (req, res) => {
   const settings = req.body;
   try {
+//  Критичные ключи — только для админов (встроенных и кастомных).
+// Пользователь с правом manage_settings (не админ) получит 403.
+const CRITICAL_KEYS = new Set([
+  'password_min_length', 'password_max_length',
+  'password_require_lower', 'password_require_upper',
+  'password_require_digit', 'password_require_special', 'password_forbid_spaces',
+  'impersonation_mode',
+]);
     //  Whitelist — объявлен ДО цикла, чтобы не пересоздавать на каждой итерации
    const ALLOWED_SETTINGS = new Set([
 
@@ -465,8 +473,17 @@ router.put('/system', authenticate, requireAdmin, async (req, res) => {
   'page_sizes', 'default_page_size', 'table_density',
 ]);
     for (const [k, v] of Object.entries(settings)) {
-      // Whitelist
-      if (!ALLOWED_SETTINGS.has(k)) {
+  //  Защита критичных ключей: только _isAdmin
+  if (CRITICAL_KEYS.has(k) && !req.user._isAdmin) {
+    return res.status(403).json({
+      error: `Только администратор может менять «${k}»`,
+      code: 'critical_setting_forbidden',
+      key: k
+    });
+  }
+
+  // Whitelist
+  if (!ALLOWED_SETTINGS.has(k)) {
         console.warn(`[settings] Неизвестный ключ: ${k} — пропускаю`);
         continue;
       }
@@ -595,7 +612,7 @@ router.get('/filters', authenticate, async (req, res) => {
   }
 });
 
-router.put('/filters', authenticate, requireAdmin, async (req, res) => {
+router.put('/filters', authenticate, requireAnyPermission(['manage_settings']), async (req, res) => {
   const filters = req.body;
   if (!Array.isArray(filters)) return res.status(400).json({ error: 'Ожидается массив' });
 
@@ -645,7 +662,7 @@ router.get('/equipment-types', authenticate, async (req, res) => {
 });
 
 // PUT /api/settings/equipment-types (только админ)
-router.put('/equipment-types', authenticate, requireAdmin, async (req, res) => {
+router.put('/equipment-types', authenticate, requireAnyPermission(['manage_settings']), async (req, res) => {
   try {
     const types = req.body;
     if (!Array.isArray(types)) {
