@@ -9,7 +9,7 @@ const bwipjs = require('bwip-js');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
 const db = require('../db');
-const { authenticate, requireAdmin, requirePermission } = require('../middleware/auth');
+const { authenticate, requireAdmin, requirePermission, requireAnyPermission } = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
 const { PRINTER_COLUMNS } = require('./pipettes/_helpers');
 
@@ -343,7 +343,7 @@ router.post('/lookup', authenticate, requirePermission('scan_barcode'), async (r
 // ═══════════════════════════════════════════════════════════
 // POST /api/barcodes/manual — ручной ввод (админ)
 // ═══════════════════════════════════════════════════════════
-router.post('/manual', authenticate, requireAdmin, async (req, res) => {
+router.post('/manual', authenticate, requireAnyPermission(['manage_barcodes']), async (req, res) => {
   try {
     const { id, barcode } = req.body || {};
     if (!id)      return res.status(400).json({ error: 'Укажите id пипетки' });
@@ -381,7 +381,7 @@ router.post('/manual', authenticate, requireAdmin, async (req, res) => {
 // ═══════════════════════════════════════════════════════════
 // POST /api/barcodes/reset — сбросить к авто
 // ═══════════════════════════════════════════════════════════
-router.post('/reset', authenticate, requireAdmin, async (req, res) => {
+router.post('/reset', authenticate, requireAnyPermission(['manage_barcodes']), async (req, res) => {
   try {
     const { id } = req.body || {};
     if (!id) return res.status(400).json({ error: 'Укажите id' });
