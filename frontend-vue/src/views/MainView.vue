@@ -28,14 +28,20 @@ const stats = useStatsStore();
 const pip = usePipettesStore();
 
 onMounted(async () => {
-  // 1) Настройки + prefs параллельно
+  // Настройки + prefs параллельно
   await Promise.all([settings.loadAll(), prefs.load()]);
 
-  // 2) Синхронизировать visibleFields с активными полями
+  // Применяем настройку количества строк
+  const userLimit = prefs.defaultPageSize;
+  const globalLimit = settings.getTableViewSettings().defaultPageSize;
+  pip.limit = userLimit || globalLimit || 100;
+
+
+  // Синхронизировать visibleFields с активными полями
   const activeFieldIds = settings.fields.filter(f => f.enabled).map(f => f.id);
   prefs.syncWithFields(activeFieldIds);
 
-  // 3) Данные таблицы + статистика параллельно
+  //  Данные таблицы + статистика параллельно
   await Promise.all([pip.loadPaged(), stats.load()]);
   
    // Напоминание проверяем после загрузки статистики (как в старом)
