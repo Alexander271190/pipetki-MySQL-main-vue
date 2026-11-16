@@ -63,8 +63,7 @@ router.post('/bulk-create', authenticate, requireAnyPermission(['add_pipette', '
       responsible = req.user.acting_full_name || '';
       department = req.user.acting_department || '';
     }
-    if (!responsible) errors.push(`Строка ${lineNo}: не указан ответственный`);
-
+   
     if (req.user.only_own_department && !req.user._isAdmin) {
       if (!req.user.department) errors.push(`Строка ${lineNo}: у вас не указан отдел`);
       else if (department && department !== req.user.department) errors.push(`Строка ${lineNo}: можно создавать только в своём отделе`);
