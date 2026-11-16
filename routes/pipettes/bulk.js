@@ -7,7 +7,7 @@ const { authenticate, requireAnyPermission } = require('../../middleware/auth');
 const {
   validateISODate, todayLocalStr,
   STANDARD_FIELDS, FORBIDDEN_CUSTOM_KEYS,
-  computeBarcodeValue, canAccessDepartment, getEquipmentSettings,
+  computeBarcodeValue, canAccessDepartment, getEquipmentSettings, getRequiredFields,
 } = require('./_helpers');
 const { withTransaction } = require('../../utils/db-helper');
 const { logAction } = require('../../utils/audit');
@@ -30,33 +30,41 @@ router.post('/bulk-create', authenticate, requireAnyPermission(['add_pipette', '
 
   const typesCache = await equipmentTypes.getEquipmentTypes();
   const validTypesSet = new Set(typesCache.map(t => t.value));
+  const requiredFields = await getRequiredFields();   
 
   const errors = [];
   const normalized = rows.map((r, idx) => {
     const lineNo = idx + 1;
     const equipmentType = String(r.equipmentType || 'pipette').trim() || 'pipette';
     const model = String(r.model || '').replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
-    if (!model) errors.push(`Строка ${lineNo}: не указана модель`);
+    if (requiredFields.has('model') && !model) errors.push(`Строка ${lineNo}: не указана модель`);
     if (model.length > 255) errors.push(`Строка ${lineNo}: модель слишком длинная`);
     if (!validTypesSet.has(equipmentType)) {
       errors.push(`Строка ${lineNo}: неизвестный тип «${equipmentType}»`);
     }
 
     const lastCalibration = String(r.lastCalibration || '').trim();
-    if (!lastCalibration) {
+    if (requiredFields.has('lastCalibration') && !lastCalibration) {
       errors.push(`Строка ${lineNo}: не указана дата поверки`);
-    } else {
+    } else if (lastCalibration) {
       const dc = validateISODate(lastCalibration);
       if (!dc.ok) errors.push(`Строка ${lineNo}: ${dc.error}`);
       else if (lastCalibration > todayLocalStr()) errors.push(`Строка ${lineNo}: дата поверки в будущем`);
     }
+
     const serial = String(r.serial || '').trim();
+    if (requiredFields.has('serial') && !serial) errors.push(`Строка ${lineNo}: не указан серийный номер`);
     if (serial.length > 255) errors.push(`Строка ${lineNo}: серийный номер слишком длинный`);
+
     const manufacturer = String(r.manufacturer || '').trim();
+    if (requiredFields.has('manufacturer') && !manufacturer) errors.push(`Строка ${lineNo}: не указан производитель`);
     if (manufacturer.length > 255) errors.push(`Строка ${lineNo}: производитель слишком длинный`);
 
     let responsible = String(r.responsible || '').replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
+    if (requiredFields.has('responsible') && !responsible) errors.push(`Строка ${lineNo}: не указан ответственный`);
+
     let department = String(r.department || '').trim();
+    if (requiredFields.has('department') && !department) errors.push(`Строка ${lineNo}: не указан отдел`);
 
     // Админ не подменяется данными и.о. — даже если случайно его включили
     if (req.user.is_acting && !req.user._isAdmin) {
@@ -82,6 +90,10 @@ router.post('/bulk-create', authenticate, requireAnyPermission(['add_pipette', '
       if (FORBIDDEN_CUSTOM_KEYS.has(k)) continue;
       if (!STANDARD_FIELDS.has(k) && k !== 'id' && !k.startsWith('_') && v !== undefined && v !== null && v !== '') {
         customData[k] = v;
+      }
+      // Динамическая проверка обязательных кастомных полей
+      if (requiredFields.has(k) && (v === undefined || v === null || String(v).trim() === '')) {
+        errors.push(`Строка ${lineNo}: не заполнено поле «${requiredFields.get(k) || k}»`);
       }
     }
 
