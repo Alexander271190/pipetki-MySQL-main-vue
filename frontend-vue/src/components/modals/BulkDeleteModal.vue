@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import AppModal from '@/components/ui/AppModal.vue';
 import { useUiStore } from '@/stores/ui';
 import { usePipettesStore } from '@/stores/pipettes';
@@ -82,19 +82,6 @@ const notFound = ref<string[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref('');
-
-const precheck = computed(() => {
-  const del: string[] = [];
-  const skip: { id: string; reason: string }[] = [];
-  for (const id of ids.value) {
-    const p = pip.items.find(x => x.id === id);
-    if (!p) { skip.push({ id, reason: 'не найдено' }); continue; }
-    if (p.sent_for_calibration) { skip.push({ id, reason: `на поверке с ${String(p.sent_for_calibration).slice(0, 10)}` }); continue; }
-    if (p.replacing) { skip.push({ id, reason: `заменяет ${p.replacing}` }); continue; }
-    del.push(id);
-  }
-  return { del, skip };
-});
 
 watch(() => ui.activeModal, async (v) => {
   if (v !== 'bulkDelete') return;
@@ -122,6 +109,7 @@ async function verifyOnServer() {
       const p = freshItems.find(x => x.id === id)!;
       if (p.sent_for_calibration) { skip.push({ id, reason: `на поверке с ${String(p.sent_for_calibration).slice(0, 10)}` }); continue; }
       if (p.replacing) { skip.push({ id, reason: `заменяет ${p.replacing}` }); continue; }
+      if (p.replaced_by) { skip.push({ id, reason: `за прибором закреплена замена ${p.replaced_by}` }); continue; }
       del.push(id);
     }
     deletable.value = del;
