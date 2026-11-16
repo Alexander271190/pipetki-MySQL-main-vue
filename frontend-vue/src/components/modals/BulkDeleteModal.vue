@@ -102,8 +102,8 @@ watch(() => ui.activeModal, async (v) => {
   error.value = '';
   loading.value = false;
   saving.value = false;
-  deletable.value = precheck.value.del;
-  skipped.value = precheck.value.skip;
+  deletable.value = [];
+  skipped.value = [];
   notFound.value = [];
   await verifyOnServer();
 });
