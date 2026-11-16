@@ -122,6 +122,7 @@ function reset() {
       : '';
   });
   pip.resetFilters();
+  pip.clearSelection();
   pip.loadPaged();
   emit('close');
 }
@@ -135,6 +136,7 @@ function apply() {
   }
   pip.filterState = cleanFilters;
   pip.page = 1;
+  pip.clearSelection();
   pip.loadPaged();
   emit('close');
 }
