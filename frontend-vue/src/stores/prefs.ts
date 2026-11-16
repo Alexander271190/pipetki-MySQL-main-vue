@@ -58,16 +58,16 @@ export const usePrefsStore = defineStore('prefs', () => {
   }
 
   function syncWithFieldsAddMissing(activeFieldIds: string[]) {
-  const allowed = new Set([...activeFieldIds, ...VIRTUAL_IDS]);
-  const set = new Set(visibleFields.value);
+    const allowed = new Set([...activeFieldIds, ...VIRTUAL_IDS]);
+    const set = new Set(visibleFields.value);
 
-  for (const id of activeFieldIds) set.add(id);         
-  for (const v of VIRTUAL_IDS) set.add(v);              
+    for (const id of activeFieldIds) set.add(id);         
+    for (const v of VIRTUAL_IDS) set.add(v);              
 
-  visibleFields.value = [...set].filter(id => allowed.has(id));
-  virtualsInitialized.value = true;
-  saveDebounced();
-}
+    visibleFields.value = [...set].filter(id => allowed.has(id));
+    virtualsInitialized.value = true;
+    saveDebounced();
+  }
 
   async function save() {
     if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
@@ -79,6 +79,7 @@ export const usePrefsStore = defineStore('prefs', () => {
         visibleFields: visibleFields.value,
         columnOrder: columnOrder.value,
         columnWidths: columnWidths.value,
+        defaultPageSize: defaultPageSize.value || undefined,
         _virtualsInitialized: true,
       };
       await api.saveMyPrefs(merged);
@@ -108,13 +109,14 @@ export const usePrefsStore = defineStore('prefs', () => {
   }
 
   function resetLayout() {
-  columnOrder.value = [];
-  columnWidths.value = {};
-  void save();
-}
+    columnOrder.value = [];
+    columnWidths.value = {};
+    void save();
+  }
+
   return {
-    loaded, visibleFields, columnOrder, columnWidths, virtualsInitialized,
+    loaded, visibleFields, columnOrder, columnWidths, virtualsInitialized, defaultPageSize,
     load, syncWithFields, save, saveDebounced, syncWithFieldsAddMissing,
-    setVisibleFields, setColumnOrder, setColumnWidth, resetLayout, defaultPageSize,
+    setVisibleFields, setColumnOrder, setColumnWidth, resetLayout,
   };
 });
