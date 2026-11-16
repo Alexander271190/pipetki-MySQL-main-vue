@@ -13,7 +13,7 @@ export function useBulkModals() {
   async function openBulkSend() {
     if (!await requirePasswordChange()) return;
     if (!perm.canBulkSend.value) { toast.error('Нет прав на отправку'); return; }
-    const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
+    const ids = [...pip.selected]; // Берем все выбранные ID
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkSend', ids);
   }
@@ -21,7 +21,7 @@ export function useBulkModals() {
   async function openBulkReturn() {
     if (!await requirePasswordChange()) return;
     if (!perm.canBulkReturn.value) { toast.error('Нет прав на возврат'); return; }
-    const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
+    const ids = [...pip.selected]; // Берем все выбранные ID
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkReturn', ids);
   }
@@ -29,7 +29,7 @@ export function useBulkModals() {
   async function openBulkResponsible() {
     if (!await requirePasswordChange()) return;
     if (!perm.canBulkChangeResponsible.value) { toast.error('Нет прав на смену ответственного'); return; }
-    const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
+    const ids = [...pip.selected]; // Берем все выбранные ID
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkResponsible', ids);
   }
@@ -49,7 +49,7 @@ export function useBulkModals() {
   async function openBulkDelete() {
     if (!await requirePasswordChange()) return;
     if (!perm.canDeletePipette.value) { toast.error('Нет прав на удаление'); return; }
-    const ids = [...pip.selected].filter(id => pip.items.some(p => p.id === id));
+    const ids = [...pip.selected]; // Берем все выбранные ID
     if (ids.length === 0) { toast.error('Ничего не выбрано'); return; }
     ui.open('bulkDelete', ids);
   }
