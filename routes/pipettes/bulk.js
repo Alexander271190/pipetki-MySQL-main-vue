@@ -85,15 +85,17 @@ router.post('/bulk-create', authenticate, requireAnyPermission(['add_pipette', '
       interval = (Number.isFinite(ti) && ti >= 1 && ti <= 120) ? ti : 12;
     }
 
-    const customData = {};
+   const customData = {};
     for (const [k, v] of Object.entries(r)) {
       if (FORBIDDEN_CUSTOM_KEYS.has(k)) continue;
-      if (!STANDARD_FIELDS.has(k) && k !== 'id' && !k.startsWith('_') && v !== undefined && v !== null && v !== '') {
-        customData[k] = v;
-      }
-      // Динамическая проверка обязательных кастомных полей
-      if (requiredFields.has(k) && (v === undefined || v === null || String(v).trim() === '')) {
-        errors.push(`Строка ${lineNo}: не заполнено поле «${requiredFields.get(k) || k}»`);
+      if (!STANDARD_FIELDS.has(k) && k !== 'id' && !k.startsWith('_')) {
+        if (v !== undefined && v !== null && v !== '') {
+          customData[k] = v;
+        }
+        // Динамическая проверка обязательных КАСТОМНЫХ полей
+        if (requiredFields.has(k) && (v === undefined || v === null || String(v).trim() === '')) {
+          errors.push(`Строка ${lineNo}: не заполнено поле «${requiredFields.get(k) || k}»`);
+        }
       }
     }
 
