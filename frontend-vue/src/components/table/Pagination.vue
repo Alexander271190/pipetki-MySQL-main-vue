@@ -1,6 +1,17 @@
 <template>
-  <div class="pagination" :style="{ display: pip.total > 0 ? 'flex' : 'none' }">
-    <div style="display: flex; align-items: center; gap: 8px; margin-right: auto;">
+  <div 
+    class="pagination" 
+    :style="{ 
+      display: pip.total > 0 ? 'flex' : 'none',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      width: '100%',
+      flexWrap: 'wrap',
+      gap: '12px'
+    }"
+  >
+    <!-- Левая часть: выбор количества строк -->
+    <div style="display: flex; align-items: center; gap: 8px;">
       <span class="pagination-info" style="font-size: .82rem; color: var(--text-muted);">Строк:</span>
       <select 
         :value="pip.limit" 
@@ -11,12 +22,21 @@
       </select>
     </div>
 
-    <button class="pagination-btn" :disabled="pip.page <= 1" @click="pip.changePage(-1)">← Назад</button>
-    <span class="pagination-info">
-      Стр. <strong>{{ pip.page }}</strong> из <strong>{{ pip.totalPages }}</strong>
-      · <span>{{ pip.total }}</span> записей
-    </span>
-    <button class="pagination-btn" :disabled="pip.page >= pip.totalPages" @click="pip.changePage(1)">Вперёд →</button>
+    <!-- Центральная часть: кнопки и номер страницы -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button class="pagination-btn" :disabled="pip.page <= 1" @click="pip.changePage(-1)">← Назад</button>
+      <span class="pagination-info" style="font-size: .82rem; color: var(--text); min-width: 100px; text-align: center;">
+        Стр. <strong>{{ pip.page }}</strong> из <strong>{{ pip.totalPages }}</strong>
+      </span>
+      <button class="pagination-btn" :disabled="pip.page >= pip.totalPages" @click="pip.changePage(1)">Вперёд →</button>
+    </div>
+
+    <!-- Правая часть: общее количество -->
+    <div style="display: flex; justify-content: flex-end; min-width: 140px;">
+      <span class="pagination-info" style="font-size: .82rem; color: var(--text-muted);">
+        Всего: <strong>{{ pip.total }}</strong> записей
+      </span>
+    </div>
   </div>
 </template>
 
