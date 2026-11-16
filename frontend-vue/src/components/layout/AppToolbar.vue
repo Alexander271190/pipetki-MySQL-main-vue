@@ -205,24 +205,9 @@ const hasCustomLayout = computed(
     (!!prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0)
 ); 
 
-const selectedToSend = computed(() => {
-  return [...pip.selected].filter(id => {
-    const p = pip.items.find(x => x.id === id);
-    return p
-      && !p.sent_for_calibration
-      && !p.replacing
-      && isExternalCalibration(settings.equipmentTypes, p.equipment_type);
-  });
-});
-
-const selectedToReturn = computed(() => {
-  return [...pip.selected].filter(id => {
-    const p = pip.items.find(x => x.id === id);
-    return p
-      && !!p.sent_for_calibration
-      && isExternalCalibration(settings.equipmentTypes, p.equipment_type);
-  });
-});
+// Показываем общее количество выбранных (модалка сама отфильтрует нужные)
+const selectedToSend = computed(() => [...pip.selected]);
+const selectedToReturn = computed(() => [...pip.selected]);
 
 const selectedVisible = computed(() => {
   return [...pip.selected].filter(id => pip.items.some(p => p.id === id));
@@ -259,6 +244,7 @@ function onSearchInput(e: Event) {
   searchTimer = window.setTimeout(async () => {
     ui.closeFilterPanel(); 
     pip.setSearch(value);
+    pip.clearSelection();
     await pip.loadPaged();
   }, 150);
 }
