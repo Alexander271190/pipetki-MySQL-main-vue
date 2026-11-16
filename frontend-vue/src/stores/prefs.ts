@@ -7,6 +7,7 @@ const VIRTUAL_IDS = ['status', 'nextCalibration'];
 export const usePrefsStore = defineStore('prefs', () => {
   const loaded = ref(false);
   const visibleFields = ref<string[]>([]);
+  const defaultPageSize = ref<number | null>(null);
   const columnOrder = ref<string[]>([]);
   const columnWidths = ref<Record<string, number>>({});
   const virtualsInitialized = ref(false);
@@ -32,6 +33,9 @@ export const usePrefsStore = defineStore('prefs', () => {
     if (Array.isArray(raw.columnOrder))   columnOrder.value = [...raw.columnOrder];
     if (raw.columnWidths && typeof raw.columnWidths === 'object') {
       columnWidths.value = { ...raw.columnWidths };
+    }
+    if (raw.defaultPageSize) {
+      defaultPageSize.value = Number(raw.defaultPageSize);
     }
     virtualsInitialized.value = !!raw._virtualsInitialized;
   }
@@ -111,6 +115,6 @@ export const usePrefsStore = defineStore('prefs', () => {
   return {
     loaded, visibleFields, columnOrder, columnWidths, virtualsInitialized,
     load, syncWithFields, save, saveDebounced, syncWithFieldsAddMissing,
-    setVisibleFields, setColumnOrder, setColumnWidth, resetLayout,
+    setVisibleFields, setColumnOrder, setColumnWidth, resetLayout, defaultPageSize,
   };
 });
