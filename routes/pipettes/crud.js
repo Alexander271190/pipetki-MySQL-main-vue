@@ -11,7 +11,7 @@ const {
   maybeRegenerateId, applyIdChange, canAccessDepartment,
   findPipetteOrFail, buildDepartmentScope,
   sqlComputedStatus, sqlStatusOrder, buildFiltersWhere, sqlOrderBy, getWarnDays,
-  getEquipmentSettings,
+  getEquipmentSettings, getRequiredFields,
   PIPETTE_COLUMNS, AUDIT_COLUMNS,
 } = require('./_helpers');
 const { withTransaction } = require('../../utils/db-helper');
@@ -703,33 +703,72 @@ router.post('/', authenticate, requireAnyPermission(['add_pipette', 'manage_pipe
     responsible = req.user.acting_full_name  || '';
     department  = req.user.acting_department || '';
   }
-  const stripNulls = (s) => String(s || '').replace(/\u0000/g, '');
-  const trimmedModel = stripNulls(model).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
-  if (!trimmedModel) return res.status(400).json({ error: 'Заполните поле «Модель»' });
     const eqSettings = await getEquipmentSettings();
+  const requiredFields = await getRequiredFields();
+  const missing = [];
+
+  const stripNulls = (s) => String(s || '').replace(/\u0000/g, '');
+  
+  const trimmedModel = stripNulls(model).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
+  if (requiredFields.has('model') && !trimmedModel) missing.push(requiredFields.get('model') || 'Модель');
   if (trimmedModel.length > eqSettings.maxModelLength) return res.status(400).json({ error: `Модель слишком длинная (максимум ${eqSettings.maxModelLength} символов)` });
 
   const trimmedSerial = stripNulls(serial).trim();
+  if (requiredFields.has('serial') && !trimmedSerial) missing.push(requiredFields.get('serial') || 'Серийный номер');
   if (trimmedSerial.length > eqSettings.maxSerialLength) return res.status(400).json({ error: `Серийный номер слишком длинный (максимум ${eqSettings.maxSerialLength} символов)` });
 
   const trimmedManufacturer = stripNulls(manufacturer).trim();
+  if (requiredFields.has('manufacturer') && !trimmedManufacturer) missing.push(requiredFields.get('manufacturer') || 'Производитель');
   if (trimmedManufacturer.length > 255) return res.status(400).json({ error: 'Производитель слишком длинный (максимум 255 символов)' });
+
   const trimmedResponsible = stripNulls(responsible).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
- 
+  if (requiredFields.has('responsible') && !trimmedResponsible) missing.push(requiredFields.get('responsible') || 'Ответственный');
+
   const safeVolume     = stripNulls(volume).trim();
+  if (requiredFields.has('volume') && !safeVolume) missing.push(requiredFields.get('volume') || 'Объём');
+  
   const safeDepartment = stripNulls(department).trim();
+  if (requiredFields.has('department') && !safeDepartment) missing.push(requiredFields.get('department') || 'Отдел');
+
   const safeCert       = stripNulls(cert).trim();
+  if (requiredFields.has('cert') && !safeCert) missing.push(requiredFields.get('cert') || 'Номер свидетельства');
+
   const safeLocation   = stripNulls(location).trim();
+  if (requiredFields.has('location') && !safeLocation) missing.push(requiredFields.get('location') || 'Место хранения');
+
   const safeNotes      = stripNulls(notes);
-  if (!lastCalibration || String(lastCalibration).trim() === '') {
-    return res.status(400).json({ error: 'Заполните поле «Дата последней поверки»' });
-  }
-  const dateCheck = validateISODate(lastCalibration);
-  if (!dateCheck.ok) return res.status(400).json({ error: dateCheck.error });
-  if (String(lastCalibration) > todayLocalStr()) {
-    return res.status(400).json({ error: 'Дата поверки не может быть в будущем' });
+  if (requiredFields.has('notes') && !safeNotes) missing.push(requiredFields.get('notes') || 'Примечание');
+
+  if (requiredFields.has('lastCalibration') && (!lastCalibration || String(lastCalibration).trim() === '')) {
+    missing.push(requiredFields.get('lastCalibration') || 'Дата последней поверки');
   }
 
+  // Сбор кастомных полей + проверка их обязательности
+  const customData = {};
+  for (const [k, v] of Object.entries(req.body)) {
+    if (FORBIDDEN_CUSTOM_KEYS.has(k)) continue;
+    if (!STANDARD_FIELDS.has(k) && k !== 'id') {
+      const cleanVal = (typeof v === 'string') ? v.replace(/\u0000/g, '') : v;
+      customData[k] = cleanVal;
+      if (requiredFields.has(k) && (cleanVal === undefined || cleanVal === null || String(cleanVal).trim() === '')) {
+        missing.push(requiredFields.get(k) || k);
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    return res.status(400).json({ error: 'Заполните поля: ' + missing.join(', ') });
+  }
+
+  // Проверка формата даты (если она передана)
+  if (lastCalibration && String(lastCalibration).trim() !== '') {
+    const dateCheck = validateISODate(lastCalibration);
+    if (!dateCheck.ok) return res.status(400).json({ error: dateCheck.error });
+    if (String(lastCalibration) > todayLocalStr()) {
+      return res.status(400).json({ error: 'Дата поверки не может быть в будущем' });
+    }
+  }
+    
   const eqTypeCheck = String(equipmentType || 'pipette').trim();
   {
     const typesCache = await equipmentTypes.getEquipmentTypes();
@@ -776,14 +815,7 @@ router.post('/', authenticate, requireAnyPermission(['add_pipette', 'manage_pipe
         err.status = 409;
         throw err;
       }
-
-      const customData = {};
-      for (const [k, v] of Object.entries(req.body)) {
-        if (FORBIDDEN_CUSTOM_KEYS.has(k)) continue;
-        if (!STANDARD_FIELDS.has(k) && k !== 'id') {
-          customData[k] = (typeof v === 'string') ? v.replace(/\u0000/g, '') : v;
-        }
-      }
+      
       const rawBarcode = req.body.barcode;
       let barcodeValue = null;
       let barcodeSource = null;
@@ -894,37 +926,61 @@ router.put('/:id', authenticate, requireAnyPermission(['edit_pipette', 'manage_p
     }
   }
 
-  const eqSettings = await getEquipmentSettings();
+    const eqSettings = await getEquipmentSettings();
+  const requiredFields = await getRequiredFields();
+  
   if (updates.serial !== undefined) {
     updates.serial = stripNullsUpd(updates.serial).trim();
+    if (requiredFields.has('serial') && !updates.serial) return res.status(400).json({ error: 'Заполните поле «Серийный номер»' });
     if (updates.serial.length > eqSettings.maxSerialLength) {
       return res.status(400).json({ error: `Серийный номер слишком длинный (максимум ${eqSettings.maxSerialLength} символов)` });
     }
   }
+  
   if (updates.manufacturer !== undefined) {
     updates.manufacturer = stripNullsUpd(updates.manufacturer).trim();
+    if (requiredFields.has('manufacturer') && !updates.manufacturer) return res.status(400).json({ error: 'Заполните поле «Производитель»' });
     if (updates.manufacturer.length > 255) {
       return res.status(400).json({ error: 'Производитель слишком длинный (максимум 255 символов)' });
     }
   }
+  
   if (updates.model !== undefined) {
     const m = stripNullsUpd(updates.model).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
-    if (!m) return res.status(400).json({ error: 'Заполните поле «Модель»' });
+    if (requiredFields.has('model') && !m) return res.status(400).json({ error: 'Заполните поле «Модель»' });
     if (m.length > eqSettings.maxModelLength) return res.status(400).json({ error: `Модель слишком длинная (максимум ${eqSettings.maxModelLength} символов)` });
     updates.model = m;
   }
 
-  ['volume', 'department', 'cert', 'location', 'notes'].forEach(key => {
+  if (updates.responsible !== undefined) {
+    updates.responsible = stripNullsUpd(updates.responsible).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
+    if (requiredFields.has('responsible') && !updates.responsible) return res.status(400).json({ error: 'Заполните поле «Ответственный»' });
+  }
+
+  // Динамическая проверка простых текстовых полей
+  const simpleFields = ['volume', 'department', 'cert', 'location', 'notes'];
+  const fieldLabels = { volume: 'Объём', department: 'Отдел', cert: 'Свидетельство', location: 'Место', notes: 'Примечание' };
+  
+  for (const key of simpleFields) {
     if (updates[key] !== undefined) {
       updates[key] = stripNullsUpd(updates[key]);
+      if (requiredFields.has(key) && !updates[key]) {
+        return res.status(400).json({ error: `Заполните поле «${fieldLabels[key]}»` });
+      }
     }
-  });
+  }
 
-  if (updates.lastCalibration !== undefined && updates.lastCalibration !== '' && updates.lastCalibration !== null) {
-    const lcCheck = validateISODate(updates.lastCalibration);
-    if (!lcCheck.ok) return res.status(400).json({ error: lcCheck.error });
-    if (String(updates.lastCalibration) > todayLocalStr()) {
-      return res.status(400).json({ error: 'Дата поверки не может быть в будущем' });
+  // Проверка даты (включая проверку на пустоту, если она обязательна)
+  if (updates.lastCalibration !== undefined) {
+    if (requiredFields.has('lastCalibration') && (updates.lastCalibration === '' || updates.lastCalibration === null)) {
+      return res.status(400).json({ error: 'Заполните поле «Дата последней поверки»' });
+    }
+    if (updates.lastCalibration !== '' && updates.lastCalibration !== null) {
+      const lcCheck = validateISODate(updates.lastCalibration);
+      if (!lcCheck.ok) return res.status(400).json({ error: lcCheck.error });
+      if (String(updates.lastCalibration) > todayLocalStr()) {
+        return res.status(400).json({ error: 'Дата поверки не может быть в будущем' });
+      }
     }
   }
 
@@ -945,6 +1001,9 @@ router.put('/:id', authenticate, requireAnyPermission(['edit_pipette', 'manage_p
     if (SERVICE_FIELDS.has(k)) continue;
     if (!STANDARD_FIELDS.has(k)) {
       customUpdates[k] = (typeof v === 'string') ? v.replace(/\u0000/g, '') : v;
+      if (requiredFields.has(k) && (customUpdates[k] === undefined || customUpdates[k] === null || String(customUpdates[k]).trim() === '')) {
+        return res.status(400).json({ error: `Заполните поле «${requiredFields.get(k) || k}»` });
+      }
     }
   }
 
