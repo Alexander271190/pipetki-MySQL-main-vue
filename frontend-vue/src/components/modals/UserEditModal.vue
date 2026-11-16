@@ -529,6 +529,18 @@ async function savePageSize(userId: string) {
     try { existing = await apiRequest(`/settings/user-preferences/${userId}`); } catch { /* prefs ещё нет — ок, будет пустой объект */ }
     const merged = { ...existing, defaultPageSize: parseInt(form.value.pageSize, 10) || 100 };
     await apiRequest(`/settings/user-preferences/${userId}`, 'PUT', merged);
+    // Применяем локально, если редактируем себя
+    if (userId === auth.user?.id) {
+      const { usePrefsStore } = await import('@/stores/prefs');
+      const { usePipettesStore } = await import('@/stores/pipettes');
+      const prefsStore = usePrefsStore();
+      const pipStore = usePipettesStore();
+      
+      prefsStore.defaultPageSize = merged.defaultPageSize;
+      pipStore.limit = merged.defaultPageSize;
+      pipStore.page = 1;
+      await pipStore.loadPaged();
+    }
   } catch (e) {
     // Пользователь уже сохранён, но «строк на странице» не применились — предупреждаем
     console.warn('[UserEditModal] savePageSize failed:', e);
