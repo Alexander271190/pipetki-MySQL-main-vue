@@ -715,8 +715,7 @@ router.post('/', authenticate, requireAnyPermission(['add_pipette', 'manage_pipe
   const trimmedManufacturer = stripNulls(manufacturer).trim();
   if (trimmedManufacturer.length > 255) return res.status(400).json({ error: 'Производитель слишком длинный (максимум 255 символов)' });
   const trimmedResponsible = stripNulls(responsible).replace(/[\s\u00A0\u2000-\u200A\u2028\u2029\u3000]+/g, ' ').trim();
-  if (!trimmedResponsible) return res.status(400).json({ error: 'Заполните поле «Ответственный»' });
-
+ 
   const safeVolume     = stripNulls(volume).trim();
   const safeDepartment = stripNulls(department).trim();
   const safeCert       = stripNulls(cert).trim();
