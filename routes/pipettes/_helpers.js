@@ -425,6 +425,32 @@ function invalidateEquipmentSettingsCache() {
   _equipCacheTime = 0;
 }
 
+// Кэш обязательных полей (60 сек)
+let _reqFieldsCache = null;
+let _reqFieldsTime = 0;
+const REQ_FIELDS_CACHE_TTL = 60_000;
+
+async function getRequiredFields(executor) {
+  const now = Date.now();
+  if (_reqFieldsCache && now - _reqFieldsTime < REQ_FIELDS_CACHE_TTL) return _reqFieldsCache;
+
+  try {
+    const ex = executor || db;
+    const [rows] = await ex.query('SELECT id, label FROM field_config WHERE required = 1 AND enabled = 1');
+    _reqFieldsCache = new Map(rows.map(r => [r.id, r.label]));
+    _reqFieldsTime = now;
+    return _reqFieldsCache;
+  } catch (e) {
+    console.error('[getRequiredFields] DB error, using empty:', e.message);
+    return new Map();
+  }
+}
+
+function invalidateRequiredFieldsCache() {
+  _reqFieldsCache = null;
+  _reqFieldsTime = 0;
+}
+
 module.exports = {
   validateISODate,
   normalizeInterval,
@@ -453,4 +479,6 @@ module.exports = {
   PRINTER_COLUMNS,
   getEquipmentSettings,
   invalidateEquipmentSettingsCache,
+  getRequiredFields,
+  invalidateRequiredFieldsCache,
 };
