@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, watch  } from 'vue';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import AppToolbar from '@/components/layout/AppToolbar.vue';
 import PipetteTable from '@/components/table/PipetteTable.vue';
@@ -18,7 +18,7 @@ import { useStatsStore } from '@/stores/stats';
 import { usePipettesStore } from '@/stores/pipettes';
 import { useHotkeys } from '@/composables/useHotkeys';
 import { usePullToRefresh } from '@/composables/usePullToRefresh';
-
+  
 useHotkeys();
 usePullToRefresh();
 
@@ -47,5 +47,23 @@ onMounted(async () => {
    // Напоминание проверяем после загрузки статистики (как в старом)
   window.dispatchEvent(new CustomEvent('reminders:check'));
 });
- 
+
+//  Следим за изменением глобальных настроек и персональных предпочтений
+watch(
+  () => [settings.systemSettings.default_page_size, prefs.defaultPageSize],
+  () => {
+    // Если у пользователя нет личного переопределения — берем глобальное
+    const userLimit = prefs.defaultPageSize;
+    const globalLimit = settings.getTableViewSettings().defaultPageSize;
+    const newLimit = userLimit || globalLimit || 100;
+
+    // Если лимит реально изменился — перезагружаем таблицу
+    if (pip.limit !== newLimit) {
+      pip.limit = newLimit;
+      pip.page = 1; // Сбрасываем на 1-ю страницу
+      pip.loadPaged();
+    }
+  },
+  { deep: true }
+);  
 </script>
