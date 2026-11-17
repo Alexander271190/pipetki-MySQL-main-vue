@@ -31,7 +31,7 @@
       </div>
       <div class="form-group">
         <label>Примечание</label>
-        <textarea v-model="form.note" rows="2"></textarea>
+        <textarea v-model="form.note"  name="quickcal_note" autocomplete="on" rows="2"></textarea>
       </div>
       <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
       <div class="form-actions">
