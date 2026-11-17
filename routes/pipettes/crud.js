@@ -395,7 +395,7 @@ router.get('/audit', authenticate, requireAnyPermission(['view_log']), async (re
     const category = req.query.category || '';
     const dateFrom = req.query.from || '';
     const dateTo = req.query.to || '';
-    const limit = Math.min(1000, parseInt(req.query.limit, 10) || 500);
+    const limit = Math.min(5000, parseInt(req.query.limit, 10) || 500);
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 
     const { empty, baseWhere, baseParams } = buildDepartmentScope(req.user);
