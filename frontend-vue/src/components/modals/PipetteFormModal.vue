@@ -66,6 +66,8 @@
             v-if="f.id === 'id'"
             v-model="form[f.id]"
             type="text"
+            name="pipette_id"
+            autocomplete="off"
             :readonly="isEdit"
             :disabled="isEdit"
             :style="isEdit ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
@@ -80,14 +82,32 @@
           >
             <option v-for="opt in getOptions(f)" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
           </select>
-          <textarea v-else-if="f.type === 'textarea'" v-model="form[f.id]" rows="2" :placeholder="f.label"></textarea>
-          <input v-else-if="f.type === 'date'" v-model="form[f.id]" type="date" />
-          <input v-else-if="f.type === 'number'" v-model="form[f.id]" type="number" />
+          <textarea 
+            v-else-if="f.type === 'textarea'" 
+            v-model="form[f.id]" 
+            :name="'pipette_' + f.id"
+            autocomplete="on"
+            rows="2" 
+            :placeholder="f.label">
+          </textarea>
+          <input v-else-if="f.type === 'date'" 
+            v-model="form[f.id]" 
+            type="date" />
+            :name="'pipette_' + f.id"
+            autocomplete="off"
+          <input 
+            v-else-if="f.type === 'number'" 
+            v-model="form[f.id]" 
+            type="number" />
+            :name="'pipette_' + f.id"
+            autocomplete="off"
           <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
             <!-- === 2.1 === readonly + disabled + title + v-if на кнопках -->
             <input
               v-model="form[f.id]"
               type="text"
+              name="pipette_barcode"
+              autocomplete="off"
               :placeholder="f.label"
               style="flex:1;"
               :readonly="!canManageBarcodes"
@@ -116,14 +136,17 @@
               <i class="fa-solid fa-rotate-left"></i>
             </button>
           </div>
-          <input
-            v-else
-            v-model="form[f.id]"
-            type="text"
-            :placeholder="f.label"
-            :disabled="isFieldDisabled(f.id)"
-            :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
-          />
+         
+           <input
+             v-else
+             v-model="form[f.id]"
+             type="text"
+             :name="'pipette_' + f.id"
+             :autocomplete="['id', 'barcode', 'serial'].includes(f.id) ? 'off' : 'on'"
+             :placeholder="f.label"
+             :disabled="isFieldDisabled(f.id)"
+              :style="isFieldDisabled(f.id) ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+            />
         </div>
 
         <div v-if="error" class="auth-error" style="margin-top:8px;visibility:visible;opacity:1;">{{ error }}</div>
