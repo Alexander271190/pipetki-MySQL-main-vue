@@ -25,9 +25,8 @@ const STANDARD_FIELDS = new Set([
 ]);
 
 const FORBIDDEN_CUSTOM_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-const BARCODE_MAX_LEN = 255;
-const BARCODE_MAX_LEN = BARCODE_MAX_LEN_FALLBACK;
-
+const BARCODE_MAX_LEN_FALLBACK = 255;
+const BARCODE_MAX_LEN = BARCODE_MAX_LEN_FALLBACK; 
 // ============================================================
 // КАСТОМНЫЕ ПОЛЯ
 // ============================================================
