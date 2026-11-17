@@ -21,7 +21,14 @@
 
     <form v-show="!loading" @submit.prevent="onSubmit">
       <div class="form-row">
-        <div class="form-group"><label>Логин *</label><input v-model="form.login" :readonly="isEdit" name="user_login" autocomplete="off" :style="isEdit ? { background: '#f1f5f9' } : {}" /></div>
+      <div class="form-group"><label>Логин *</label><input
+        v-model="form.login"
+        :readonly="!canEditLogin"
+        name="user_login"
+        autocomplete="off"
+        :style="!canEditLogin ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}"
+        :title="!canEditLogin && isEdit ? 'Логин нельзя менять' : (canEditLogin && isEdit ? 'Изменить логин (только админ)' : '')"
+    /></div>
         <div class="form-group"><label>ФИО *</label><input v-model="form.fullName" name="user_full_name" autocomplete="name" /></div>
       </div>
       <div class="form-row">
@@ -315,6 +322,13 @@ const editingAdminUser = computed(() => {
   if (!isEdit.value) return false;
   return !!(form.value.role && roles.value.find(r => r.value === form.value.role)?.isAdmin);
 });
+
+const canEditLogin = computed(() => {
+  if (!isEdit.value) return true;                 
+  if (!auth.isAdmin) return false;                 
+  if (form.value.login === 'admin') return false;  
+  return true;
+});  
 
 const canEditRole = computed(() => {
   if (!isEdit.value) return true;
