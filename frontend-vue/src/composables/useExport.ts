@@ -106,7 +106,7 @@ export function useExport() {
 
     const win = window.open('', '_blank');
     if (!win) { toast.error('Разрешите всплывающие окна'); return; }
-
+try {
     win.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
 <title>Реестр</title>
 <style>
@@ -141,9 +141,11 @@ ${buildHeaderHtml(settings.printDocs)}
     win.document.close();
     win.document.title = 'Реестр оборудования';
     win.focus();
-    setTimeout(() => win.print(), 300);
+    setTimeout(() => { try { win.print(); } catch { /* окно закрыли */ } }, 300);
     toast.success(`PDF готов: ${data.length} записей`);
+  } catch {
+    toast.error('Окно печати было закрыто. Разрешите всплывающие окна и повторите.');
   }
-
+}
   return { exportToXlsx, exportToPDF, loadAllForExport };
 }
