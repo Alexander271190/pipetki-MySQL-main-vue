@@ -12,7 +12,7 @@
         </div>
         <div class="form-group">
           <label>Номер свидетельства</label>
-          <input v-model="form.cert" type="text" placeholder="напр. С-АБ-1234567/2025" />
+          <input v-model="form.cert" type="text" name="quickcal_cert" autocomplete="on" placeholder="напр. С-АБ-1234567/2025" />
         </div>
       </div>
       <div class="form-row">
@@ -26,7 +26,7 @@
         </div>
         <div class="form-group">
           <label>Поверяющая организация</label>
-          <input v-model="form.org" type="text" placeholder="напр. ФБУ «Красноярский ЦСМ»" />
+          <input v-model="form.org" type="text" name="quickcal_org" autocomplete="organization" placeholder="напр. ФБУ «Красноярский ЦСМ»" />
         </div>
       </div>
       <div class="form-group">
