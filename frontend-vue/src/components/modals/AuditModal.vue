@@ -226,35 +226,73 @@ const errLevel = ref('');
 const errorsPeriod = ref('');
 const errorsFrom = ref('');
 const errorsTo = ref('');
+const total = ref(0);
+const errorsTotal = ref(0);
 
-watch(() => ui.activeModal, async (v) => {
-  if (v !== 'audit') return;
-  tab.value = 'actions';
-  search.value = '';
-  category.value = '';
-  period.value = '';
-  from.value = '';
-  to.value = '';
-  await loadAudit();
-});
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let errorsTimer: ReturnType<typeof setTimeout> | null = null;
 
-watch(tab, async (v) => {
-  if (v === 'errors' && errorsCache.value.length === 0) await loadErrors();
-});
+watch(
+  [() => ui.activeModal, search, category, period, from, to],
+  ([modal]) => {
+    if (modal !== 'audit') return;
+    tab.value = 'actions';
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(loadAudit, 300);
+  }
+);
+
+watch(
+  [tab, errSearch, errLevel, errorsPeriod, errorsFrom, errorsTo],
+  ([t]) => {
+    if (t !== 'errors' || tab.value !== 'errors') return;
+    if (errorsTimer) clearTimeout(errorsTimer);
+    errorsTimer = setTimeout(loadErrors, 300);
+  }
+);
 
 async function loadAudit() {
   loading.value = true;
-  try { cache.value = (await logApi.getAuditLog(500)).items || []; }
-  catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
-  finally { loading.value = false; }
+  try {
+    const { from: f, to: t } = periodRange(period.value, from.value, to.value);
+    const res = await logApi.getAuditLog({
+      limit: 5000,
+      search: search.value.trim() || undefined,
+      category: category.value || undefined,
+      from: f || undefined,
+      to: t || undefined,
+    });
+    cache.value = res.items || [];
+    total.value = res.total ?? cache.value.length;   
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  } finally {
+    loading.value = false;
+  }
 }
+
 
 async function loadErrors() {
   loadingErrors.value = true;
-  try { errorsCache.value = (await logApi.getErrorsLog(500)).items || []; }
-  catch (e) { toast.error(e instanceof Error ? e.message : 'Ошибка'); }
-  finally { loadingErrors.value = false; }
+  try {
+    const { from: f, to: t } = periodRange(errorsPeriod.value, errorsFrom.value, errorsTo.value);
+    const res = await logApi.getErrorsLog({
+      limit: 5000,
+      search: errSearch.value.trim() || undefined,
+      level: errLevel.value || undefined,
+      from: f || undefined,
+      to: t || undefined,
+    });
+    errorsCache.value = res.items || [];
+    errorsTotal.value = res.total ?? errorsCache.value.length;
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Ошибка');
+  } finally {
+    loadingErrors.value = false;
+  }
 }
+
+  
 function resetAuditFilters() {
   search.value = '';
   category.value = '';
@@ -445,6 +483,20 @@ async function clearErrors() {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   }
 }
+
+function periodRange(mode: string, customFrom: string, customTo: string): { from: string; to: string } {
+  const local = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (mode === 'today') return { from: todayStr(), to: todayStr() };
+  if (mode === 'week' || mode === 'month') {
+    const d = new Date();
+    d.setDate(d.getDate() - (mode === 'week' ? 7 : 30));
+    return { from: local(d), to: todayStr() };
+  }
+  if (mode === 'custom') return { from: customFrom, to: customTo };
+  return { from: '', to: '' };
+}
+
 
 function close() { ui.close(); }
 </script>
