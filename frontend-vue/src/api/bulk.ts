@@ -17,7 +17,8 @@ export interface BulkReturnResponse {
 }
 
 export interface BulkCreateResponse {
-  created: number;
+  message?: string;
+  count: number;
   ids?: string[];
 }
 
