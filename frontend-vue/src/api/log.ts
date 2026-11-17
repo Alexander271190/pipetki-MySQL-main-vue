@@ -74,8 +74,5 @@ export const getErrorsLog = (params: ErrorsParams | number = 500) => {
   return apiRequest<ErrorsListResponse>(`/log/errors?${q.toString()}`);
 };
 
-export const getErrorsLog = (limit = 500) =>
-  apiRequest<ErrorsListResponse>(`/log/errors?limit=${limit}`);
-
 export const clearErrorsLog = () =>
   apiRequest('/log/errors', 'DELETE');
