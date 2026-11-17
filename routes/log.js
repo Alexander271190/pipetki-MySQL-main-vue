@@ -15,7 +15,7 @@ router.get('/errors', authenticate, requireAnyPermission(['view_log']), async (r
     const dateFrom = req.query.from || '';
     const dateTo = req.query.to || '';
     const raw = parseInt(req.query.limit, 10);
-    const limit = Math.min(Number.isFinite(raw) && raw > 0 ? raw : 500, 2000);
+    const limit = Math.min(Number.isFinite(raw) && raw > 0 ? raw : 500, 5000);
 
     const parts = ['1=1'];
     const params = [];
