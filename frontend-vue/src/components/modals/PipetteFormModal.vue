@@ -90,19 +90,22 @@
             rows="2" 
             :placeholder="f.label">
           </textarea>
-          <input v-else-if="f.type === 'date'" 
+          <input 
+            v-else-if="f.type === 'date'" 
             v-model="form[f.id]" 
-            type="date" />
+            type="date" 
             :name="'pipette_' + f.id"
             autocomplete="off"
+          />
           <input 
             v-else-if="f.type === 'number'" 
             v-model="form[f.id]" 
-            type="number" />
+            type="number" 
             :name="'pipette_' + f.id"
             autocomplete="off"
+          />
           <div v-else-if="f.id === 'barcode'" style="display:flex;gap:6px;">
-            <!-- === 2.1 === readonly + disabled + title + v-if на кнопках -->
+            
             <input
               v-model="form[f.id]"
               type="text"
