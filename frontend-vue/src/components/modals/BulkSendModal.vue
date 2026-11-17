@@ -50,7 +50,7 @@
       </div>
       <div class="form-group">
         <label>Примечание</label>
-        <textarea v-model="note" rows="2" placeholder="например: отправлено курьером"></textarea>
+        <textarea v-model="note" name="bulksend_note" autocomplete="on" rows="2" placeholder="например: отправлено курьером"></textarea>
       </div>
       <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
       <div class="form-actions">
