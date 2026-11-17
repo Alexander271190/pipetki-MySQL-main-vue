@@ -74,7 +74,12 @@ const authenticate = async (req, res, next) => {
       console.warn('[WARN] roleCache недоступен:', e.message);
       user._roleDef = null;
     }
-
+    if (roleCacheError) {
+      return res.status(503).json({
+        error: 'Сервис временно недоступен, повторите через секунду',
+        code: 'rolecache_unavailable',
+     });
+   }
     if (!user._roleDef && !roleCacheError) {
       console.warn(`[WARN] Роль не найдена: role=${user.role}, user=${user.id}. Права не выданы.`);
     }
