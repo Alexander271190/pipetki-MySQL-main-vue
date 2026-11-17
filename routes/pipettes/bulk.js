@@ -131,7 +131,7 @@ router.post('/bulk-create', authenticate, requireAnyPermission(['add_pipette', '
 
       for (const n of normalized) {
         const id = await db.generatePipetteId(prefixCache[n.equipmentType], conn);
-        const computed = computeBarcodeValue({ id, serial: n.serial, custom_data: n.custom_data });
+        const computed = await computeBarcodeValue({ id, serial: n.serial, custom_data: n.custom_data }, conn);
 
         await conn.query(
           `INSERT INTO pipettes
