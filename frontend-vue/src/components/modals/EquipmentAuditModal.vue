@@ -168,11 +168,15 @@ ${buildHeaderHtml(settings.printDocs)}
 
   const win = window.open('', '_blank');
   if (!win) { toast.error('Разрешите всплывающие окна'); return; }
-  win.document.write(html);
-  win.document.close();
-  win.document.title = title;
-  win.focus();
-  setTimeout(() => win.print(), 300);
+  try {
+    win.document.write(html);
+    win.document.close();
+    win.document.title = title;
+    win.focus();
+  setTimeout(() => { try { win.print(); } catch { /* окно закрыли */ } }, 300);
+  } catch {
+  toast.error('Окно печати было закрыто. Разрешите всплывающие окна и повторите.');
+ }   
 }
 
 function close() { ui.close(); }
