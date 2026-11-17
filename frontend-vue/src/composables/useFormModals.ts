@@ -206,26 +206,29 @@ export function useFormModals() {
     }
 
     let fresh: Pipette | null = null;
-    try { fresh = await api.getById(id); } catch { /* ignore */ }
-
-    if (fresh?.sent_for_calibration) {
-      toast.error(
-        `Нельзя удалить ${id}: прибор отправлен на поверку` +
-        (fresh.replaced_by ? `, замена: ${fresh.replaced_by}` : '') +
-        `. Сначала отмените отправку или оформите возврат.`
-      );
+    try {
+      fresh = await api.getById(id);
+    } catch (e) {
       api.releaseLock(id).catch(() => {});
+      toast.error('Не удалось получить актуальные данные о приборе. Повторите попытку.');
       return;
     }
-    if (fresh?.replacing) {
-      toast.error(
-        `Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}. ` +
-        `Сначала оформите возврат оригинала с поверки.`
-      );
+    if (!fresh) {
       api.releaseLock(id).catch(() => {});
+      toast.error('Прибор не найден');
       return;
     }
 
+    if (fresh.sent_for_calibration) {
+      toast.error(...);
+      api.releaseLock(id).catch(() => {});
+      return;
+    }
+    if (fresh.replacing) {
+      toast.error(...);
+      api.releaseLock(id).catch(() => {});
+      return;
+    }
     const ok = await showConfirm(
       `Удалить оборудование «${id}» вместе со всей историей поверок? Действие необратимо.`,
       { icon: '🗑️', title: 'Удаление', okText: 'Удалить', okClass: 'btn-danger' }
