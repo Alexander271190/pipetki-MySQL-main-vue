@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const db = require('../db');
-const { authenticate, requireAnyPermission } = require('../middleware/auth');
+const { authenticate, requireAdmin } = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
 const roleCache = require('../utils/roles');
 
@@ -18,7 +18,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // POST — создать (требует manage_users)
-router.post('/', authenticate, requireAnyPermission(['manage_users']), async (req, res) => {
+router.post('/',    authenticate, requireAdmin, async (req, res) =>  {
   try {
     const { name, permissions, isAdmin } = req.body || {};
     if (!name || !String(name).trim()) {
@@ -52,7 +52,7 @@ router.post('/', authenticate, requireAnyPermission(['manage_users']), async (re
 });
 
 // PUT — обновить (требует manage_users)
-router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (req, res) => {
+router.put('/:id',      authenticate, requireAdmin, async (req, res) =>  {
   try {
     const id = parseInt(req.params.id, 10);
     const { name, permissions, isAdmin } = req.body || {};
@@ -96,7 +96,7 @@ router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (
 });
 
 // DELETE (требует manage_users)
-router.delete('/:id', authenticate, requireAnyPermission(['manage_users']), async (req, res) => {
+router.delete('/:id',   authenticate, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const [ex] = await db.query('SELECT * FROM roles WHERE id = ?', [id]);
