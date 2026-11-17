@@ -300,20 +300,34 @@ function onDrop(e: DragEvent, targetColId: string) {
     _colDragState = null;
     return;
   }
-  
-  const src = _colDragState.srcColId;
-  const base = Array.isArray(prefs.columnOrder) ? prefs.columnOrder : [];
-  const currentOrder = base.length
-  ? base.map(id => TABLE_ID_MAP[id] || id)
-  : columns.value.slice();
-  const srcIdx = currentOrder.indexOf(src);
-  const dstIdx = currentOrder.indexOf(targetColId);
 
+  const src = _colDragState.srcColId;
+
+  // Строим полный порядок ВСЕХ колонок (не только видимых)
+  const base = Array.isArray(prefs.columnOrder) ? prefs.columnOrder : [];
+  const fullOrder = base.length
+    ? base.map(id => TABLE_ID_MAP[id] || id)
+    : allColumns.value.map(c => c.id);
+
+  // Убираем устаревшие id (которых больше нет)
+  const allIds = new Set(allColumns.value.map(c => c.id));
+  for (let i = fullOrder.length - 1; i >= 0; i--) {
+    if (!allIds.has(fullOrder[i])) fullOrder.splice(i, 1);
+  }
+
+  // Добавляем новые колонки в конец
+  for (const c of allColumns.value) {
+    if (!fullOrder.includes(c.id)) fullOrder.push(c.id);
+  }
+
+  // Двигаем
+  const srcIdx = fullOrder.indexOf(src);
+  const dstIdx = fullOrder.indexOf(targetColId);
   if (srcIdx !== -1 && dstIdx !== -1) {
-    currentOrder.splice(srcIdx, 1);
-    currentOrder.splice(dstIdx, 0, src);
+    fullOrder.splice(srcIdx, 1);
+    fullOrder.splice(dstIdx, 0, src);
     if (typeof prefs.setColumnOrder === 'function') {
-      prefs.setColumnOrder(currentOrder);
+      prefs.setColumnOrder(fullOrder);
     }
   }
   _colDragState = null;
