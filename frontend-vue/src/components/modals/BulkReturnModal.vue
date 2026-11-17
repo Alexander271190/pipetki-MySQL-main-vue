@@ -14,7 +14,7 @@
         </div>
         <div class="form-group">
           <label>Организация</label>
-          <input v-model="org" type="text" placeholder="ФБУ «Красноярский ЦСМ»" />
+          <input v-model="org" type="text" name="bulkreturn_org" autocomplete="organization" placeholder="ФБУ «Красноярский ЦСМ»" />
         </div>
       </div>
 
@@ -37,7 +37,7 @@
 
       <div v-if="singleCert" class="form-group">
         <label>Номер общего свидетельства</label>
-        <input v-model="commonCert" type="text" placeholder="С-АБ-1234567/2026" />
+        <input v-model="commonCert" type="text" name="bulkreturn_common_cert" autocomplete="on" placeholder="С-АБ-1234567/2026" />
       </div>
 
       <table class="field-settings-table" style="margin-top:15px;">
@@ -60,6 +60,8 @@
               <input
                 v-model="certMap[p.id]"
                 type="text"
+                :name="'bulkreturn_cert_' + p.id"
+                autocomplete="on"
                 :disabled="singleCert"
                 :placeholder="singleCert ? '—' : 'напр. С-АБ-...'"
                 style="width:100%;padding:5px 8px;border:1px solid var(--border-hard);border-radius:5px;font-family:inherit;"
@@ -87,7 +89,7 @@
 
       <div class="form-group">
         <label>Примечание</label>
-        <textarea v-model="note" rows="2"></textarea>
+        <textarea v-model="note" name="bulkreturn_note" autocomplete="on" rows="2"></textarea>
       </div>
 
       <div v-if="error" class="auth-error" style="visibility:visible;opacity:1;">{{ error }}</div>
