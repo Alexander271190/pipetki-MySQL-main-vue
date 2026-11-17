@@ -12,6 +12,8 @@ export interface AuditItem {
 
 export interface AuditListResponse {
   items: AuditItem[];
+  total?: number;
+  counters?: Record<string, number>;
 }
 
 export interface EquipmentAuditResponse {
@@ -32,6 +34,8 @@ export interface ErrorItem {
 
 export interface ErrorsListResponse {
   items: ErrorItem[];
+  total?: number;
+  counters?: Record<string, number>;
 }
 
 export interface AuditParams {
