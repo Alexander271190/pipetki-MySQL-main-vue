@@ -159,9 +159,8 @@ const calSaving = ref(false);
 const calError = ref('');
 
 
-let _calLockId: string | null = null;
-let _skipCalUnlock = false;
 
+let _calLockId: string | null = null;
 
 async function acquireCalLock(id: string): Promise<boolean> {
   try {
@@ -180,11 +179,10 @@ async function acquireCalLock(id: string): Promise<boolean> {
 }
 
 async function releaseCalLock() {
-  if (_calLockId && !_skipCalUnlock) {
+  if (_calLockId) {
     try { await api.releaseLock(_calLockId); } catch { /* ignore */ }
   }
   _calLockId = null;
-  _skipCalUnlock = false;
 }
 
 
