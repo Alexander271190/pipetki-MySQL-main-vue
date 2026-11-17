@@ -830,7 +830,7 @@ router.post('/', authenticate, requireAnyPermission(['add_pipette', 'manage_pipe
         barcodeValue = trimmed;
         barcodeSource = 'manual';
       } else {
-        const computed = computeBarcodeValue({ id, serial, custom_data: customData });
+        const computed = await computeBarcodeValue({ id, serial, custom_data: customData }, conn);
         barcodeValue = computed.value;
         barcodeSource = computed.source;
       }
@@ -1030,7 +1030,7 @@ router.put('/:id', authenticate, requireAnyPermission(['edit_pipette', 'manage_p
         throw err;
       }
 
-      // 🆕 Проверка конкурентного редактирования (optimistic lock)
+      //  Проверка конкурентного редактирования (optimistic lock)
       const hasForeignLock = lockChk.length > 0 && String(lockChk[0].user_id) !== String(req.user.id);
 
       if (updates.updatedAt && p.updated_at && hasForeignLock) {
@@ -1093,7 +1093,7 @@ router.put('/:id', authenticate, requireAnyPermission(['edit_pipette', 'manage_p
         const baseCustom = parseCustomData(cur.custom_data);
         Object.assign(baseCustom, customUpdates);
 
-        const computed = computeBarcodeValue({ id: cur.id, serial: newSerial, custom_data: baseCustom });
+        const computed = await computeBarcodeValue({ id: cur.id, serial: newSerial, custom_data: baseCustom }, conn);
         if (computed.value !== cur.barcode || computed.source !== cur.barcode_source) {
           fields.push('barcode = ?'); values.push(computed.value);
           fields.push('barcode_source = ?'); values.push(computed.source);
