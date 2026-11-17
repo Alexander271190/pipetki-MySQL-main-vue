@@ -422,7 +422,7 @@ async function openForm() {
       try {
         const lockRes = await api.getLock(editId.value);
         if (lockRes.locked && !lockRes.mine) {
-          const proceed = await showLockWarning(lockRes, 'Редактирование');
+          const proceed = await showLockWarning(lockRes, 'отредактировать прибор');
           if (!proceed) { ui.close(); return; }
         }
         await api.setLock(editId.value);
