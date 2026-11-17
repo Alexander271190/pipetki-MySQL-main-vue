@@ -21,11 +21,11 @@
 
     <form v-show="!loading" @submit.prevent="onSubmit">
       <div class="form-row">
-        <div class="form-group"><label>Логин *</label><input v-model="form.login" :readonly="isEdit" :style="isEdit ? { background: '#f1f5f9' } : {}" /></div>
-        <div class="form-group"><label>ФИО *</label><input v-model="form.fullName" /></div>
+        <div class="form-group"><label>Логин *</label><input v-model="form.login" :readonly="isEdit" name="user_login" autocomplete="off" :style="isEdit ? { background: '#f1f5f9' } : {}" /></div>
+        <div class="form-group"><label>ФИО *</label><input v-model="form.fullName" name="user_full_name" autocomplete="name" /></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Должность *</label><input v-model="form.position" /></div>
+        <div class="form-group"><label>Должность *</label><input v-model="form.position" name="user_position" autocomplete="organization-title" /></div>
         <div class="form-group"><label>Отдел</label>
           <select v-model="form.department">
             <option value="">— не указан —</option>
