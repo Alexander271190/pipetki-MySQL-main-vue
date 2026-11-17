@@ -571,3 +571,47 @@ html[data-theme="dark"] .modal::-webkit-scrollbar-thumb:hover { background: rgba
     max-height: 90vh !important;
   }
 }
+
+/* ============================================================
+   МОДАЛКА НАСТРОЕК — РЕСАЙЗ ПО ОБОИМ НАПРАВЛЕНИЯМ
+   Переопределяем базовый .modal, у которого стоит resize: none
+   ============================================================ */
+.modal.modal-settings-resizable {
+  resize: both !important;        /* Разрешаем ресайз */
+  overflow: auto !important;      /* Убираем жесткий скролл базового .modal */
+  display: flex;
+  flex-direction: column;
+  
+  /* Начальный размер (широкий, как было) */
+  width: 1100px;
+  height: 80vh;
+  
+  /* Ограничения */
+  min-width: 600px;
+  min-height: 400px;
+  max-width: 95vw;
+  max-height: 95vh;
+  
+  /* Убираем contain, который может мешать ресайзу */
+  contain: none !important;
+}
+
+/* Заголовок не сжимается */
+.modal.modal-settings-resizable #settings-header {
+  flex-shrink: 0;
+}
+
+/* Внутренние блоки растягиваются и получают свой скролл */
+.modal.modal-settings-resizable #settings-list,
+.modal.modal-settings-resizable #settings-section {
+  flex: 1 1 auto;
+  min-height: 0; /* Критично для flex-скролла! */
+  overflow-y: auto;
+  padding-right: 6px; /* Чтобы скроллбар не прилипал */
+}
+
+/* Кнопка "Закрыть" всегда внизу */
+.modal.modal-settings-resizable .form-actions {
+  flex-shrink: 0;
+  margin-top: 16px;
+}
