@@ -127,12 +127,10 @@ const positionLine = computed(() => {
   let pos = u.position || '';
   if (u.isAdmin) {
     pos += ' (админ)';
-  } else if (
-    u.roleName === 'Ст. лаборант' ||
-    u.role === 'senior_lab' ||
-    (u.permissions || []).includes('bulk_send')
-  ) {
+  } else if (u.role === 'senior_lab') {
     pos += ' (ст. лаборант)';
+  } else if (u.roleName && u.roleName !== 'Пользователь' && u.roleName !== 'Администратор') {
+    pos += ` (${u.roleName})`;
   }
 
   if (u.isActing) {
