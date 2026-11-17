@@ -301,9 +301,17 @@ router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (
     const [ex] = await db.query('SELECT id, login, role FROM users WHERE id = ?', [id]);
     if (!ex.length) return res.status(404).json({ error: 'Не найден' });
 
-    if (String(ex[0].login) !== String(login || '')) {
-      return res.status(400).json({ error: 'Логин изменять нельзя' });
-    }
+    const loginChanged = String(ex[0].login) !== String(login || '');
+    if (loginChanged) {
+       // Менять логин может только администратор
+    if (!req.user._isAdmin) {
+      return res.status(403).json({ error: 'Только администратор может менять логин' });
+   }
+     // Логин встроенного admin защищаем — чтобы не потерять доступ к системе
+     if (ex[0].login === 'admin') {
+       return res.status(403).json({ error: 'Логин встроенного администратора менять нельзя' });
+  }
+}
 
     const oldRoleDef = await roleCache.getRoleDef(ex[0].role);
 
