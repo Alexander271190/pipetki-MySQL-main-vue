@@ -71,7 +71,7 @@ const authenticate = async (req, res, next) => {
       user._roleDef = await roleCache.getRoleDef(effectiveRole); 
     } catch (e) {
       roleCacheError = true;
-      console.warn('[WARN] roleCache недоступен:', e.message);
+      console.error('[auth] roleCache недоступен:', e.message);
       user._roleDef = null;
     }
     if (roleCacheError) {
