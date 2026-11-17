@@ -88,10 +88,17 @@ function safeParseCustom(raw) {
   try { return JSON.parse(raw) || {}; } catch (e) { return {}; }
 }
 
-const BARCODE_MAX_LEN = 255;
+async function resolveBarcodeValue(pipette) {
+  let maxLen = 255;
+  try {
+    const s = await getSettings();
+    const configured = parseInt(s.barcode_max_length, 10);
+    if (Number.isFinite(configured) && configured >= 8 && configured <= 255) {
+      maxLen = configured;
+    }
+  } catch { /* fallback 255 */ }
 
-function resolveBarcodeValue(pipette) {
-  const cut = s => String(s).trim().slice(0, BARCODE_MAX_LEN);
+  const cut = v => String(v).trim().slice(0, maxLen);
   if (pipette.barcode && pipette.barcode_source === 'manual') {
     return { value: cut(pipette.barcode), source: 'manual' };
   }
@@ -174,13 +181,13 @@ const LABEL_SIZES = {
   '100x50': { widthPt: 283.5, heightPt: 141.7, widthDots: 800, heightDots: 400 },
 };
 
-function buildZplForPipette(p, opts = {}) {
+async function buildZplForPipette(p, opts = {}) {
   const labelFields = opts.labelFields || ['id', 'model'];
   const sizeKey = opts.labelSize || '58x40';
   const size = LABEL_SIZES[sizeKey] || LABEL_SIZES['58x40'];
   const barcodeType = opts.barcodeType || 'code128';
 
-  const { value } = resolveBarcodeValue(p);
+  const { value } = await resolveBarcodeValue(p);
 
   const lines = [];
   lines.push('^XA');
@@ -286,7 +293,7 @@ router.get('/:id/png', authenticate, async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Оборудование не найдено' });
 
-    const { value } = resolveBarcodeValue(rows[0]);
+    const { value } = await resolveBarcodeValue(rows[0]);
     const type = (req.query.type || 'code128').toLowerCase();
     const png = await generateBarcodePng(value, type);
 
@@ -477,7 +484,7 @@ router.get('/labels.pdf', authenticate, requirePermission('print_labels'), async
     if (layout === 'zebra') {
       for (const p of tasks) {
         doc.addPage();
-        const { value } = resolveBarcodeValue(p);
+        const { value } = await resolveBarcodeValue(p);
         let png = null;
         try { png = await generateBarcodePng(value, type); } catch (e) {}
 
@@ -517,7 +524,7 @@ router.get('/labels.pdf', authenticate, requirePermission('print_labels'), async
 
         doc.rect(x, y, CELL_W - 6, CELL_H - 6).stroke('#cccccc');
 
-        const { value } = resolveBarcodeValue(p);
+        const { value } = await resolveBarcodeValue(p);
         let png = null;
         try { png = await generateBarcodePng(value, type); } catch (e) {}
 
@@ -653,7 +660,7 @@ router.post('/print', authenticate, requirePermission('print_labels'), async (re
       try {
         const zplParts = [];
         for (const p of pipettes) {
-          const zpl = buildZplForPipette(p, {
+          const zpl = await buildZplForPipette(p, {
             labelFields,
             labelSize: printer.label_size || labelSize,
             barcodeType: s.barcode_type || 'code128',
@@ -683,7 +690,7 @@ router.post('/print', authenticate, requirePermission('print_labels'), async (re
     if (mode === 'zebra-agent') {
       const zplParts = [];
       for (const p of pipettes) {
-        const zpl = buildZplForPipette(p, {
+        const zpl = await buildZplForPipette(p, {
           labelFields,
           labelSize: printer ? printer.label_size : labelSize,
           barcodeType: s.barcode_type || 'code128',
