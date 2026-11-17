@@ -97,12 +97,19 @@ router.post('/', authenticate, requireAnyPermission(['manage_printers']), async 
       ]
     );
 
-    if (isDefault && department) {
+    if (isDefault) {
+     if (department) {
+       await db.query(
+          'UPDATE barcode_printers SET is_default = 0 WHERE department = ? AND id <> ?',
+          [String(department).trim(), result.insertId]
+        );
+      } else {
       await db.query(
-        'UPDATE barcode_printers SET is_default = 0 WHERE department = ? AND id <> ?',
-        [String(department).trim(), result.insertId]
+        'UPDATE barcode_printers SET is_default = 0 WHERE department IS NULL AND id <> ?',
+        [result.insertId]
       );
     }
+  }
 
     await logAction(req, 'Добавление принтера', `${name} (${mode})`);
 
@@ -152,12 +159,19 @@ router.put('/:id', authenticate, requireAnyPermission(['manage_printers']), asyn
       ]
     );
 
-    if (isDefault && department) {
+    if (isDefault) {
+     if (department) {
       await db.query(
-        'UPDATE barcode_printers SET is_default = 0 WHERE department = ? AND id <> ?',
-        [String(department).trim(), id]
-      );
-    }
+         'UPDATE barcode_printers SET is_default = 0 WHERE department = ? AND id <> ?',
+          [String(department).trim(), id]
+        );
+      } else {
+        await db.query(
+          'UPDATE barcode_printers SET is_default = 0 WHERE department IS NULL AND id <> ?',
+           [id]
+         );
+       }
+      }
 
     res.json({ message: 'Принтер обновлён' });
   } catch (e) {
