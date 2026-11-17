@@ -34,11 +34,45 @@ export interface ErrorsListResponse {
   items: ErrorItem[];
 }
 
-export const getAuditLog = (limit = 500) =>
-  apiRequest<AuditListResponse>(`/pipettes/audit?limit=${limit}`);
+export interface AuditParams {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  category?: string;
+  from?: string;
+  to?: string;
+}
 
-export const getEquipmentAudit = (id: string, limit = 500) =>
-  apiRequest<EquipmentAuditResponse>(`/pipettes/${encodeURIComponent(id)}/audit?limit=${limit}`);
+export interface ErrorsParams {
+  limit?: number;
+  search?: string;
+  level?: string;
+  from?: string;
+  to?: string;
+}
+
+export const getAuditLog = (params: AuditParams | number = 500) => {
+  const p: AuditParams = typeof params === 'number' ? { limit: params } : params;
+  const q = new URLSearchParams();
+  q.set('limit', String(p.limit ?? 500));
+  if (p.offset)   q.set('offset', String(p.offset));
+  if (p.search)   q.set('search', p.search);
+  if (p.category) q.set('category', p.category);
+  if (p.from)     q.set('from', p.from);
+  if (p.to)       q.set('to', p.to);
+  return apiRequest<AuditListResponse>(`/pipettes/audit?${q.toString()}`);
+};
+
+export const getErrorsLog = (params: ErrorsParams | number = 500) => {
+  const p: ErrorsParams = typeof params === 'number' ? { limit: params } : params;
+  const q = new URLSearchParams();
+  q.set('limit', String(p.limit ?? 500));
+  if (p.search) q.set('search', p.search);
+  if (p.level)  q.set('level', p.level);
+  if (p.from)   q.set('from', p.from);
+  if (p.to)     q.set('to', p.to);
+  return apiRequest<ErrorsListResponse>(`/log/errors?${q.toString()}`);
+};
 
 export const getErrorsLog = (limit = 500) =>
   apiRequest<ErrorsListResponse>(`/log/errors?limit=${limit}`);
