@@ -55,6 +55,7 @@ export interface ErrorsParams {
   to?: string;
 }
 
+// ── Аудит всех действий (глобальный) ──
 export const getAuditLog = (params: AuditParams | number = 500) => {
   const p: AuditParams = typeof params === 'number' ? { limit: params } : params;
   const q = new URLSearchParams();
@@ -67,6 +68,20 @@ export const getAuditLog = (params: AuditParams | number = 500) => {
   return apiRequest<AuditListResponse>(`/pipettes/audit?${q.toString()}`);
 };
 
+// ── Аудит одного прибора (восстановлена) ──
+export const getEquipmentAudit = (id: string, params: AuditParams | number = 500) => {
+  const p: AuditParams = typeof params === 'number' ? { limit: params } : params;
+  const q = new URLSearchParams();
+  q.set('limit', String(p.limit ?? 500));
+  if (p.search) q.set('search', p.search);
+  if (p.from)   q.set('from', p.from);
+  if (p.to)     q.set('to', p.to);
+  return apiRequest<EquipmentAuditResponse>(
+    `/pipettes/${encodeURIComponent(id)}/audit?${q.toString()}`
+  );
+};
+
+// ── Журнал ошибок ──
 export const getErrorsLog = (params: ErrorsParams | number = 500) => {
   const p: ErrorsParams = typeof params === 'number' ? { limit: params } : params;
   const q = new URLSearchParams();
