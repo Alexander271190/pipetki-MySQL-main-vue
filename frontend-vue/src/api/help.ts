@@ -1,4 +1,4 @@
-import { apiRequest, getAuthToken } from './client';
+import { apiRequest, getAuthToken, triggerUnauthorized } from './client';
 
 export interface HelpSection {
   slug: string;
@@ -19,6 +19,13 @@ export async function uploadHelpFile(formData: FormData): Promise<unknown> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const res = await fetch('/api/help/upload', { method: 'POST', headers, body: formData });
+
+  // Сессия истекла — принудительный выход
+  if (res.status === 401) {
+    triggerUnauthorized();
+    throw new Error('Сессия истекла, войдите заново');
+  }
+
   if (!res.ok) {
     let msg = 'Ошибка загрузки';
     try { msg = (await res.json()).error || msg; } catch { /* ignore */ }
