@@ -273,8 +273,9 @@ async function onSave() {
   saving.value = true;
   try {
     const res = await bulkApi.bulkCreate(rows.value);
-    toast.success(`Создано ${res.created || rows.value.length} единиц`);
-    emit('created', res.created || rows.value.length);
+    const created = res.count ?? rows.value.length;
+    toast.success(`Создано ${created} единиц`);
+    emit('created', created);
     await pip.loadPaged();
     await stats.load();
   } catch (e) {
