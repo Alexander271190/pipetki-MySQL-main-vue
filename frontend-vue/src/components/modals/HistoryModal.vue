@@ -167,7 +167,7 @@ async function acquireCalLock(id: string): Promise<boolean> {
   try {
     const lockRes = await api.getLock(id);
     if (lockRes.locked && !lockRes.mine) {
-      const proceed = await showLockWarning(lockRes, 'Добавление поверки');
+      const proceed = await showLockWarning(lockRes, 'добавить поверку');
       if (!proceed) return false;
     }
     await api.setLock(id);
