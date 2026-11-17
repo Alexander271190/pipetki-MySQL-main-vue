@@ -122,7 +122,7 @@ export function useFormModals() {
     try {
       const lockRes = await api.getLock(id);
       if (lockRes.locked && !lockRes.mine) {
-        const proceed = await showLockWarning(lockRes, 'Отмены отправки');
+        const proceed = await showLockWarning(lockRes, 'отменить отправку');
         if (!proceed) return;
       }
       await api.setLock(id);
@@ -196,7 +196,7 @@ export function useFormModals() {
     try {
       const lockRes = await api.getLock(id);
       if (lockRes.locked && !lockRes.mine) {
-        const proceed = await showLockWarning(lockRes, 'Удаления');
+        const proceed = await showLockWarning(lockRes, 'удалить прибор');
         if (!proceed) return;
       }
       await api.setLock(id);
