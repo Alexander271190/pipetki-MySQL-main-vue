@@ -16,7 +16,7 @@ export async function showLockWarning(lockRes: LockResponse, actionName: string)
   const posText = lockRes.lockedByPosition ? ` (${lockRes.lockedByPosition})` : '';
 
   const ok = await showConfirm(
-    `Пользователь ${name}${posText} уже редактирует этот прибор.\n\nВы хотите снять блокировку, чтобы ${actionName.toLowerCase()}?`,
+    `Пользователь ${name}${posText} уже редактирует этот прибор.\n\nСнять блокировку, чтобы ${actionName}?`,
     {
       icon: '<i class="fa-solid fa-lock" style="color: #eab308;"></i>',
       title: 'Внимание',
