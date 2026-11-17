@@ -26,6 +26,7 @@ const STANDARD_FIELDS = new Set([
 
 const FORBIDDEN_CUSTOM_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const BARCODE_MAX_LEN = 255;
+const BARCODE_MAX_LEN = BARCODE_MAX_LEN_FALLBACK;
 
 // ============================================================
 // КАСТОМНЫЕ ПОЛЯ
@@ -55,10 +56,36 @@ function mergeCustomList(list) {
 // ============================================================
 // ШТРИХКОД
 // ============================================================
-function computeBarcodeValue(p) {
+
+// Кеш barcode_max_length (60 сек)
+let _barcodeMaxLenCache = null;
+let _barcodeMaxLenCacheTime = 0;
+
+
+async function getBarcodeMaxLen(executor) {
+  const now = Date.now();
+  if (_barcodeMaxLenCache != null && now - _barcodeMaxLenCacheTime < 60_000) {
+    return _barcodeMaxLenCache;
+  }
+  try {
+    const ex = executor || db;
+    const [rows] = await ex.query(
+      "SELECT setting_value FROM system_settings WHERE setting_key = 'barcode_max_length'"
+    );
+    const n = rows.length ? parseInt(rows[0].setting_value, 10) : NaN;
+    _barcodeMaxLenCache = Number.isFinite(n) && n >= 8 && n <= 255 ? n : BARCODE_MAX_LEN_FALLBACK;
+    _barcodeMaxLenCacheTime = now;
+    return _barcodeMaxLenCache;
+  } catch {
+    return BARCODE_MAX_LEN_FALLBACK;
+  }
+}
+
+async function computeBarcodeValue(p, executor) {
+  const maxLen = await getBarcodeMaxLen(executor);
   const custom = parseCustomData(p.custom_data);
   const inv = custom.inventorynumber || custom.inventoryNumber || custom.inventory_no || '';
-  const cut = (s) => String(s).trim().slice(0, BARCODE_MAX_LEN);
+  const cut = (s) => String(s).trim().slice(0, maxLen);
   if (inv && String(inv).trim()) return { value: cut(inv), source: 'inventorynumber' };
   if (p.serial && String(p.serial).trim()) return { value: cut(p.serial), source: 'serial' };
   return { value: cut(p.id), source: 'id' };
@@ -481,4 +508,6 @@ module.exports = {
   invalidateEquipmentSettingsCache,
   getRequiredFields,
   invalidateRequiredFieldsCache,
+  getBarcodeMaxLen,
+  invalidateBarcodeMaxLenCache: () => { _barcodeMaxLenCache = null; _barcodeMaxLenCacheTime = 0; },
 };
