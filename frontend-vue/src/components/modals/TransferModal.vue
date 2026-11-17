@@ -124,7 +124,7 @@ async function open() {
   try {
     const lockRes = await api.getLock(id);
     if (lockRes.locked && !lockRes.mine) {
-      const proceed = await showLockWarning(lockRes, 'Передача');
+      const proceed = await showLockWarning(lockRes, 'передать прибор');
       if (!proceed) { ui.close(); return; }
     }
     await api.setLock(id);
