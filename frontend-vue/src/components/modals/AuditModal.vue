@@ -26,7 +26,7 @@
           <option value="auth">Вход/выход</option>
           <option value="help">Справка</option>
         </select>
-        <select v-model="period" @change="onPeriodChange" style="padding:8px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;">
+        <select v-model="period" style="padding:8px;border:1px solid var(--border-hard);border-radius:8px;font-size:13px;">
           <option value="">Всё время</option>
           <option value="today">Сегодня</option>
           <option value="week">7 дней</option>
