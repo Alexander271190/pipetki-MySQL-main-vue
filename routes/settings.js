@@ -7,6 +7,7 @@ const { withTransaction } = require('../utils/db-helper');
 const pipettesHelpers = require('./pipettes/_helpers');
 const barcodesRouter = require('./barcodes');
 const router = express.Router();
+const helpers = require('./pipettes/_helpers');
 
 // ============================================================
 // ОТДЕЛЫ
@@ -575,7 +576,9 @@ if (k === 'barcode_label_fields') {
       try { pipettesHelpers.invalidateWarnDaysCache(); } catch (e) {}
     }
     try { barcodesRouter.invalidateSettings(); } catch (e) {}
-
+    if ('barcode_max_length' in settings) {
+      try { helpers.invalidateBarcodeMaxLenCache(); } catch (e) {}
+    }
     //  Сброс кэшей наших новых настроек (ДО ответа клиенту!)
     if (Object.keys(settings).some(k => k.startsWith('password_'))) {
       try { require('../middleware/passwordPolicy').invalidatePasswordPolicyCache(); } catch (e) {}
