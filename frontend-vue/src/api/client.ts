@@ -8,6 +8,7 @@ const SESSION_KEY = 'pipette_session';
 let authToken: string | null = null;
 
 let _lastPermsCheck = 0;
+let _refreshing = false;
 const PERMS_CHECK_INTERVAL = 60_000;
 
 export function setAuthToken(token: string | null) {
@@ -67,14 +68,16 @@ export async function apiRequest<T = unknown>(
  
   const now = Date.now();
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (!path.startsWith('/auth/') && now - _lastPermsCheck > PERMS_CHECK_INTERVAL) {
-    _lastPermsCheck = now;
-    void import('@/stores/auth')
-      .then(({ useAuthStore }) => useAuthStore().refreshUser())
-      .catch((e) => {
-        console.warn('[client] background refreshUser failed:', e);
-      });
-    }
+  if (!path.startsWith('/auth/') && now - _lastPermsCheck > PERMS_CHECK_INTERVAL && !_refreshing) {
+  _lastPermsCheck = now;
+  _refreshing = true;
+  void import('@/stores/auth')
+    .then(({ useAuthStore }) => useAuthStore().refreshUser())
+    .catch((e) => {
+      console.warn('[client] background refreshUser failed:', e);
+    })
+    .finally(() => { _refreshing = false; });
+}
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
