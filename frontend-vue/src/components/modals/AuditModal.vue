@@ -42,9 +42,10 @@
       </div>
 
       <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:10px;">
-        Показано: {{ filtered.length }} из {{ cache.length }}
+        Найдено: {{ total }} записей
         <template v-if="categoryStats">{{ ' · ' + categoryStats }}</template>
        </div>
+
 
       <div class="log-container" style="max-height:55vh;">
         <table class="log-table">
@@ -125,9 +126,10 @@
   <input v-model="errorsTo" type="date" style="padding:6px;border:1px solid var(--border-hard);border-radius:8px;" />
 </div>
       <div style="font-size: .85rem; color: var(--text-muted); margin-bottom: 10px;">
-        Показано: {{ errorsFiltered.length }} из {{ errorsCache.length }}
+        Найдено: {{ errorsTotal }} записей
         <template v-if="errorsLevelStats">{{ ' · ' + errorsLevelStats }}</template>
       </div>
+
       <div class="log-container" style="max-height:55vh;">
         <table class="log-table">
           <thead>
@@ -301,36 +303,8 @@ function resetAuditFilters() {
   to.value = '';
 }
   
-function onPeriodChange() { /* триггерит computed */ }
+const filtered = computed(() => cache.value);
 
-const filtered = computed(() => {
-  const q = search.value.trim().toLowerCase();
-  let fromD = '';
-  let toD = '';
-  if (period.value === 'today') fromD = toD = todayStr();
-  else if (period.value === 'week') {
-    const d = new Date(); d.setDate(d.getDate() - 7);
-    fromD = d.toISOString().slice(0, 10); toD = todayStr();
-  } else if (period.value === 'month') {
-    const d = new Date(); d.setDate(d.getDate() - 30);
-    fromD = d.toISOString().slice(0, 10); toD = todayStr();
-  } else if (period.value === 'custom') {
-    fromD = from.value; toD = to.value;
-  }
-
-  return cache.value.filter(r => {
-    if (category.value && r.category !== category.value) return false;
-    const d = (r.timestamp || '').slice(0, 10);
-    if (fromD && d < fromD) return false;
-    if (toD && d > toD) return false;
-    if (q) {
-      const hay = [r.pipette_id, r.model, r.user_full_name, r.action, r.details]
-        .map(x => String(x || '').toLowerCase()).join(' ');
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-});
 
   const categoryStats = computed(() => {
   const cats: Record<string, number> = {};
@@ -346,35 +320,7 @@ const filtered = computed(() => {
   return Object.entries(cats).map(([k, v]) => `${LABELS[k] || k}: ${v}`).join(' · ');
 });
 
-const errorsFiltered = computed(() => {
-  const q = errSearch.value.trim().toLowerCase();
-  
-  let fromD = '';
-  let toD = '';
-  if (errorsPeriod.value === 'today') fromD = toD = todayStr();
-  else if (errorsPeriod.value === 'week') {
-    const d = new Date(); d.setDate(d.getDate() - 7);
-    fromD = d.toISOString().slice(0, 10); toD = todayStr();
-  } else if (errorsPeriod.value === 'month') {
-    const d = new Date(); d.setDate(d.getDate() - 30);
-    fromD = d.toISOString().slice(0, 10); toD = todayStr();
-  } else if (errorsPeriod.value === 'custom') {
-    fromD = errorsFrom.value; toD = errorsTo.value;
-  }
-
-  return errorsCache.value.filter(r => {
-    if (errLevel.value && r.level !== errLevel.value) return false;
-    const d = (r.timestamp || '').slice(0, 10);
-    if (fromD && d < fromD) return false;
-    if (toD && d > toD) return false;
-    if (q) {
-      const hay = [r.message, r.stack, r.url, r.user_full_name]
-        .map(x => String(x || '').toLowerCase()).join(' ');
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-});
+const errorsFiltered = computed(() => errorsCache.value);
 
 const errorsLevelStats = computed(() => {
   const lvls: Record<string, number> = {};
@@ -479,6 +425,7 @@ async function clearErrors() {
     await logApi.clearErrorsLog();
     toast.success('Журнал ошибок очищен');
     errorsCache.value = [];
+    errorsTotal.value = 0;
   } catch (e) {
     toast.error(e instanceof Error ? e.message : 'Ошибка');
   }
