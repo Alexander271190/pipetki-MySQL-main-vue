@@ -220,12 +220,19 @@ export function useFormModals() {
     }
 
     if (fresh.sent_for_calibration) {
-      toast.error(...);
+      toast.error(
+        `Нельзя удалить ${id}: прибор отправлен на поверку` +
+        (fresh.replaced_by ? `, замена: ${fresh.replaced_by}` : '') +
+        `. Сначала отмените отправку или оформите возврат.`
+        );
       api.releaseLock(id).catch(() => {});
       return;
     }
     if (fresh.replacing) {
-      toast.error(...);
+      toast.error(
+         `Нельзя удалить ${id}: прибор используется как замена для ${fresh.replacing}. ` +
+        `Сначала оформите возврат оригинала с поверки.`
+      );
       api.releaseLock(id).catch(() => {});
       return;
     }
