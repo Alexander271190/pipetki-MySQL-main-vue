@@ -275,7 +275,7 @@ function printAct() {
 
   const win = window.open('', '_blank');
   if (!win) { toast.error('Разрешите всплывающие окна'); return; }
-
+try {
   win.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Акт отправки</title>
 <style>
 @page { size: A4 landscape; margin: 12mm 8mm; }
@@ -306,7 +306,10 @@ ${buildHeaderHtml(settings.printDocs)}
   win.document.close();
   win.document.title = 'Акт отправки';
   win.focus();
-  setTimeout(() => win.print(), 300);
+  setTimeout(() => { try { win.print(); } catch { /* окно закрыли */ } }, 300);
   toast.success('Окно печати открыто');
+  } catch {
+  toast.error('Окно печати было закрыто. Разрешите всплывающие окна и повторите.');
+ }
 }
 </script>
