@@ -85,12 +85,16 @@ const authenticate = async (req, res, next) => {
     }
     user._isAdmin = !!(user._roleDef && user._roleDef.isAdmin);
 
-    user._perms = user._isAdmin
-      ? ['*']
-      : [
-          ...(user._roleDef?.permissions || []),
-          ...db.safeParse(user.extra_permissions, []),
-        ];
+    if (user._isAdmin) {
+      user._perms = ['*'];
+    } else {
+      const _revoked = db.safeParse(user.revoked_permissions, []);
+      user._perms = [...new Set([
+        ...(user._roleDef?.permissions || []),
+        ...db.safeParse(user.extra_permissions, []),
+      ])].filter(p => !_revoked.includes(p));
+    }
+
 
     req.impersonatedBy     = decoded.impersonatedBy     || null;
     req.impersonatedByName = decoded.impersonatedByName || null;
