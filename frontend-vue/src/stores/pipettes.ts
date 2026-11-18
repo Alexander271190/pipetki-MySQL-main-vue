@@ -21,6 +21,7 @@ export const usePipettesStore = defineStore('pipettes', () => {
   const filterState = ref<Record<string, unknown>>({});
 
   const selected = ref<Set<string>>(new Set());
+  const sentStatus = ref<Map<string, boolean>>(new Map());
 
   const hasSelection = computed(() => selected.value.size > 0);
 
@@ -47,6 +48,7 @@ export const usePipettesStore = defineStore('pipettes', () => {
         });
 
         items.value = Array.isArray(res.items) ? res.items : [];
+        syncSentStatus(items.value);
         total.value = Number(res.total) || 0;
         page.value = Number(res.page) || 1;
         limit.value = Number(res.limit) || limit.value;
@@ -122,6 +124,17 @@ export const usePipettesStore = defineStore('pipettes', () => {
   function clearSelection() {
     selected.value = new Set();
   }
+  function syncSentStatus(list: Pipette[]) {
+  list.forEach(p => sentStatus.value.set(p.id, !!p.sent_for_calibration));
+ }
+
+  function markSent(ids: string[]) {
+   ids.forEach(id => sentStatus.value.set(id, true));
+ }
+
+ function markReturned(ids: string[]) {
+   ids.forEach(id => sentStatus.value.set(id, false));
+ }
 
   function syncFilterState(activeFilters: { id: string; type: string; options?: { value: unknown }[] }[]) {
   const activeIds = new Set(activeFilters.map(f => f.id));
@@ -150,7 +163,7 @@ async function fetchByIds(ids: string[]): Promise<Pipette[]> {
       const idx = items.value.findIndex(x => x.id === p.id);
       if (idx !== -1) items.value[idx] = p;
     });
-
+    syncSentStatus(freshItems);
     return freshItems;
   } catch (e) {
     // 400 — осознанная ошибка сервера (например, >500 ids) — не fallback
@@ -184,7 +197,7 @@ async function _fetchByIdsLegacy(ids: string[]): Promise<Pipette[]> {
     const idx = items.value.findIndex(x => x.id === p.id);
     if (idx !== -1) items.value[idx] = p;
   });
-
+  syncSentStatus(result);
   return result;
 }
 
@@ -198,8 +211,9 @@ async function fetchOne(id: string): Promise<Pipette | null> {
     if (fresh) {
       const idx = items.value.findIndex(x => x.id === id);
       if (idx !== -1) items.value[idx] = fresh;
+      syncSentStatus([fresh]);
     }
-
+    
     return fresh;
   } catch {
     return null;
@@ -211,6 +225,7 @@ async function fetchOne(id: string): Promise<Pipette | null> {
     selected, hasSelection,
     loadPaged, setSearch, setFilter, resetFilters,
     sortBy, changePage, toggleSelected, selectAllOnPage, clearSelection, syncFilterState, fetchByIds,
-fetchOne, resetLoadState,
+    fetchOne, resetLoadState, sentStatus, syncSentStatus, markSent, markReturned,
+
   };
 });
