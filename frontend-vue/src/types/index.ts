@@ -18,6 +18,7 @@ export interface User {
   mustChangePassword?: boolean;
   mustSetPassword?: boolean;
   viewTemplateId?: number | null;
+  revokedPermissions?: string[];
 }
 
 export type Status =
