@@ -144,9 +144,11 @@ router.get('/acting-targets', authenticate, requireAnyPermission(['manage_users'
 // ============================================================
 router.get('/', authenticate, requireAnyPermission(['manage_users']), async (req, res) => {
   const [users] = await db.query(`
-    SELECT u.id, u.login, u.full_name, u.position, u.department, u.role,
-           u.only_own_department, u.extra_permissions, u.is_acting, u.acting_for_id,
+     SELECT u.id, u.login, u.full_name, u.position, u.department, u.role,
+           u.only_own_department, u.extra_permissions, u.revoked_permissions,
+           u.is_acting, u.acting_for_id,
            u.must_change_password, u.view_template_id, r.name AS role_name, r.is_admin AS role_is_admin
+
     FROM users u
     LEFT JOIN roles r ON r.value = u.role
   `);
@@ -179,6 +181,7 @@ router.get('/', authenticate, requireAnyPermission(['manage_users']), async (req
     actingForName:     u.acting_for_id && actingById[u.acting_for_id]
       ? actingById[u.acting_for_id].fullName : null,
     extraPermissions:  db.safeParse(u.extra_permissions, []),
+    revokedPermissions: db.safeParse(u.revoked_permissions, []), 
     mustChangePassword: !!u.must_change_password,
     viewTemplateId:    u.view_template_id || null
   })));
@@ -190,7 +193,7 @@ router.get('/', authenticate, requireAnyPermission(['manage_users']), async (req
 router.post('/', authenticate, requireAnyPermission(['manage_users']), async (req, res) => {
   try {
     const { login, fullName, position, department, role,
-            onlyOwnDepartment, extraPermissions, isActing, actingForId } = req.body;
+            onlyOwnDepartment, extraPermissions, revokedPermissions, isActing, actingForId } = req.body;
 
     const roleDef = await roleCache.getRoleDef(role || 'user');
     if (!roleDef) {
@@ -236,13 +239,14 @@ router.post('/', authenticate, requireAnyPermission(['manage_users']), async (re
 
     const initialPermissions = roleDef.isAdmin ? [] : (Array.isArray(extraPermissions) ? extraPermissions : []);
 
-    await db.query(
+   await db.query(
       `INSERT INTO users
        (id, login, password, full_name, position, department, role,
-        only_own_department, extra_permissions, is_acting, acting_for_id, must_change_password)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        only_own_department, extra_permissions, revoked_permissions, is_acting, acting_for_id, must_change_password)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [id, login, passwordHash, fullName, position, department || '', role || 'user',
        onlyOwnDepartment ? 1 : 0, JSON.stringify(initialPermissions),
+       JSON.stringify(roleDef.isAdmin ? [] : (Array.isArray(revokedPermissions) ? revokedPermissions : [])),
        isActing ? 1 : 0, isActing && actingForId ? actingForId : null]
     );
 
@@ -266,7 +270,7 @@ router.post('/', authenticate, requireAnyPermission(['manage_users']), async (re
 router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (req, res) => {
   try {
     const { login, fullName, position, department, role,
-            onlyOwnDepartment, extraPermissions, isActing, actingForId } = req.body;
+            onlyOwnDepartment, extraPermissions, revokedPermissions, isActing, actingForId } = req.body;
     const id = req.params.id;
 
     const roleDef = await roleCache.getRoleDef(role || 'user');
@@ -353,10 +357,10 @@ router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (
     if (dup.length) return res.status(409).json({ error: 'Логин уже занят' });
 
     const onlyOwn = onlyOwnDepartment ? 1 : 0;
-
+    const safeRevoked = roleDef.isAdmin ? [] : (Array.isArray(revokedPermissions) ? revokedPermissions : []);
     const [oldRows] = await db.query(
       `SELECT login, full_name, position, department, role,
-              only_own_department, extra_permissions, is_acting, acting_for_id
+              only_own_department, extra_permissions, revoked_permissions, is_acting, acting_for_id
        FROM users WHERE id = ?`,
       [id]
     );
@@ -364,14 +368,16 @@ router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (
 
     await db.query(
       `UPDATE users SET login=?, full_name=?, position=?, department=?, role=?,
-         only_own_department=?, extra_permissions=?,
+         only_own_department=?, extra_permissions=?, revoked_permissions=?,
          is_acting=?, acting_for_id=?,
          updated_at=CURRENT_TIMESTAMP
        WHERE id=?`,
       [login, fullName, position, department || '', role || 'user',
        onlyOwn, JSON.stringify(extraPermissions || []),
+       JSON.stringify(safeRevoked),
        isActing ? 1 : 0, isActing && actingForId ? actingForId : null, id]
     );
+
 
     const changes = [];
 
@@ -411,6 +417,22 @@ router.put('/:id', authenticate, requireAnyPermission(['manage_users']), async (
       if (removed.length) parts.push(`-${removed.join(', ')}`);
       changes.push(`права: ${parts.join(' ')}`);
     }
+
+    const oldRevoked = db.safeParse(old.revoked_permissions, []).sort();
+    const newRevoked = safeRevoked.slice().sort();
+    const revokedChanged =
+      oldRevoked.length !== newRevoked.length ||
+      oldRevoked.some((p, i) => p !== newRevoked[i]);
+
+    if (revokedChanged) {
+      const addedR = newRevoked.filter(p => !oldRevoked.includes(p));
+      const removedR = oldRevoked.filter(p => !newRevoked.includes(p));
+      const partsR = [];
+      if (addedR.length)   partsR.push(`отозвано: ${addedR.join(', ')}`);
+      if (removedR.length) partsR.push(`возвращено: ${removedR.join(', ')}`);
+      changes.push(partsR.join(' '));
+    }
+
 
     const isSelf = (id === req.user.id);
     const action = isSelf ? 'Редактирование своего профиля' : 'Редактирование пользователя';
