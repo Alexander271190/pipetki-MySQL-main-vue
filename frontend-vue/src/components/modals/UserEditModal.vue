@@ -51,9 +51,11 @@
         <div class="form-group">
           <label>Роль</label>
           <div style="display:flex;gap:8px;">
-           <select
+          <select
              v-model="form.role"
+             @change="onRoleChange"
              :disabled="!canEditRole"
+
              :title="!canEditRole ? 'Только администратор может менять роль администратора' : ''"
              style="flex:1;"
              >
@@ -161,11 +163,14 @@
                   type="checkbox"
                   class="usr-perm-cb"
                   :value="p.key"
-                  :checked="form.permissions.includes(p.key)"
+                  :checked="isPermChecked(p.key)"
                   @change="togglePerm(p.key, ($event.target as HTMLInputElement).checked)"
                   :disabled="isRoleAdmin"
                 />
                 <span v-html="p.label"></span>
+                <span v-if="!isRoleAdmin && isRolePerm(p.key)" style="font-size:.68rem;background:#e2e8f0;color:#475569;border-radius:4px;padding:1px 5px;">роль</span>
+                <span v-if="!isRoleAdmin && isPermRevoked(p.key)" style="font-size:.68rem;background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 5px;">отозвано</span>
+
               </label>
             </div>
           </div>
@@ -295,12 +300,14 @@ interface FormShape {
   onlyOwnDepartment: boolean;
   isActing: boolean;
   actingForId: string;
+  revokedPermissions: string[];
 }
 
 const form = ref<FormShape>({
   login: '', fullName: '', position: '', department: '', role: 'user', pageSize: '100',
-  permissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
+  permissions: [], revokedPermissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
 });
+
 
 const editId = ref<string | null>(null);
 const loading = ref(false);
@@ -385,6 +392,7 @@ async function loadAll() {
           role: u.role,
           pageSize: '100',
           permissions: [...(u.extraPermissions || [])],
+          revokedPermissions: [...(u.revokedPermissions || [])],
           onlyOwnDepartment: !!u.onlyOwnDepartment,
           isActing: !!u.isActing,
           actingForId: u.actingForId || '',
@@ -424,11 +432,43 @@ async function onActingChange() {
   } catch { /* ignore */ }
 }
 
-function togglePerm(key: string, checked: boolean) {
-  const set = new Set(form.value.permissions);
-  if (checked) set.add(key); else set.delete(key);
-  form.value.permissions = [...set];
+const currentRolePerms = computed<string[]>(() => {
+  const r = roles.value.find(x => x.value === form.value.role);
+  return r?.permissions || [];
+});
+
+function isRolePerm(key: string): boolean {
+  return currentRolePerms.value.includes(key);
 }
+
+function isPermRevoked(key: string): boolean {
+  return form.value.revokedPermissions.includes(key);
+}
+
+function isPermChecked(key: string): boolean {
+  if (isRolePerm(key)) return !isPermRevoked(key);
+  return form.value.permissions.includes(key);
+}
+
+function onRoleChange() {
+  // При смене роли отозванными могут остаться только права новой роли
+  const set = new Set(currentRolePerms.value);
+  form.value.revokedPermissions = form.value.revokedPermissions.filter(p => set.has(p));
+}
+
+function togglePerm(key: string, checked: boolean) {
+  if (isRolePerm(key)) {
+    // Право из роли: чекбокс управляет отзывом
+    const set = new Set(form.value.revokedPermissions);
+    if (checked) set.delete(key); else set.add(key);
+    form.value.revokedPermissions = [...set];
+  } else {
+    const set = new Set(form.value.permissions);
+    if (checked) set.add(key); else set.delete(key);
+    form.value.permissions = [...set];
+  }
+}
+
 
 function applyPreset(kind: 'none' | 'user' | 'senior' | 'all') {
   const presetMap: Record<string, string[]> = {
@@ -437,12 +477,16 @@ function applyPreset(kind: 'none' | 'user' | 'senior' | 'all') {
     senior: ['add_pipette','edit_pipette','quick_calibration','transfer_pipette','bulk_change_responsible','bulk_send','bulk_return','export_data','scan_barcode','print_labels','view_history','view_audit'],
     all: ALL_PERMISSIONS.map(p => p.key),
   };
-  form.value.permissions = [...presetMap[kind]];
+  applyPresetArray(presetMap[kind]);
 }
 
 function applyPresetArray(list: string[]) {
   form.value.permissions = [...list];
+  // Пресет «возвращает» отозванные права
+  const granted = new Set([...list, ...currentRolePerms.value]);
+  form.value.revokedPermissions = form.value.revokedPermissions.filter(p => !granted.has(p));
 }
+
 
 async function saveCurrentPermsAsPreset() {
   const selected = [...form.value.permissions];
@@ -584,6 +628,7 @@ async function onSubmit() {
       role: form.value.role,
       onlyOwnDepartment: form.value.onlyOwnDepartment,
       extraPermissions: isRoleAdmin.value ? [] : form.value.permissions,
+      revokedPermissions: isRoleAdmin.value ? [] : form.value.revokedPermissions,
       isActing: form.value.isActing,
       actingForId: form.value.isActing ? form.value.actingForId : null,
     };
@@ -637,7 +682,7 @@ async function onSubmit() {
 function resetForm() {
   form.value = {
     login: '', fullName: '', position: '', department: '', role: 'user', pageSize: '100',
-    permissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
+    permissions: [], revokedPermissions: [], onlyOwnDepartment: false, isActing: false, actingForId: '',
   };
   error.value = '';
 }
