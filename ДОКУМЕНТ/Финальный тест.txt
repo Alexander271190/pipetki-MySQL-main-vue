@@ -184,8 +184,11 @@
     log('RBAC', 'admin isAdmin/isSystem', a?.isAdmin && a?.isSystem ? 'PASS' : 'FAIL');
     const u = allRoles.find(x => x.value === 'user');
     const s = allRoles.find(x => x.value === 'senior_lab');
-    log('RBAC', 'user: 3 perms', u?.permissions?.length === 3 ? 'PASS' : 'FAIL', `${u?.permissions?.length}`);
-    log('RBAC', 'senior_lab: 12 perms', s?.permissions?.length === 12 ? 'PASS' : 'FAIL', `${s?.permissions?.length}`);
+   // После правок seed: user = 2 права (view_history, export_data), senior_lab = 9 прав
+// Если позже расширим права в seedInitialData — вернуть актуальные числа здесь
+log('RBAC', 'user: 2 perms', u?.permissions?.length === 2 ? 'PASS' : 'FAIL', `${u?.permissions?.length}`);
+log('RBAC', 'senior_lab: 9 perms', s?.permissions?.length === 9 ? 'PASS' : 'FAIL', `${s?.permissions?.length}`);
+
   }
   let customRoleId = null;
   {
