@@ -203,19 +203,15 @@ const hasCustomLayout = computed(
     (!!prefs.columnWidths && Object.keys(prefs.columnWidths).length > 0)
 ); 
 
-// Показываем общее количество выбранных (модалка сама отфильтрует нужные)
+/// «Отправить» — только те, кто НЕ отправлен (неизвестный статус = неотправлен)
 const selectedToSend = computed(() =>
-  [...pip.selected].filter(id => {
-    const p = pip.items.find(x => x.id === id);
-    return p && !p.sent_for_calibration;
-  })
+  [...pip.selected].filter(id => !pip.sentStatus.get(id))
 );
+// «Вернуть» — только те, кто УЖЕ отправлен
 const selectedToReturn = computed(() =>
-  [...pip.selected].filter(id => {
-    const p = pip.items.find(x => x.id === id);
-    return p && !!p.sent_for_calibration;
-  })
+  [...pip.selected].filter(id => pip.sentStatus.get(id) === true)
 );
+
 
   
 async function onResetLayout() {
