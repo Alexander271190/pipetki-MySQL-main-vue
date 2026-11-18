@@ -204,8 +204,18 @@ const hasCustomLayout = computed(
 ); 
 
 // Показываем общее количество выбранных (модалка сама отфильтрует нужные)
-const selectedToSend = computed(() => [...pip.selected]);
-const selectedToReturn = computed(() => [...pip.selected]);
+const selectedToSend = computed(() =>
+  [...pip.selected].filter(id => {
+    const p = pip.items.find(x => x.id === id);
+    return p && !p.sent_for_calibration;
+  })
+);
+const selectedToReturn = computed(() =>
+  [...pip.selected].filter(id => {
+    const p = pip.items.find(x => x.id === id);
+    return p && !!p.sent_for_calibration;
+  })
+);
 
   
 async function onResetLayout() {
