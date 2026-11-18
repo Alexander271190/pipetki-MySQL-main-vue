@@ -20,6 +20,7 @@ export interface FullUser {
   isActing?: boolean;
   actingForId?: string | null;
   extraPermissions?: string[];
+  revokedPermissions?: string[];
   viewTemplateId?: number | null;
 }
 
