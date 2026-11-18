@@ -75,6 +75,7 @@ async function initSchema() {
         department VARCHAR(255),
         role VARCHAR(50) DEFAULT 'user',
         extra_permissions TEXT,
+        revoked_permissions JSON NULL DEFAULT NULL,
         only_own_department TINYINT DEFAULT 0,
         is_acting TINYINT DEFAULT 0,
         acting_for_id VARCHAR(255) DEFAULT NULL,
@@ -350,6 +351,7 @@ async function initSchema() {
       { name: 'only_own_department', ddl: 'TINYINT DEFAULT 0' },
       { name: 'must_set_password',   ddl: 'TINYINT DEFAULT 0' },
       { name: 'view_template_id',    ddl: 'INT NULL DEFAULT NULL' },
+      { name: 'revoked_permissions', ddl: 'JSON NULL DEFAULT NULL' },
     ]);
 
     await ensureColumns(conn, 'help_docs', [
