@@ -38,6 +38,7 @@ function userPublic(u) {
     actingForName: u.acting_full_name || null,
     actingDepartment: u.acting_department || null,
     extraPermissions: db.safeParse(u.extra_permissions, []),
+    revokedPermissions: db.safeParse(u.revoked_permissions, []), 
     mustChangePassword: !!u.must_change_password,
     mustSetPassword: !!u.must_set_password,
     passwordChangedAt: u.password_changed_at || null
@@ -103,10 +104,16 @@ router.post('/login', async (req, res) => {
     if (!u._roleDef && !roleCacheError) {
       console.warn(`[WARN] Роль не найдена при логине: role=${u.role}, user=${u.id}`);
     }
-    u._isAdmin = !!(u._roleDef && u._roleDef.isAdmin);
-    u._perms = u._isAdmin
-      ? ['*']
-      : [...(u._roleDef?.permissions || []), ...db.safeParse(u.extra_permissions, [])];
+ u._isAdmin = !!(u._roleDef && u._roleDef.isAdmin);
+    if (u._isAdmin) {
+      u._perms = ['*'];
+    } else {
+      const _revoked = db.safeParse(u.revoked_permissions, []);
+      u._perms = [...new Set([
+        ...(u._roleDef?.permissions || []),
+        ...db.safeParse(u.extra_permissions, []),
+      ])].filter(p => !_revoked.includes(p));
+    }
 
     const token = jwt.sign({ id: u.id, login: u.login, role: u.role }, JWT_SECRET, { expiresIn: '24h' });
 
@@ -194,10 +201,16 @@ if (mode === 'admin') {
     if (!target._roleDef && !roleCacheError) {
       console.warn(`[WARN] Роль не найдена при impersonate: role=${targetEffectiveRole}, user=${target.id}`);
     }
-    target._isAdmin = !!(target._roleDef && target._roleDef.isAdmin);
-    target._perms = target._isAdmin
-      ? ['*']
-      : [...(target._roleDef?.permissions || []), ...db.safeParse(target.extra_permissions, [])];
+  target._isAdmin = !!(target._roleDef && target._roleDef.isAdmin);
+    if (target._isAdmin) {
+      target._perms = ['*'];
+    } else {
+      const _revoked = db.safeParse(target.revoked_permissions, []);
+      target._perms = [...new Set([
+        ...(target._roleDef?.permissions || []),
+        ...db.safeParse(target.extra_permissions, []),
+      ])].filter(p => !_revoked.includes(p));
+    }
 
     // 3. Подписываем токен
     const token = jwt.sign(
