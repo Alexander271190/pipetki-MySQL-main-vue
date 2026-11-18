@@ -119,17 +119,17 @@ async function seedInitialData() {
       `INSERT INTO roles (name, value, permissions, is_system, is_admin) VALUES
        ('Пользователь',  'user',       ?, 1, 0),
        ('Ст. лаборант',  'senior_lab', ?, 1, 0),
-       ('Администратор', 'admin',      ?, 1, 1)`,
-      [
-        JSON.stringify(['view_history', 'print_labels', 'export_data']),
-        JSON.stringify([
-          'add_pipette', 'edit_pipette', 'quick_calibration', 'transfer_pipette',
-          'bulk_change_responsible', 'bulk_send', 'bulk_return',
-          'export_data', 'scan_barcode', 'print_labels', 'view_history', 'view_audit',
-        ]),
-        JSON.stringify([]),
-      ]
-    );
+      ('Администратор', 'admin',      ?, 1, 1)`,
+   [
+      JSON.stringify(['view_history', 'export_data']),
+      JSON.stringify([
+         'add_pipette', 'edit_pipette', 'quick_calibration', 'transfer_pipette',
+         'bulk_send', 'bulk_return',
+         'export_data', 'view_history', 'view_audit',
+       ]),
+      JSON.stringify([]),
+    ]
+  );
     console.log('🎭 Созданы системные роли');
   }
 
