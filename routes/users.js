@@ -65,15 +65,32 @@ router.delete('/presets/:id', authenticate, requireAnyPermission(['manage_users'
 // ============================================================
 router.get('/responsibles', authenticate, async (req, res, next) => {
   
-  try {
+    try {
+    // Берем всех зарегистрированных пользователей
     const [users] = await db.query(
-      'SELECT id, full_name, login, department FROM users ORDER BY full_name'
+      'SELECT id, full_name, login, department FROM users'
     );
-    res.json(users.map(u => ({
-      id: u.id,
-      fullName: u.full_name,
-      login: u.login,
-      department: u.department
+    
+    //  Берем уникальные имена, которые уже вписаны в приборы (даже если их нет в users)
+    const [pipResponsibles] = await db.query(
+      "SELECT DISTINCT responsible FROM pipettes WHERE responsible IS NOT NULL AND responsible != ''"
+    );
+
+    // Объединяем их в один список без дубликатов
+    const allNames = new Set(users.map(u => u.full_name).filter(Boolean));
+    pipResponsibles.forEach(p => {
+      if (p.responsible && String(p.responsible).trim()) {
+        allNames.add(String(p.responsible).trim());
+      }
+    });
+
+    // Возвращаем отсортированный список
+    const sortedNames = [...allNames].sort();
+    res.json(sortedNames.map(name => ({
+      id: name,       
+      fullName: name, 
+      login: '',
+      department: ''
     })));
   } catch (e) {
     console.error('GET /users/responsibles:', e);
