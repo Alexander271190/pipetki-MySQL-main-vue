@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
     // Подтягиваем данные основного, если это и.о.
     if (u.is_acting && u.acting_for_id) {
       const [actingRows] = await db.query(
-        'SELECT full_name, department, role FROM users WHERE id = ? LIMIT 1',
+        'SELECT full_name, department, role, revoked_permissions FROM users WHERE id = ? LIMIT 1',
         [u.acting_for_id]
       );
       if (actingRows.length) {
@@ -180,7 +180,7 @@ if (mode === 'admin') {
     let targetEffectiveRole = target.role;
     if (target.is_acting && target.acting_for_id) {
       const [actingRows] = await db.query(
-        'SELECT full_name, department, role FROM users WHERE id = ? LIMIT 1', 
+        'SELECT full_name, department, role, revoked_permissions FROM users WHERE id = ? LIMIT 1',
         [target.acting_for_id]
       );
       if (actingRows.length) {
