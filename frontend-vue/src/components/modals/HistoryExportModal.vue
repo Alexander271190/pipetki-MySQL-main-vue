@@ -182,7 +182,7 @@ table { width: 100%; border-collapse: collapse; font-size: 9pt; border: 1.5px so
 th { background: #1e293b; color: #fff; padding: 7px 6px; text-align: left; font-size: 8pt; text-transform: uppercase; border: 1px solid #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 td { padding: 6px; border: 0.5px solid #94a3b8; vertical-align: top; }
 tbody tr:nth-child(even) td { background: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.footer { margin-top: 20px; font-size: 8pt; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 6px; }
+.footer { margin-top: 40px; font-size: 8pt; display: flex; justify-content: space-between; padding-bottom: 24px; page-break-inside: avoid; }
 </style></head><body>
 ${buildHeaderHtml(settings.printDocs)}
 <h1>История поверок оборудования</h1>
