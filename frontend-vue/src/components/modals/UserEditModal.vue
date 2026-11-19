@@ -168,8 +168,8 @@
                   :disabled="isRoleAdmin"
                 />
                 <span v-html="p.label"></span>
-                <span v-if="!isRoleAdmin && isRolePerm(p.key)" style="font-size:.68rem;background:#e2e8f0;color:#475569;border-radius:4px;padding:1px 5px;">роль</span>
-                <span v-if="!isRoleAdmin && isPermRevoked(p.key)" style="font-size:.68rem;background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 5px;">отозвано</span>
+                <span v-if="!isRoleAdmin && isRolePerm(p.key)" style="font-size:.68rem;background:var(--card-alt,#e2e8f0);color:var(--text-muted,#475569);border-radius:4px;padding:1px 5px;">роль</span>
+                <span v-if="!isRoleAdmin && isPermRevoked(p.key)" style="font-size:.68rem;background:rgba(239,68,68,.15);color:#ef4444;border-radius:4px;padding:1px 5px;">отозвано</span>
 
               </label>
             </div>
