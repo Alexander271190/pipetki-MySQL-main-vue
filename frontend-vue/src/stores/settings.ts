@@ -90,10 +90,14 @@ export const useSettingsStore = defineStore('settings', () => {
 
     if (filtersRes.status === 'fulfilled' && Array.isArray(filtersRes.value)) {
       filters.value = filtersRes.value.filter(f => f.enabled);
+      const needResponsibles = filters.value.some(f => f.type === 'select' && f.optionsSource === 'responsibles');
+      if (needResponsibles) await loadResponsibles();
       for (const f of filters.value) {
         if (f.type === 'select') {
           if (f.optionsSource === 'departments') {
-            f.options = departments.value.map(d => ({ value: d, label: d }));
+              f.options = departments.value.map(d => ({ value: d, label: d }));
+          } else if (f.optionsSource === 'responsibles') {
+              f.options = responsibles.value.map(u => ({ value: u, label: u }));
           } else if (f.optionsSource === 'status_list') {
             f.options = [
               { value: 'ok', label: 'В норме' },
