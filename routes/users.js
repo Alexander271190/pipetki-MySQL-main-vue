@@ -64,18 +64,7 @@ router.delete('/presets/:id', authenticate, requireAnyPermission(['manage_users'
 // СПИСОК ОТВЕТСТВЕННЫХ
 // ============================================================
 router.get('/responsibles', authenticate, async (req, res, next) => {
-  const allowed =
-    req.user._isAdmin ||
-    req.user.role === 'senior_lab' ||
-    (req.user._perms || []).some(p =>
-      p === 'transfer_pipette' ||
-      p === 'manage_pipettes' ||
-      p === 'bulk_change_responsible'
-    );
-  if (!allowed) {
-    return res.status(403).json({ error: 'Недостаточно прав' });
-  }
-
+  
   try {
     const [users] = await db.query(
       'SELECT id, full_name, login, department FROM users ORDER BY full_name'
