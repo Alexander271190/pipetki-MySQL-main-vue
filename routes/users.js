@@ -71,10 +71,10 @@ router.get('/responsibles', authenticate, async (req, res, next) => {
     );
 
     // Очищаем от пробелов, убираем пустые и сортируем по алфавиту
-    const sortedNames = pipResponsibles
+    .map(p => String(p.responsible).replace(/\s+/g, ' ').trim())
       .map(p => String(p.responsible).trim())
       .filter(Boolean)
-      .sort();
+      .sort((a, b) => a.localeCompare(b, 'ru'));
 
     res.json(sortedNames.map(name => ({
       id: name,       
