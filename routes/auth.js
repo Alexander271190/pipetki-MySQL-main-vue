@@ -89,6 +89,7 @@ router.post('/login', async (req, res) => {
         u.acting_full_name  = actingRows[0].full_name  || null;
         u.acting_department = actingRows[0].department || null;
         effectiveRole = actingRows[0].role || u.role;
+        u.revoked_permissions = actingRows[0].revoked_permissions;
       }
     }
 
