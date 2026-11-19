@@ -126,8 +126,7 @@ small { color: #94a3b8; font-size: 7pt; display: block; }
 .status-inactive { color: #94a3b8; }
 .status-sent { color: #0ea5e9; font-weight: 600; }
 .status-wip { color: #ca8a04; font-weight: 600; }
-.footer { margin-top: 40px; font-size: 8pt; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 12px; padding-bottom: 24px; page-break-inside: avoid; }
-
+.footer { margin-top: 14px; font-size: 8pt; display: flex; justify-content: space-between; padding-bottom: 24px; page-break-inside: avoid; }
 tr { page-break-inside: avoid; }
 thead { display: table-header-group; }
 </style></head><body>
