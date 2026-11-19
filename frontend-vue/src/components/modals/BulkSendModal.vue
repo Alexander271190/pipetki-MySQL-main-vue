@@ -286,7 +286,7 @@ table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 10px
 th { background: #1e293b; color: #fff; padding: 6px 5px; text-align: left; font-size: 7.5pt; text-transform: uppercase; border: 1px solid #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 td { padding: 5px; border: 0.5px solid #94a3b8; vertical-align: top; }
 tbody tr:nth-child(even) td { background: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.footer { margin-top: 20px; font-size: 8pt; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; padding-top: 8px; }
+.footer { margin-top: 40px; font-size: 8pt; display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 24px; page-break-inside: avoid; }
 </style></head><body>
 ${buildHeaderHtml(settings.printDocs)}
 <h1>АКТ ОТПРАВКИ НА ПОВЕРКУ</h1>
