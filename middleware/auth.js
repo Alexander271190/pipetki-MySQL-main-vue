@@ -52,13 +52,14 @@ const authenticate = async (req, res, next) => {
     // Подтягиваем данные для и.о.
     if (user.is_acting && user.acting_for_id) {
       const [actingRows] = await db.query(
-        'SELECT id, full_name, department, role FROM users WHERE id = ? LIMIT 1',
+        'SELECT id, full_name, department, role, revoked_permissions FROM users WHERE id = ? LIMIT 1',
         [user.acting_for_id]
       );
       if (actingRows.length) {
         user.acting_full_name  = actingRows[0].full_name  || null;
         user.acting_department = actingRows[0].department || null;
         effectiveRole = actingRows[0].role || user.role;
+        user.revoked_permissions = actingRows[0].revoked_permissions;
       } else {
         user.acting_full_name  = null;
         user.acting_department = null;
