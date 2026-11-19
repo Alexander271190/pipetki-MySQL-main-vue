@@ -388,7 +388,7 @@ th { background: #1e293b; color: #fff; padding: 6px 5px; text-align: left; font-
 td { padding: 5px; border: 0.5px solid #94a3b8; vertical-align: top; }
 tbody tr:nth-child(even) td { background: #f8fafc; }
 small { color: #94a3b8; font-size: 7pt; }
-.footer { margin-top: 20px; font-size: 8pt; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 8px; }
+.footer { margin-top: 40px; font-size: 8pt; display: flex; justify-content: space-between; padding-bottom: 24px; page-break-inside: avoid; }
 tr { page-break-inside: avoid; }
 thead { display: table-header-group; }
 </style></head><body>
