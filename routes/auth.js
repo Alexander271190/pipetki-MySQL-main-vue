@@ -187,6 +187,7 @@ if (mode === 'admin') {
         target.acting_full_name  = actingRows[0].full_name  || null;
         target.acting_department = actingRows[0].department || null;
         targetEffectiveRole = actingRows[0].role || target.role; 
+        target.revoked_permissions = actingRows[0].revoked_permissions;
       }
     }
 
