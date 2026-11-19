@@ -70,11 +70,10 @@ router.get('/responsibles', authenticate, async (req, res, next) => {
       "SELECT DISTINCT responsible FROM pipettes WHERE responsible IS NOT NULL AND responsible != ''"
     );
 
-    // Очищаем от пробелов, убираем пустые и сортируем по алфавиту
-    .map(p => String(p.responsible).replace(/\s+/g, ' ').trim())
-      .map(p => String(p.responsible).trim())
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'ru'));
+    const sortedNames = pipResponsibles
+       .map(p => String(p.responsible).replace(/\s+/g, ' ').trim())
+       .filter(Boolean)
+       .sort((a, b) => a.localeCompare(b, 'ru'));
 
     res.json(sortedNames.map(name => ({
       id: name,       
