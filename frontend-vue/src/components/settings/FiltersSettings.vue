@@ -38,6 +38,7 @@
               <option value="status_list">Статусы</option>
               <option value="active_list">Активность</option>
               <option value="equipment_type_list">Типы оборудования</option>
+              <option value="responsibles">Ответственные</option>
             </select>
           </td>
           <td style="text-align:center;">
